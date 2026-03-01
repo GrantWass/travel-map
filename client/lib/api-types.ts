@@ -1,7 +1,9 @@
+import { init } from "next/dist/compiled/webpack/webpack";
+
 export type TripVisibility = "public" | "private" | "friends";
 export type TripDuration = "multiday trip" | "day trip" | "overnight trip";
 
-export interface SessionUser {
+export interface User {
   user_id: number;
   name: string | null;
   email: string;
@@ -9,11 +11,12 @@ export interface SessionUser {
   verified: boolean;
   college: string | null;
   profile_image_url: string | null;
+  trips: Trip[] | null;
+  initials: string;
 }
-
 export interface SessionResponse {
   authenticated: boolean;
-  user?: SessionUser;
+  user?: User;
 }
 
 export interface TripOwner {
@@ -80,18 +83,10 @@ export interface Trip {
   event_end?: string | null;
 }
 
-export interface UserTripEntry {
-  trip_id: number;
-  title: string;
-  thumbnail_url: string | null;
-  date: string | null;
-  latitude: number | null;
-  longitude: number | null;
-}
 
 export interface UserProfileResponse {
-  user: SessionUser;
-  trips: UserTripEntry[];
+  user: User;
+  trips: Trip[];
 }
 
 export interface CreateTripPayload {

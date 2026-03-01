@@ -6,7 +6,7 @@ import { MapPin, GraduationCap, Globe } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import BrandNameButton from "@/components/brand-name-button";
 import { API_BASE_URL, setAuthToken } from "@/lib/api-client";
-import type { SessionUser } from "@/lib/api-types";
+import type { User } from "@/lib/api-types";
 
 type AccountType = "traveler" | "student";
 type Mode = "signup" | "signin";
@@ -30,7 +30,7 @@ export default function SignUpPage() {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     }
 
-    async function loginWithCredentials(email: string, password: string): Promise<SessionUser | null> {
+    async function loginWithCredentials(email: string, password: string): Promise<User | null> {
         const response = await fetch(`${API_BASE_URL}/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -49,7 +49,7 @@ export default function SignUpPage() {
             setError("Login succeeded but user session data is missing.");
             return null;
         }
-        return data.user as SessionUser;
+        return data.user as User;
     }
 
     async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {

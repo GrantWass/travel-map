@@ -4,18 +4,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo } from "reac
 import { usePathname, useRouter } from "next/navigation";
 
 import { ApiError, getSession, getUserProfile, logoutSession, setAuthToken } from "@/lib/api-client";
-import type { SessionUser, UserProfileResponse } from "@/lib/api-types";
+import type { User, UserProfileResponse } from "@/lib/api-types";
 import { useAuthStore, type AuthStatus } from "@/stores/auth-store";
 
 interface AuthContextValue {
     status: AuthStatus;
-    user: SessionUser | null;
+    user: User | null;
     userId: number | null;
     isAuthenticated: boolean;
     isStudent: boolean;
     myProfile: UserProfileResponse | null;
-    setAuthenticatedUser: (nextUser: SessionUser) => void;
-    refreshSession: () => Promise<SessionUser | null>;
+    setAuthenticatedUser: (nextUser: User) => void;
+    refreshSession: () => Promise<User | null>;
     refreshMyProfile: (userIdOverride?: number) => Promise<UserProfileResponse | null>;
     signOut: () => Promise<void>;
 }
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const clearStoreAuthState = useAuthStore((state) => state.clearAuthState);
 
     useEffect(() => {
-        const cachedUser = readCachedJson<SessionUser>(SESSION_CACHE_KEY);
+        const cachedUser = readCachedJson<User>(SESSION_CACHE_KEY);
         const cachedProfile = readCachedJson<UserProfileResponse>(PROFILE_CACHE_KEY);
 
         hydrateFromCache(cachedUser, cachedProfile);
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         writeCachedJson(PROFILE_CACHE_KEY, null);
     }, [clearStoreAuthState]);
 
-    const setAuthenticatedUser = useCallback((nextUser: SessionUser) => {
+    const setAuthenticatedUser = useCallback((nextUser: User) => {
         setStoreAuthenticatedUser(nextUser);
         writeCachedJson(SESSION_CACHE_KEY, nextUser);
     }, [setStoreAuthenticatedUser]);

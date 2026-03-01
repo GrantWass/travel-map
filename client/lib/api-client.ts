@@ -3,7 +3,7 @@ import type {
   AddLodgingPayload,
   CreateTripPayload,
   SessionResponse,
-  SessionUser,
+  User,
   Trip,
   UserProfileResponse,
 } from "@/lib/api-types";
@@ -145,7 +145,7 @@ export async function updateProfileSettings(payload: {
   college?: string;
   profile_image_url?: string;
 }) {
-  return requestJson<{ message: string; user: SessionUser }>("/profile/update", {
+  return requestJson<{ message: string; user: User }>("/profile/update", {
     method: "POST",
     body: JSON.stringify(payload),
   });
