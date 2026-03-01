@@ -15,6 +15,7 @@ interface AuthContextValue {
     isAuthenticated: boolean;
     isStudent: boolean;
     myProfile: UserProfileResponse | null;
+    setAuthenticatedUser: (nextUser: SessionUser) => void;
     refreshSession: () => Promise<SessionUser | null>;
     refreshMyProfile: (userIdOverride?: number) => Promise<UserProfileResponse | null>;
     signOut: () => Promise<void>;
@@ -82,40 +83,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsHydratedFromCache(true);
     }, []);
 
+    const clearAuthState = useCallback(() => {
+        setUser(null);
+        setStatus("unauthenticated");
+        setMyProfile(null);
+        writeCachedJson(SESSION_CACHE_KEY, null);
+        writeCachedJson(PROFILE_CACHE_KEY, null);
+    }, []);
+
+    const setAuthenticatedUser = useCallback((nextUser: SessionUser) => {
+        setUser(nextUser);
+        setStatus("authenticated");
+        writeCachedJson(SESSION_CACHE_KEY, nextUser);
+    }, []);
+
     const refreshSession = useCallback(async () => {
         try {
             const response = await getSession();
             if (response.authenticated && response.user) {
-                setUser(response.user);
-                setStatus("authenticated");
-                writeCachedJson(SESSION_CACHE_KEY, response.user);
+                setAuthenticatedUser(response.user);
                 return response.user;
             }
 
-            setUser(null);
-            setStatus("unauthenticated");
-            setMyProfile(null);
-            writeCachedJson(SESSION_CACHE_KEY, null);
-            writeCachedJson(PROFILE_CACHE_KEY, null);
+            clearAuthState();
             return null;
         } catch (error) {
             if (error instanceof ApiError && error.status === 401) {
-                setUser(null);
-                setStatus("unauthenticated");
-                setMyProfile(null);
-                writeCachedJson(SESSION_CACHE_KEY, null);
-                writeCachedJson(PROFILE_CACHE_KEY, null);
+                clearAuthState();
                 return null;
             }
 
-            setUser(null);
-            setStatus("unauthenticated");
-            setMyProfile(null);
-            writeCachedJson(SESSION_CACHE_KEY, null);
-            writeCachedJson(PROFILE_CACHE_KEY, null);
+            clearAuthState();
             return null;
         }
-    }, []);
+    }, [clearAuthState, setAuthenticatedUser]);
 
     const refreshMyProfile = useCallback(
         async (userIdOverride?: number) => {
@@ -149,16 +150,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Continue clearing client auth state even if network logout fails.
         }
 
-        setUser(null);
-        setMyProfile(null);
-        setStatus("unauthenticated");
-        writeCachedJson(SESSION_CACHE_KEY, null);
-        writeCachedJson(PROFILE_CACHE_KEY, null);
+        clearAuthState();
 
         if (typeof window !== "undefined") {
             window.location.replace("/signup");
         }
-    }, []);
+    }, [clearAuthState]);
 
     useEffect(() => {
         if (!isHydratedFromCache) {
@@ -218,11 +215,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isAuthenticated: status === "authenticated" && userId !== null,
             isStudent: Boolean(user?.verified),
             myProfile,
+            setAuthenticatedUser,
             refreshSession,
             refreshMyProfile,
             signOut,
         };
-    }, [status, user, myProfile, refreshSession, refreshMyProfile, signOut]);
+    }, [status, user, myProfile, setAuthenticatedUser, refreshSession, refreshMyProfile, signOut]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

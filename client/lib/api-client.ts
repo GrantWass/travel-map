@@ -9,6 +9,30 @@ import type {
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 
+function shouldSkipSessionCheck(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const userAgent = window.navigator.userAgent;
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+  const isSafari =
+    /^((?!chrome|android).)*safari/i.test(userAgent) ||
+    ((window.navigator as Navigator).vendor || "").includes("Apple");
+  const isIOSAltBrowser = /CriOS|FxiOS|EdgiOS|OPiOS/i.test(userAgent);
+
+  if (!isMobile && (!isSafari || isIOSAltBrowser)) {
+    return false;
+  }
+
+  try {
+    const apiOrigin = new URL(API_BASE_URL).origin;
+    return apiOrigin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 class ApiError extends Error {
   status: number;
 
@@ -44,6 +68,10 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getSession(): Promise<SessionResponse> {
+  if (shouldSkipSessionCheck()) {
+    return { authenticated: false };
+  }
+
   try {
     return await requestJson<SessionResponse>("/me", { method: "GET" });
   } catch (error) {
