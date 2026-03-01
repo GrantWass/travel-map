@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { CircleUser, MapPin, Notebook, Search } from "lucide-react";
+import { CircleUser, MapPin, Notebook, Search, X } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import FullScreenReview from "@/components/full-screen-review";
@@ -99,6 +100,7 @@ export default function TravelMap() {
     const removeSavedLodgingId = useTripMapStore((state) => state.removeSavedLodgingId);
     const setIsLoadingTrips = useTripMapStore((state) => state.setIsLoadingTrips);
     const setIsLoadingTripById = useTripMapStore((state) => state.setIsLoadingTripById);
+    const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
@@ -586,6 +588,7 @@ export default function TravelMap() {
                             onOpenAuthorProfile={(profileUserId) => {
                                 void openProfile(profileUserId, "left");
                             }}
+                            onExpandImage={setExpandedImage}
                             savedActivityIds={savedActivityIdSet}
                             savedLodgingIds={savedLodgingIdSet}
                             onToggleSavedActivity={handleToggleSavedActivity}
@@ -633,12 +636,44 @@ export default function TravelMap() {
                     )}
                 </div>
 
-                <div className="h-full min-w-0 flex-1">
+                <div className="relative h-full min-w-0 flex-1">
                     <MapView
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);
                         }}
                     />
+                    {expandedImage && (
+                        <div
+                            className="absolute inset-0 z-[2000] flex items-center justify-center bg-black/60 p-10 backdrop-blur-sm"
+                            onClick={() => setExpandedImage(null)}
+                        >
+                            <div
+                                className="relative flex max-h-full max-w-full flex-col overflow-hidden rounded-xl border border-white/15 bg-zinc-950 shadow-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedImage(null)}
+                                    className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                                    aria-label="Close image"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                                <div className="relative h-[60vh] w-[min(700px,80vw)]">
+                                    <Image
+                                        src={expandedImage.src}
+                                        alt={expandedImage.alt}
+                                        fill
+                                        className="object-contain"
+                                        sizes="700px"
+                                    />
+                                </div>
+                                <p className="border-t border-white/15 px-4 py-3 text-sm text-white/85">
+                                    {expandedImage.alt}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
