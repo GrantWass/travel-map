@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import BrandNameButton from "@/components/brand-name-button";
 import { API_BASE_URL, setAuthToken } from "@/lib/api-client";
 import type { SessionUser } from "@/lib/api-types";
-import { APP_NAME } from "@/lib/branding";
 
 type AccountType = "traveler" | "student";
 type Mode = "signup" | "signin";
@@ -185,7 +185,7 @@ export default function SignUpPage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 shadow-sm">
                         <MapPin className="h-5 w-5 text-white" />
                     </div>
-                    <span className="text-2xl font-brand text-stone-800">{APP_NAME}</span>
+                    <BrandNameButton className="text-2xl text-stone-800" />
                 </div>
 
                 {/* Hero heading — signup h1 is the layout anchor; signin h1

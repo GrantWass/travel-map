@@ -19,6 +19,7 @@ interface MapViewProps {
 
 const MARKER_FALLBACK_IMAGE = "/images/nyc.jpg";
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
+const MAP_MARKER_TITLE_MAX_CHARS = 20;
 const SELECTED_REVIEW_ZOOM = 16;
 const DETAIL_ZOOM = 13;
 const INITIAL_USER_ZOOM = 12;
@@ -45,6 +46,17 @@ function escapeHtml(value: string): string {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+}
+
+function truncateTripMarkerTitle(value: string, maxLength: number): string {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return "Untitled trip";
+    }
+    if (trimmed.length <= maxLength) {
+        return trimmed;
+    }
+    return `${trimmed.slice(0, Math.max(maxLength - 3, 1)).trimEnd()}...`;
 }
 
 function readStoredMapView(): StoredMapView | null {
@@ -244,7 +256,8 @@ export default function MapView({
 
     const createTripIcon = useCallback((trip: MapTrip, isActive: boolean): L.DivIcon => {
         const size = isActive ? 80 : 64;
-        const safeTitle = escapeHtml(trip.title);
+        const safeAltTitle = escapeHtml(trip.title);
+        const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
         const imageUrl = trip.thumbnail || MARKER_FALLBACK_IMAGE;
         const popupBadge = trip.isPopup
             ? `<div style="
@@ -267,7 +280,7 @@ export default function MapView({
           ">
             <img
               src="${imageUrl}"
-              alt="${safeTitle}"
+              alt="${safeAltTitle}"
               style="display:block;width:100%;height:100%;object-fit:cover;"
               onerror="this.onerror=null;this.src='${MARKER_FALLBACK_IMAGE}';"
             />
@@ -275,7 +288,7 @@ export default function MapView({
               position:absolute;left:0;right:0;bottom:0;padding:4px 6px;
               background:linear-gradient(transparent, rgba(0,0,0,0.85));
               color:white;font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
-            ">${safeTitle}</div>
+            ">${safeLabelTitle}</div>
           </div>
           ${popupBadge}
         </div>
