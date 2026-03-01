@@ -36,7 +36,7 @@ function readCachedJson<T>(key: string): T | null {
     try {
         const raw = window.sessionStorage.getItem(key);
         if (!raw) {
-            return null;
+            return null; 
         }
         return JSON.parse(raw) as T;
     } catch {
