@@ -1,4 +1,5 @@
 # Travel Map
+## [TRY IT LIVE!](https://travel-map-nine.vercel.app/)
 
 Travel Map is a full-stack social travel planning app centered on a live, interactive map. Users can browse and search trips, save activities/lodging into personal plans, and view detailed trip content. For students, it creates a peer-powered way to see where classmates are going, how they plan, and what experiences are actually realistic on a student budget. Instead of relying on a travel agent or expensive packaged itineraries, students can use real trips from people like them to plan affordable, independent travel with more confidence.
 
