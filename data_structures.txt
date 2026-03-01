@@ -1,0 +1,170 @@
+TRAVEL DATA STRUCTURES (POSTGRESQL)
+
+Notes
+- Lists in app models are represented with either join tables (many-to-many) or foreign keys (one-to-many).
+- coords are split into latitude and longitude.
+- user_trip_ids is derived from trips.owner_user_id.
+- activity_ids and lodging_ids are derived from activities.trip_id and lodgings.trip_id.
+
+
+Traveler
+- user_id: int
+- name: str
+- email: str
+- password_hash: str
+- bio: str
+- verified: bool
+- college: str
+- profile_image: Image
+- favorited_trip_ids: List[trip_id]
+- favorited_traveler_ids: List[user_id]
+- planned_trip_ids: List[trip_id]
+- saved_activity_ids: List[activity_id]
+- saved_lodging_ids: List[lodge_id]
+
+
+CREATE TABLE travelers (
+    user_id SERIAL PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    bio TEXT,
+    verified BOOLEAN DEFAULT FALSE,
+    college VARCHAR(255),
+    profile_image_url TEXT,
+    saved_activity_ids INT[] DEFAULT '{}',
+    saved_lodging_ids INT[] DEFAULT '{}'
+);
+
+
+Trip
+- trip_id: int
+- thumbnail: Image
+- title: str
+- description: str
+- coords: [decimal, decimal]  # [latitude, longitude]
+- cost: decimal
+- duration: enum
+- date: MM-YY
+- activity_ids: List[activity_id]
+- lodging_ids: List[lodge_id]
+- visibility: enum(public, private, friends)
+- owner_user_id: int
+- tags: List[str]  # beach, city, adventure, budget-friendly, luxury, foodie, nightlife, nature, cultural
+
+SQL
+CREATE TABLE trips (
+	trip_id SERIAL PRIMARY KEY,
+	thumbnail_url TEXT,
+	title VARCHAR(255) NOT NULL,
+	description TEXT,
+	latitude DECIMAL(9,6),
+	longitude DECIMAL(9,6),
+	cost DECIMAL(10,2),
+	duration VARCHAR(50),
+	date VARCHAR(7),
+	visibility VARCHAR(20),
+	owner_user_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE
+);
+
+
+Lodging
+- lodge_id: int
+- trip_id: int
+- address: str
+- thumbnail: Image
+- title: str
+- description: str
+- coords: [decimal, decimal]  # [latitude, longitude]
+- cost: decimal
+
+SQL
+CREATE TABLE lodgings (
+	lodge_id SERIAL PRIMARY KEY,
+	trip_id INT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
+	address TEXT,
+	thumbnail_url TEXT,
+	title VARCHAR(255),
+	description TEXT,
+	latitude DECIMAL(9,6),
+	longitude DECIMAL(9,6),
+	cost DECIMAL(10,2)
+);
+
+
+Activity
+- activity_id: int
+- trip_id: int
+- address: str
+- thumbnail: Image
+- title: str
+- location: str
+- description: str
+- coords: [decimal, decimal]  # [latitude, longitude]
+- cost: decimal
+
+SQL
+CREATE TABLE activities (
+	activity_id SERIAL PRIMARY KEY,
+	trip_id INT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
+	address TEXT,
+	thumbnail_url TEXT,
+	title VARCHAR(255),
+	location TEXT,
+	description TEXT,
+	latitude DECIMAL(9,6),
+	longitude DECIMAL(9,6),
+	cost DECIMAL(10,2)
+);
+
+
+Comment
+- comment_id: int
+- user_id: int
+- trip_id: int
+- body: str
+- created_at: datetime
+
+SQL
+CREATE TABLE comments (
+	comment_id SERIAL PRIMARY KEY,
+	user_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+	trip_id INT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
+	body TEXT NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+RELATIONSHIP TABLES (MANY-TO-MANY)
+
+Traveler <-> Favorited Trips
+SQL
+CREATE TABLE user_favorite_trips (
+	user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
+	trip_id INT REFERENCES trips(trip_id) ON DELETE CASCADE,
+	PRIMARY KEY (user_id, trip_id)
+);
+
+Traveler <-> Planned Trips
+SQL
+CREATE TABLE user_planned_trips (
+	user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
+	trip_id INT REFERENCES trips(trip_id) ON DELETE CASCADE,
+	PRIMARY KEY (user_id, trip_id)
+);
+
+Traveler <-> Favorited Travelers
+SQL
+CREATE TABLE user_favorite_travelers (
+	user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
+	favorited_user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
+	PRIMARY KEY (user_id, favorited_user_id)
+);
+
+Trip <-> Tags
+SQL
+CREATE TABLE trip_tags (
+	trip_id INT REFERENCES trips(trip_id) ON DELETE CASCADE,
+	tag VARCHAR(50) NOT NULL,
+	PRIMARY KEY (trip_id, tag)
+);

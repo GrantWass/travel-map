@@ -1,0 +1,160 @@
+# Deploying Flask backend to AWS Lambda via ECR image
+
+# IMPORTANT:
+# - `Dockerfile.lambda` now exists in this folder.
+# - Run commands from the `server/` directory.
+
+# -----------------------------------------------------------------------------
+# 0) Set deploy variables (edit once)
+# -----------------------------------------------------------------------------
+unset AWS_REGION ACCOUNT_ID REPO_NAME FUNCTION_NAME IMAGE_TAG ROLE_ARN ECR_URI
+export AWS_REGION=us-east-1
+export ACCOUNT_ID=343218212240
+export REPO_NAME=travel-map-server
+export FUNCTION_NAME=travel-map-server
+export IMAGE_TAG=latest
+export ROLE_ARN=arn:aws:iam::343218212240:role/lambda-execution-role
+export ECR_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO_NAME}"
+# -----------------------------------------------------------------------------
+# 1) Create ECR repo (one time)
+# -----------------------------------------------------------------------------
+aws ecr create-repository \
+  --repository-name ${REPO_NAME} \
+  --region ${AWS_REGION}
+
+# -----------------------------------------------------------------------------
+# 2) Login Docker to ECR
+# -----------------------------------------------------------------------------
+aws ecr get-login-password --region ${AWS_REGION} \
+  | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+# -----------------------------------------------------------------------------
+# 3) Build image for Lambda (linux/amd64)
+# -----------------------------------------------------------------------------
+docker buildx build \
+  --platform linux/amd64 \
+  --provenance=false \
+  --sbom=false \
+  --load \
+  -f Dockerfile.lambda \
+  -t ${ECR_URI}:${IMAGE_TAG} .
+
+# -----------------------------------------------------------------------------
+# 4) Push image
+# -----------------------------------------------------------------------------
+docker push ${ECR_URI}:${IMAGE_TAG}
+
+# -----------------------------------------------------------------------------
+# 5A) Create Lambda from image (one time)
+# -----------------------------------------------------------------------------
+aws lambda create-function \
+  --function-name ${FUNCTION_NAME} \
+  --package-type Image \
+  --code ImageUri=${ECR_URI}:${IMAGE_TAG} \
+  --role ${ROLE_ARN} \
+  --architectures x86_64 \
+  --memory-size 2048 \
+  --timeout 30 \
+  --region ${AWS_REGION}
+
+# -----------------------------------------------------------------------------
+# 5B) Update Lambda code (every deploy)
+# -----------------------------------------------------------------------------
+aws lambda update-function-code \
+  --function-name ${FUNCTION_NAME} \
+  --image-uri ${ECR_URI}:${IMAGE_TAG} \
+  --region ${AWS_REGION}
+
+# -----------------------------------------------------------------------------
+# 6) Set runtime env vars required by your Flask app
+#    Do this in 2 steps to avoid zsh escaping/history issues.
+# -----------------------------------------------------------------------------
+# 6A) Set each value one at a time
+export POSTGRES_HOST='travel-map.cdum0m4222p3.us-east-1.rds.amazonaws.com'
+export POSTGRES_DB='postgres'
+export POSTGRES_USER='grantwass'
+export POSTGRES_PASSWORD='Exposed4!?'
+export SECRET_KEY='signai'
+export S3_BUCKET_NAME='travel-map-media'
+
+# 6B) Apply all env vars in one Lambda update call
+aws lambda update-function-configuration \
+  --function-name ${FUNCTION_NAME} \
+  --region ${AWS_REGION} \
+  --environment "Variables={POSTGRES_HOST=${POSTGRES_HOST},POSTGRES_DB=${POSTGRES_DB},POSTGRES_USER=${POSTGRES_USER},POSTGRES_PASSWORD=${POSTGRES_PASSWORD},SECRET_KEY=${SECRET_KEY},S3_BUCKET_NAME=${S3_BUCKET_NAME}}"
+
+# -----------------------------------------------------------------------------
+# 7) Better prod option: API Gateway HTTP API -> Lambda integration
+# -----------------------------------------------------------------------------
+# Uses existing HTTP API ID: g2me9gvf38
+export API_ID=g2me9gvf38
+
+# (Optional) confirm API exists
+aws apigatewayv2 get-api \
+  --api-id ${API_ID} \
+  --region ${AWS_REGION}
+
+# Ensure API Gateway can invoke your Lambda
+aws lambda add-permission \
+  --function-name ${FUNCTION_NAME} \
+  --statement-id ApiGatewayInvokePermission \
+  --action lambda:InvokeFunction \
+  --principal apigateway.amazonaws.com \
+  --source-arn "arn:aws:execute-api:${AWS_REGION}:${ACCOUNT_ID}:${API_ID}/*/*" \
+  --region ${AWS_REGION}
+
+# Create Lambda proxy integration for HTTP API
+export INTEGRATION_ID=$(aws apigatewayv2 create-integration \
+  --api-id ${API_ID} \
+  --integration-type AWS_PROXY \
+  --integration-uri "arn:aws:lambda:${AWS_REGION}:${ACCOUNT_ID}:function:${FUNCTION_NAME}" \
+  --payload-format-version "1.0" \
+  --query 'IntegrationId' \
+  --output text \
+  --region ${AWS_REGION})
+
+# IMPORTANT: awsgi expects API Gateway payload format 1.0.
+# If you already created an integration with 2.0, repair it in-place:
+for ID in $(aws apigatewayv2 get-integrations \
+  --api-id ${API_ID} \
+  --query 'Items[].IntegrationId' \
+  --output text \
+  --region ${AWS_REGION}); do
+  aws apigatewayv2 update-integration \
+    --api-id ${API_ID} \
+    --integration-id ${ID} \
+    --payload-format-version "1.0" \
+    --region ${AWS_REGION}
+done
+
+# Route everything (login, me, trips, etc.) through Lambda
+aws apigatewayv2 create-route \
+  --api-id ${API_ID} \
+  --route-key 'ANY /{proxy+}' \
+  --target "integrations/${INTEGRATION_ID}" \
+  --region ${AWS_REGION}
+
+# Also route the root path
+aws apigatewayv2 create-route \
+  --api-id ${API_ID} \
+  --route-key 'ANY /' \
+  --target "integrations/${INTEGRATION_ID}" \
+  --region ${AWS_REGION}
+
+# Enable CORS on the HTTP API
+# - Keep localhost for local dev
+# - Set FRONTEND_ORIGIN to your deployed frontend and rerun this command anytime
+export LOCAL_ORIGIN='http://localhost:3000'
+export FRONTEND_ORIGIN='https://your-frontend-domain'
+
+aws apigatewayv2 update-api \
+  --api-id ${API_ID} \
+  --cors-configuration "{\"AllowOrigins\":[\"${LOCAL_ORIGIN}\",\"${FRONTEND_ORIGIN}\"],\"AllowMethods\":[\"GET\",\"POST\",\"PUT\",\"PATCH\",\"DELETE\",\"OPTIONS\"],\"AllowHeaders\":[\"authorization\",\"content-type\"],\"AllowCredentials\":true,\"MaxAge\":86400}" \
+  --region ${AWS_REGION}
+
+# View invoke URL
+aws apigatewayv2 get-api \
+  --api-id ${API_ID} \
+  --query 'ApiEndpoint' \
+  --output text \
+  --region ${AWS_REGION}

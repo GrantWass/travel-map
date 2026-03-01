@@ -1,0 +1,13 @@
+psycopg2-binary
+boto3
+python-jose[cryptography]
+requests
+psycopg2-binary
+authlib
+python-dotenv
+werkzeug
+flask
+flask_session
+bcrypt
+Pillow
+aws-wsgi

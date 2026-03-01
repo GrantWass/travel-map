@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.98 0.012 80);
+  --foreground: oklch(0.22 0.02 60);
+  --card: oklch(0.96 0.015 80);
+  --card-foreground: oklch(0.22 0.02 60);
+  --popover: oklch(0.96 0.015 80);
+  --popover-foreground: oklch(0.22 0.02 60);
+  --primary: oklch(0.62 0.15 55);
+  --primary-foreground: oklch(0.99 0.005 80);
+  --secondary: oklch(0.92 0.015 80);
+  --secondary-foreground: oklch(0.3 0.02 60);
+  --muted: oklch(0.92 0.015 80);
+  --muted-foreground: oklch(0.55 0.025 70);
+  --accent: oklch(0.62 0.15 55);
+  --accent-foreground: oklch(0.99 0.005 80);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.99 0.005 80);
+  --border: oklch(0.87 0.018 75);
+  --input: oklch(0.87 0.018 75);
+  --ring: oklch(0.62 0.15 55);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  img, svg {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+}
+
+/* Match Leaflet container background to Jawg Sunny tile color so no gaps appear at low zoom */
+.leaflet-container {
+  background: #d4e8f0;
+}
+
+/* Profile modal – corner expand animation */
+@keyframes modal-expand {
+  from {
+    transform: scale(0.05);
+    opacity: 0;
+    border-radius: 0.75rem;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+    border-radius: 0.75rem; /* matches rounded-2xl */
+  }
+}
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.modal-expand {
+  animation: modal-expand 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: top right;
+}
+.modal-expand-left {
+  animation: modal-expand 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: top left;
+}
+.backdrop-fade {
+  animation: backdrop-fade 0.2s ease-out forwards;
+}
+
+/* Signup page – flip-up word animation */
+@keyframes flip-word-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-115%); }
+}
+@keyframes flip-word-in {
+  from { transform: translateY(115%); }
+  to   { transform: translateY(0); }
+}
+.flip-word-out {
+  animation: flip-word-out 0.18s ease-in forwards;
+}
+.flip-word-in {
+  animation: flip-word-in 0.18s ease-out forwards;
+}
