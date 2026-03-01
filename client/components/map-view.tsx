@@ -32,6 +32,12 @@ interface StoredMapView {
     zoom: number;
 }
 
+function hasCoordinates(
+    value: Pick<MapActivity, "lat" | "lng"> | Pick<MapLodging, "lat" | "lng">,
+): value is { lat: number; lng: number } {
+    return typeof value.lat === "number" && typeof value.lng === "number";
+}
+
 function escapeHtml(value: string): string {
     return value
         .replaceAll("&", "&amp;")
@@ -240,25 +246,38 @@ export default function MapView({
         const size = isActive ? 80 : 64;
         const safeTitle = escapeHtml(trip.title);
         const imageUrl = trip.thumbnail || MARKER_FALLBACK_IMAGE;
+        const popupBadge = trip.isPopup
+            ? `<div style="
+                position:absolute;top:4px;right:4px;
+                width:24px;height:24px;border-radius:50%;
+                background:#d97706;border:2px solid white;
+                display:flex;align-items:center;justify-content:center;
+                box-shadow:0 1px 4px rgba(0,0,0,0.35);
+              "><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>`
+            : "";
         return L.divIcon({
             className: "photo-marker",
             html: `
-        <div style="
-          width:${size}px;height:${size}px;border-radius:12px;overflow:hidden;
-          border:${isActive ? "3px solid #d4a055" : "2px solid rgba(255,255,255,0.3)"};
-          box-shadow:0 4px 20px rgba(0,0,0,0.5);position:relative;cursor:pointer;
-        ">
-          <img
-            src="${imageUrl}"
-            alt="${safeTitle}"
-            style="width:100%;height:100%;object-fit:cover;"
-            onerror="this.onerror=null;this.src='${MARKER_FALLBACK_IMAGE}';"
-          />
+        <div style="width:${size}px;height:${size}px;position:relative;cursor:pointer;">
           <div style="
-            position:absolute;left:0;right:0;bottom:0;padding:4px 6px;
-            background:linear-gradient(transparent, rgba(0,0,0,0.85));
-            color:white;font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
-          ">${safeTitle}</div>
+            position:relative;
+            width:100%;height:100%;border-radius:12px;overflow:hidden;
+            border:${isActive ? "3px solid #d4a055" : "2px solid rgba(255,255,255,0.3)"};
+            box-shadow:0 4px 20px rgba(0,0,0,0.5);
+          ">
+            <img
+              src="${imageUrl}"
+              alt="${safeTitle}"
+              style="display:block;width:100%;height:100%;object-fit:cover;"
+              onerror="this.onerror=null;this.src='${MARKER_FALLBACK_IMAGE}';"
+            />
+            <div style="
+              position:absolute;left:0;right:0;bottom:0;padding:4px 6px;
+              background:linear-gradient(transparent, rgba(0,0,0,0.85));
+              color:white;font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
+            ">${safeTitle}</div>
+          </div>
+          ${popupBadge}
         </div>
       `,
             iconSize: [size, size],
@@ -381,6 +400,7 @@ export default function MapView({
         const tripLocationKey = getLocationKey(focusTrip.lat, focusTrip.lng);
 
         for (const activity of focusTrip.activities) {
+            if (!hasCoordinates(activity)) continue;
             if (getLocationKey(activity.lat, activity.lng) === tripLocationKey) continue;
             const marker = L.marker([activity.lat, activity.lng], {
                 icon: createActivityIcon(activity, selectedActivity?.id === activity.id),
@@ -395,6 +415,7 @@ export default function MapView({
         }
 
         for (const lodging of focusTrip.lodgings) {
+            if (!hasCoordinates(lodging)) continue;
             if (getLocationKey(lodging.lat, lodging.lng) === tripLocationKey) continue;
             const marker = L.marker([lodging.lat, lodging.lng], {
                 icon: createLodgingIcon(lodging, selectedLodging?.id === lodging.id),
@@ -446,9 +467,11 @@ export default function MapView({
 
         const points: [number, number][] = [[fullScreenTrip.lat, fullScreenTrip.lng]];
         fullScreenTrip.activities.forEach((activity) => {
+            if (!hasCoordinates(activity)) return;
             points.push([activity.lat, activity.lng]);
         });
         fullScreenTrip.lodgings.forEach((lodging) => {
+            if (!hasCoordinates(lodging)) return;
             points.push([lodging.lat, lodging.lng]);
         });
 
@@ -477,7 +500,9 @@ export default function MapView({
             const key = `activity:${selectedActivity.id}`;
             if (lastFocusedDetailKeyRef.current !== key) {
                 lastFocusedDetailKeyRef.current = key;
-                map.flyTo([selectedActivity.lat, selectedActivity.lng], DETAIL_ZOOM, { duration: 0.8 });
+                if (hasCoordinates(selectedActivity)) {
+                    map.flyTo([selectedActivity.lat, selectedActivity.lng], DETAIL_ZOOM, { duration: 0.8 });
+                }
             }
             return;
         }
@@ -486,7 +511,9 @@ export default function MapView({
             const key = `lodging:${selectedLodging.id}`;
             if (lastFocusedDetailKeyRef.current !== key) {
                 lastFocusedDetailKeyRef.current = key;
-                map.flyTo([selectedLodging.lat, selectedLodging.lng], DETAIL_ZOOM, { duration: 0.8 });
+                if (hasCoordinates(selectedLodging)) {
+                    map.flyTo([selectedLodging.lat, selectedLodging.lng], DETAIL_ZOOM, { duration: 0.8 });
+                }
             }
             return;
         }

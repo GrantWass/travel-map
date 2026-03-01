@@ -6,8 +6,8 @@ export interface MapActivity {
   description: string;
   image: string;
   address: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface MapLodging {
@@ -16,8 +16,8 @@ export interface MapLodging {
   description: string;
   image: string;
   address: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface SavedActivityEntry {
@@ -52,6 +52,9 @@ export interface MapTrip {
   cost: number | null;
   lodgings: MapLodging[];
   activities: MapActivity[];
+  isPopup: boolean;
+  eventStart: string | null;
+  eventEnd: string | null;
 }
 
 export interface ProfileTripEntry {
@@ -107,11 +110,7 @@ function firstSentence(value: string): string {
   return normalized.length <= 180 ? normalized : `${normalized.slice(0, 177)}...`;
 }
 
-function toActivity(activity: TripActivity): MapActivity | null {
-  if (activity.latitude === null || activity.longitude === null) {
-    return null;
-  }
-
+function toActivity(activity: TripActivity): MapActivity {
   return {
     id: activity.activity_id,
     title: activity.title || "Untitled activity",
@@ -123,11 +122,7 @@ function toActivity(activity: TripActivity): MapActivity | null {
   };
 }
 
-function toLodging(lodging: Trip["lodgings"][number]): MapLodging | null {
-  if (lodging.latitude === null || lodging.longitude === null) {
-    return null;
-  }
-
+function toLodging(lodging: Trip["lodgings"][number]): MapLodging {
   return {
     id: lodging.lodge_id,
     title: lodging.title || "Untitled lodging",
@@ -145,12 +140,10 @@ export function toMapTrip(trip: Trip): MapTrip | null {
   }
 
   const description = (trip.description || "").trim();
-  const lodgings = (trip.lodgings || [])
-    .map(toLodging)
-    .filter((item): item is MapLodging => item !== null);
-  const activities = trip.activities
-    .map(toActivity)
-    .filter((activity): activity is MapActivity => activity !== null);
+  const lodgings = (trip.lodgings || []).map(toLodging);
+  const activities = trip.activities.map(toActivity);
+  const eventStart = trip.event_start ?? null;
+  const eventEnd = trip.event_end ?? null;
 
   return {
     id: trip.trip_id,
@@ -170,6 +163,9 @@ export function toMapTrip(trip: Trip): MapTrip | null {
     cost: trip.cost ?? null,
     lodgings,
     activities,
+    isPopup: eventStart !== null && eventEnd !== null,
+    eventStart,
+    eventEnd,
   };
 }
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
@@ -72,6 +72,8 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
         "lodgings": [],
         "activities": [],
         "comments": [],
+        "event_start": _as_datetime_iso(row.get("event_start")),
+        "event_end": _as_datetime_iso(row.get("event_end")),
     }
 
 
@@ -196,6 +198,8 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
                 t.date,
                 t.visibility,
                 t.owner_user_id,
+                t.event_start,
+                t.event_end,
                 o.name AS owner_name,
                 o.bio AS owner_bio,
                 o.verified AS owner_verified,
@@ -274,6 +278,22 @@ def _parse_trip_date(value: Any) -> str | None:
             continue
 
     raise TripValidationError("date must use YYYY-MM, MM-YYYY, MM-YY, or 'Month YYYY'")
+
+
+def _parse_event_datetime(value: Any, *, field_name: str) -> datetime | None:
+    candidate = to_nullable_string(value)
+    if not candidate:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+    except ValueError:
+        raise TripValidationError(f"{field_name} must be a valid ISO 8601 datetime (e.g. 2025-03-01T14:00)")
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
 
 
 def _parse_thumbnail_url(value: Any) -> str | None:
@@ -445,6 +465,21 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
     if not isinstance(tags, list):
         raise TripValidationError("tags must be a list")
 
+    event_start = _parse_event_datetime(payload.get("event_start"), field_name="event_start")
+    event_end = _parse_event_datetime(payload.get("event_end"), field_name="event_end")
+    if (event_start is None) != (event_end is None):
+        raise TripValidationError("event_start and event_end must both be provided for pop-up events")
+    if event_start is not None and event_end is not None and event_end <= event_start:
+        raise TripValidationError("event_end must be after event_start")
+    is_popup_event = event_start is not None and event_end is not None
+    if is_popup_event and lodgings:
+        raise TripValidationError("pop-up events cannot include lodgings")
+    if is_popup_event and activities:
+        raise TripValidationError("pop-up events cannot include activities")
+
+    duration = None if is_popup_event else _parse_duration(payload.get("duration"))
+    date = None if is_popup_event else _parse_trip_date(payload.get("date"))
+
     with get_cursor(commit=True) as cur:
         cur.execute(
             """
@@ -458,9 +493,11 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 duration,
                 date,
                 visibility,
-                owner_user_id
+                owner_user_id,
+                event_start,
+                event_end
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING trip_id
             """,
             (
@@ -470,10 +507,12 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 _parse_latitude(payload.get("latitude")),
                 _parse_longitude(payload.get("longitude")),
                 _parse_cost(payload.get("cost")),
-                _parse_duration(payload.get("duration")),
-                _parse_trip_date(payload.get("date")),
+                duration,
+                date,
                 _parse_visibility(payload.get("visibility")),
                 owner_user_id,
+                event_start,
+                event_end,
             ),
         )
 

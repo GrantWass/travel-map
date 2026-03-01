@@ -13,7 +13,7 @@ type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
     const router = useRouter();
-    const { setAuthenticatedUser, refreshSession, refreshMyProfile } = useAuth();
+    const { setAuthenticatedUser, refreshMyProfile } = useAuth();
     const [mode, setMode] = useState<Mode>("signup");
     const [accountType, setAccountType] = useState<AccountType>("traveler");
     const [displayedType, setDisplayedType] = useState<AccountType>("traveler");
@@ -77,7 +77,6 @@ export default function SignUpPage() {
                 setAuthenticatedUser(loggedInUser);
                 await refreshMyProfile(loggedInUser.user_id);
                 router.push(`/profile-setup?accountType=${accountType}`);
-                router.refresh();
                 return;
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);

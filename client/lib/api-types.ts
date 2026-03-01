@@ -76,6 +76,8 @@ export interface Trip {
   lodgings: TripLodging[];
   activities: TripActivity[];
   comments: TripComment[];
+  event_start?: string | null;
+  event_end?: string | null;
 }
 
 export interface UserTripEntry {
@@ -103,6 +105,8 @@ export interface CreateTripPayload {
   date?: string;
   visibility?: TripVisibility;
   tags?: string[];
+  event_start?: string;
+  event_end?: string;
   lodgings?: Array<{
     address?: string;
     thumbnail_url?: string;

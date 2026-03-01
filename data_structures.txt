@@ -64,8 +64,13 @@ CREATE TABLE trips (
 	duration VARCHAR(50),
 	date VARCHAR(7),
 	visibility VARCHAR(20),
-	owner_user_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE
+	owner_user_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+	event_start TIMESTAMPTZ,
+	event_end TIMESTAMPTZ
 );
+
+-- Rows with event_start/event_end are "pop-up events"; rows without are regular trips.
+-- Migration: ALTER TABLE trips ADD COLUMN event_start TIMESTAMPTZ, ADD COLUMN event_end TIMESTAMPTZ;
 
 
 Lodging

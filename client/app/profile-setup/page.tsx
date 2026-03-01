@@ -40,7 +40,7 @@ export default function ProfileSetupPage() {
 function ProfileSetupContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { refreshSession, refreshMyProfile } = useAuth();
+    const { userId, refreshMyProfile } = useAuth();
     const accountTypeParam = searchParams.get("accountType");
     const accountType: AccountType = accountTypeParam === "student" ? "student" : "traveler";
 
@@ -131,12 +131,10 @@ function ProfileSetupContent() {
         try {
             const profileImageUrl = profileImageFile ? await uploadImage(profileImageFile, "profiles") : null;
             await updateUserProfileInDatabase({ bio, college, accountType, profileImageUrl });
-            const authedUser = await refreshSession();
-            if (authedUser?.user_id) {
-                await refreshMyProfile(authedUser.user_id);
+            if (userId) {
+                await refreshMyProfile(userId);
             }
             router.push("/");
-            router.refresh();
         } catch {
             setSaveError("Could not save profile setup right now. Please try again.");
         } finally {

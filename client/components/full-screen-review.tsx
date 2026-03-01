@@ -138,7 +138,7 @@ export default function FullScreenReview({
                     {/* Activities */}
                     <div className="flex flex-col gap-4">
                         <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                            Activities & Places
+                            Activities
                         </h2>
                         {review.activities.length > 0 ? (
                             review.activities.map((activity) => (

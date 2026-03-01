@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ImagePlus, MapPin, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ImagePlus, MapPin, Plus, Sparkles, Timer, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import PlacePicker from "@/components/place-picker";
@@ -54,6 +54,47 @@ function formatPreviewDate(value: string): string {
   });
 }
 
+function toLocalDatetimeInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function formatEventTimePreview(start: string, end: string): string {
+  if (!start || !end) return "No time set yet";
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return "Invalid time";
+
+  const now = new Date();
+  const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
+  const startTime = startDate.toLocaleTimeString("en-US", timeOpts);
+  const endTime = endDate.toLocaleTimeString("en-US", timeOpts);
+
+  const isToday = startDate.toDateString() === now.toDateString();
+  if (isToday) return `Today · ${startTime} – ${endTime}`;
+
+  const dateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${dateStr} · ${startTime} – ${endTime}`;
+}
+
+function toEventIso(value: string): string | null {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
 function makeStopDraft(): StopDraft {
   return {
     id: crypto.randomUUID(),
@@ -93,6 +134,9 @@ function TripsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/";
+  const isPopupMode = searchParams.get("mode") === "popup";
+  const tripComposerHref = `/trips?returnTo=${encodeURIComponent(returnTo)}`;
+  const popupComposerHref = `/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`;
   const { status, isStudent } = useAuth();
 
   const [isSavingTrip, setIsSavingTrip] = useState(false);
@@ -111,6 +155,18 @@ function TripsPageContent() {
   const [visibility, setVisibility] = useState<TripVisibility>("public");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
+
+  // Popup-specific state
+  const [eventStart, setEventStart] = useState(() => {
+    if (!isPopupMode) return "";
+    return toLocalDatetimeInput(new Date());
+  });
+  const [eventEnd, setEventEnd] = useState(() => {
+    if (!isPopupMode) return "";
+    const end = new Date();
+    end.setHours(end.getHours() + 2);
+    return toLocalDatetimeInput(end);
+  });
 
   const [lodgings, setLodgings] = useState<StopDraft[]>([]);
   const [activities, setActivities] = useState<StopDraft[]>([]);
@@ -242,12 +298,33 @@ function TripsPageContent() {
     setError("");
 
     if (!title.trim()) {
-      setError("Add a trip title before posting.");
+      setError(isPopupMode ? "Add a pop-up title before posting." : "Add a trip title before posting.");
       return;
     }
 
     if (!tripLocation) {
-      setError("Choose a trip location before posting.");
+      setError(isPopupMode ? "Choose a location before posting." : "Choose a trip location before posting.");
+      return;
+    }
+
+    if (isPopupMode && (!eventStart || !eventEnd)) {
+      setError("Set a start and end time before posting.");
+      return;
+    }
+
+    const normalizedEventStart = isPopupMode ? toEventIso(eventStart) : null;
+    const normalizedEventEnd = isPopupMode ? toEventIso(eventEnd) : null;
+    if (isPopupMode && (!normalizedEventStart || !normalizedEventEnd)) {
+      setError("Set a valid start and end time before posting.");
+      return;
+    }
+    if (
+      isPopupMode &&
+      normalizedEventStart &&
+      normalizedEventEnd &&
+      new Date(normalizedEventEnd) <= new Date(normalizedEventStart)
+    ) {
+      setError("End time must be after start time.");
       return;
     }
 
@@ -261,33 +338,40 @@ function TripsPageContent() {
         latitude: `${tripLocation.latitude}`,
         longitude: `${tripLocation.longitude}`,
         cost: clean(cost),
-        duration,
-        date: clean(date),
         visibility,
         tags: selectedTags,
-        lodgings: lodgings
-          .filter(hasStopContent)
-          .map((stop) => ({
-            title: clean(stop.title),
-            description: clean(stop.notes),
-            address: stop.location?.address,
-            latitude: stop.location ? `${stop.location.latitude}` : undefined,
-            longitude: stop.location ? `${stop.location.longitude}` : undefined,
-            cost: clean(stop.cost),
-            thumbnail_url: clean(stop.imageUrl),
-          })),
-        activities: activities
-          .filter(hasStopContent)
-          .map((stop) => ({
-            title: clean(stop.title),
-            description: clean(stop.notes),
-            location: stop.location?.label,
-            address: stop.location?.address,
-            latitude: stop.location ? `${stop.location.latitude}` : undefined,
-            longitude: stop.location ? `${stop.location.longitude}` : undefined,
-            cost: clean(stop.cost),
-            thumbnail_url: clean(stop.imageUrl),
-          })),
+        ...(isPopupMode
+          ? {
+              event_start: normalizedEventStart ?? undefined,
+              event_end: normalizedEventEnd ?? undefined,
+            }
+          : {
+              duration,
+              date: clean(date),
+              lodgings: lodgings
+                .filter(hasStopContent)
+                .map((stop) => ({
+                  title: clean(stop.title),
+                  description: clean(stop.notes),
+                  address: stop.location?.address,
+                  latitude: stop.location ? `${stop.location.latitude}` : undefined,
+                  longitude: stop.location ? `${stop.location.longitude}` : undefined,
+                  cost: clean(stop.cost),
+                  thumbnail_url: clean(stop.imageUrl),
+                })),
+              activities: activities
+                .filter(hasStopContent)
+                .map((stop) => ({
+                  title: clean(stop.title),
+                  description: clean(stop.notes),
+                  location: stop.location?.label,
+                  address: stop.location?.address,
+                  latitude: stop.location ? `${stop.location.latitude}` : undefined,
+                  longitude: stop.location ? `${stop.location.longitude}` : undefined,
+                  cost: clean(stop.cost),
+                  thumbnail_url: clean(stop.imageUrl),
+                })),
+            }),
       });
 
       const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/";
@@ -302,7 +386,7 @@ function TripsPageContent() {
       if (createError instanceof ApiError) {
         setError(createError.message);
       } else {
-        setError("Could not post this trip right now. Please try again.");
+        setError(isPopupMode ? "Could not post this pop-up right now. Please try again." : "Could not post this trip right now. Please try again.");
       }
     } finally {
       setIsSavingTrip(false);
@@ -315,8 +399,37 @@ function TripsPageContent() {
         <section className="w-full rounded-3xl border border-stone-200/80 bg-white/85 p-5 shadow-xl shadow-stone-200/30 backdrop-blur-sm md:p-7 lg:w-2/3">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Trip Composer</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Craft your next post</h1>
+              {isPopupMode ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Pop-Up Composer</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Post a pop-up event</h1>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Trip Composer</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Craft your next post</h1>
+                </>
+              )}
+              <div className="mt-3 inline-flex items-center rounded-full border border-stone-200 bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => router.replace(tripComposerHref)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    !isPopupMode ? "bg-amber-600 text-white" : "text-stone-600 hover:bg-stone-100"
+                  }`}
+                >
+                  Trip
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.replace(popupComposerHref)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    isPopupMode ? "bg-amber-600 text-white" : "text-stone-600 hover:bg-stone-100"
+                  }`}
+                >
+                  Pop-Up
+                </button>
+              </div>
             </div>
             <Link href={returnTo}>
               <Button variant="outline" className="rounded-full">
@@ -360,12 +473,12 @@ function TripsPageContent() {
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Title your trip..."
+                placeholder={isPopupMode ? "Name this pop-up..." : "Title your trip..."}
                 className="w-full border-b border-stone-200 bg-transparent pb-3 text-4xl font-semibold tracking-tight text-stone-900 outline-none placeholder:text-stone-300"
               />
 
               <PlacePicker
-                label="Trip location"
+                label="Location"
                 placeholder="Search city or suburb..."
                 value={tripLocation}
                 onChange={setTripLocation}
@@ -376,372 +489,490 @@ function TripsPageContent() {
               <Textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                rows={7}
-                placeholder="Tell the story: what you did, what surprised you, and what someone should know before visiting..."
+                rows={isPopupMode ? 4 : 7}
+                placeholder={
+                  isPopupMode
+                    ? "What's happening? Give people a reason to show up..."
+                    : "Tell the story: what you did, what surprised you, and what someone should know before visiting..."
+                }
                 className={`resize-none rounded-2xl border-stone-200 text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
               />
             </div>
 
-            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Date</label>
-                <Input
-                  type="month"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className={READABLE_INPUT_CLASS}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost</label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={cost}
-                  onChange={(event) => setCost(event.target.value)}
-                  placeholder="1450"
-                  className={READABLE_INPUT_CLASS}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Duration</label>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
-                  value={duration}
-                  onChange={(event) => setDuration(event.target.value as TripDuration)}
-                >
-                  <option value="multiday trip">multiday trip</option>
-                  <option value="day trip">day trip</option>
-                  <option value="overnight trip">overnight trip</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
-                  value={visibility}
-                  onChange={(event) => setVisibility(event.target.value as TripVisibility)}
-                >
-                  <option value="public">public</option>
-                  <option value="private">private</option>
-                  <option value="friends">friends</option>
-                </select>
-              </div>
+            {isPopupMode ? (
+              /* Popup mode: start/end times + cost + visibility + tags */
+              <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Start Time</label>
+                  <Input
+                    type="datetime-local"
+                    value={eventStart}
+                    onChange={(event) => setEventStart(event.target.value)}
+                    className={READABLE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">End Time</label>
+                  <Input
+                    type="datetime-local"
+                    value={eventEnd}
+                    onChange={(event) => setEventEnd(event.target.value)}
+                    className={READABLE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost</label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={cost}
+                    onChange={(event) => setCost(event.target.value)}
+                    placeholder="Free, or enter amount"
+                    className={READABLE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
+                    value={visibility}
+                    onChange={(event) => setVisibility(event.target.value as TripVisibility)}
+                  >
+                    <option value="public">public</option>
+                    <option value="private">private</option>
+                    <option value="friends">friends</option>
+                  </select>
+                </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Tags</p>
-                <div className="flex flex-wrap gap-2">
-                  {AVAILABLE_TAGS.map((tag) => {
-                    const selected = selectedTags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                          selected
-                            ? "border-amber-600 bg-amber-600 text-white"
-                            : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                  {selectedTags
-                    .filter((tag) => !(AVAILABLE_TAGS as readonly string[]).includes(tag))
-                    .map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        className="flex items-center gap-1 rounded-full border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold tracking-wide text-white transition-colors hover:bg-amber-700"
-                      >
-                        {tag}
-                        <span className="text-white/70">×</span>
-                      </button>
-                    ))}
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={customTagInput}
-                      onChange={(e) => setCustomTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addCustomTag();
-                        }
-                      }}
-                      placeholder="Other..."
-                      className="w-24 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 outline-none focus:border-amber-500"
-                    />
-                    {customTagInput.trim() && (
-                      <button
-                        type="button"
-                        onClick={addCustomTag}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
-                        aria-label="Add custom tag"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                <div className="space-y-2 md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_TAGS.map((tag) => {
+                      const selected = selectedTags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
+                            selected
+                              ? "border-amber-600 bg-amber-600 text-white"
+                              : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                    {selectedTags
+                      .filter((tag) => !(AVAILABLE_TAGS as readonly string[]).includes(tag))
+                      .map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className="flex items-center gap-1 rounded-full border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold tracking-wide text-white transition-colors hover:bg-amber-700"
+                        >
+                          {tag}
+                          <span className="text-white/70">×</span>
+                        </button>
+                      ))}
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={customTagInput}
+                        onChange={(e) => setCustomTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCustomTag();
+                          }
+                        }}
+                        placeholder="Other..."
+                        className="w-24 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 outline-none focus:border-amber-500"
+                      />
+                      {customTagInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={addCustomTag}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
+                          aria-label="Add custom tag"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Trip mode: date + cost + duration + visibility + tags */
+              <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Date</label>
+                  <Input
+                    type="month"
+                    value={date}
+                    onChange={(event) => setDate(event.target.value)}
+                    className={READABLE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost</label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={cost}
+                    onChange={(event) => setCost(event.target.value)}
+                    placeholder="1450"
+                    className={READABLE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Duration</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
+                    value={duration}
+                    onChange={(event) => setDuration(event.target.value as TripDuration)}
+                  >
+                    <option value="multiday trip">multiday trip</option>
+                    <option value="day trip">day trip</option>
+                    <option value="overnight trip">overnight trip</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
+                    value={visibility}
+                    onChange={(event) => setVisibility(event.target.value as TripVisibility)}
+                  >
+                    <option value="public">public</option>
+                    <option value="private">private</option>
+                    <option value="friends">friends</option>
+                  </select>
+                </div>
 
-            <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-stone-900">Places you stayed</h2>
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => addStop("lodging")}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Add stay
-                </Button>
-              </div>
-
-              {lodgings.length === 0 ? (
-                <p className="text-sm text-stone-500">Add hotels, campgrounds, or anywhere you stayed.</p>
-              ) : null}
-
-              <div className="space-y-4">
-                {lodgings.map((stop, index) => (
-                  <div key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-stone-700">Stay #{index + 1}</p>
-                      <button
-                        type="button"
-                        onClick={() => removeStop("lodging", stop.id)}
-                        className="rounded-full p-1 text-stone-400 transition-colors hover:bg-white hover:text-stone-700"
-                        aria-label="Remove stay"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <Input
-                        value={stop.title}
-                        onChange={(event) => updateStop("lodging", stop.id, { title: event.target.value })}
-                        placeholder="Name this stay"
-                        className={READABLE_INPUT_CLASS}
+                <div className="space-y-2 md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_TAGS.map((tag) => {
+                      const selected = selectedTags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
+                            selected
+                              ? "border-amber-600 bg-amber-600 text-white"
+                              : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                    {selectedTags
+                      .filter((tag) => !(AVAILABLE_TAGS as readonly string[]).includes(tag))
+                      .map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className="flex items-center gap-1 rounded-full border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold tracking-wide text-white transition-colors hover:bg-amber-700"
+                        >
+                          {tag}
+                          <span className="text-white/70">×</span>
+                        </button>
+                      ))}
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={customTagInput}
+                        onChange={(e) => setCustomTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCustomTag();
+                          }
+                        }}
+                        placeholder="Other..."
+                        className="w-24 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 outline-none focus:border-amber-500"
                       />
-
-                      <PlacePicker
-                        label="Location"
-                        placeholder="Search an address"
-                        value={stop.location}
-                        onChange={(location) => updateStop("lodging", stop.id, { location })}
-                        mode="address"
-                        cityContext={tripLocation}
-                        allowMapPin
-                      />
-
-                      <Textarea
-                        value={stop.notes}
-                        rows={3}
-                        onChange={(event) => updateStop("lodging", stop.id, { notes: event.target.value })}
-                        placeholder="What made this place good (or bad)?"
-                        className={`resize-none ${READABLE_TEXTAREA_CLASS}`}
-                      />
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={stop.cost}
-                          onChange={(event) => updateStop("lodging", stop.id, { cost: event.target.value })}
-                          placeholder="Cost (optional)"
-                          className={READABLE_INPUT_CLASS}
-                        />
-                        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
-                          <ImagePlus className="h-4 w-4 text-amber-700" />
-                          {stop.imageUrl ? "Change photo" : "Add photo"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={stop.isProcessingImage}
-                            className="sr-only"
-                            onChange={(event) => {
-                              setError("");
-                              void handleStopImageUpload("lodging", stop.id, event.target.files?.[0]);
-                            }}
-                          />
-                        </label>
-                      </div>
-                      {stop.isProcessingImage ? (
-                        <p className="text-xs text-stone-500">Uploading image...</p>
-                      ) : stop.imageUrl ? (
-                        <p className="text-xs text-emerald-700">Photo uploaded.</p>
-                      ) : (
-                        <p className="text-xs text-stone-500">No photo selected.</p>
+                      {customTagInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={addCustomTag}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
+                          aria-label="Add custom tag"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
                       )}
-                      {stop.imageError ? <p className="text-xs font-medium text-red-600">{stop.imageError}</p> : null}
-                      {stop.imageUrl ? (
-                        <div className="rounded-lg border border-stone-200 bg-white p-2">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={stop.imageUrl}
-                              alt={stop.title ? `${stop.title} preview` : "Stay photo preview"}
-                              className="h-20 w-20 rounded-md border border-stone-200 object-cover"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-stone-700">
-                                {stop.imageName || "Selected image"}
-                              </p>
-                              <p className="text-xs text-stone-500">Preview shown as it will appear in this post.</p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="rounded-full"
-                              onClick={() =>
-                                updateStop("lodging", stop.id, {
-                                  imageUrl: "",
-                                  imageName: "",
-                                  imageError: "",
-                                  isProcessingImage: false,
-                                })
-                              }
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-stone-900">Things you did</h2>
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => addStop("activity")}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Add activity
-                </Button>
-              </div>
-
-              {activities.length === 0 ? (
-                <p className="text-sm text-stone-500">Add museums, hikes, restaurants, or events.</p>
-              ) : null}
-
-              <div className="space-y-4">
-                {activities.map((stop, index) => (
-                  <div key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-stone-700">Activity #{index + 1}</p>
-                      <button
-                        type="button"
-                        onClick={() => removeStop("activity", stop.id)}
-                        className="rounded-full p-1 text-stone-400 transition-colors hover:bg-white hover:text-stone-700"
-                        aria-label="Remove activity"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <Input
-                        value={stop.title}
-                        onChange={(event) => updateStop("activity", stop.id, { title: event.target.value })}
-                        placeholder="Name this activity"
-                        className={READABLE_INPUT_CLASS}
-                      />
-
-                      <PlacePicker
-                        label="Location"
-                        placeholder="Search an address"
-                        value={stop.location}
-                        onChange={(location) => updateStop("activity", stop.id, { location })}
-                        mode="address"
-                        cityContext={tripLocation}
-                        allowMapPin
-                      />
-
-                      <Textarea
-                        value={stop.notes}
-                        rows={3}
-                        onChange={(event) => updateStop("activity", stop.id, { notes: event.target.value })}
-                        placeholder="What should people know before going?"
-                        className={`resize-none ${READABLE_TEXTAREA_CLASS}`}
-                      />
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={stop.cost}
-                          onChange={(event) => updateStop("activity", stop.id, { cost: event.target.value })}
-                          placeholder="Cost (optional)"
-                          className={READABLE_INPUT_CLASS}
-                        />
-                        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
-                          <ImagePlus className="h-4 w-4 text-amber-700" />
-                          {stop.imageUrl ? "Change photo" : "Add photo"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={stop.isProcessingImage}
-                            className="sr-only"
-                            onChange={(event) => {
-                              setError("");
-                              void handleStopImageUpload("activity", stop.id, event.target.files?.[0]);
-                            }}
-                          />
-                        </label>
-                      </div>
-                      {stop.isProcessingImage ? (
-                        <p className="text-xs text-stone-500">Uploading image...</p>
-                      ) : stop.imageUrl ? (
-                        <p className="text-xs text-emerald-700">Photo uploaded.</p>
-                      ) : (
-                        <p className="text-xs text-stone-500">No photo selected.</p>
-                      )}
-                      {stop.imageError ? <p className="text-xs font-medium text-red-600">{stop.imageError}</p> : null}
-                      {stop.imageUrl ? (
-                        <div className="rounded-lg border border-stone-200 bg-white p-2">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={stop.imageUrl}
-                              alt={stop.title ? `${stop.title} preview` : "Activity photo preview"}
-                              className="h-20 w-20 rounded-md border border-stone-200 object-cover"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-stone-700">
-                                {stop.imageName || "Selected image"}
-                              </p>
-                              <p className="text-xs text-stone-500">Preview shown as it will appear in this post.</p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="rounded-full"
-                              onClick={() =>
-                                updateStop("activity", stop.id, {
-                                  imageUrl: "",
-                                  imageName: "",
-                                  imageError: "",
-                                  isProcessingImage: false,
-                                })
-                              }
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
+            {!isPopupMode && (
+              <>
+                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-stone-900">Places you stayed</h2>
+                    <Button type="button" variant="outline" className="rounded-full" onClick={() => addStop("lodging")}>
+                      <Plus className="mr-1 h-4 w-4" />
+                      Add stay
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </div>
+
+                  {lodgings.length === 0 ? (
+                    <p className="text-sm text-stone-500">Add hotels, campgrounds, or anywhere you stayed.</p>
+                  ) : null}
+
+                  <div className="space-y-4">
+                    {lodgings.map((stop, index) => (
+                      <div key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <p className="text-sm font-semibold text-stone-700">Stay #{index + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => removeStop("lodging", stop.id)}
+                            className="rounded-full p-1 text-stone-400 transition-colors hover:bg-white hover:text-stone-700"
+                            aria-label="Remove stay"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid gap-3">
+                          <Input
+                            value={stop.title}
+                            onChange={(event) => updateStop("lodging", stop.id, { title: event.target.value })}
+                            placeholder="Name this stay"
+                            className={READABLE_INPUT_CLASS}
+                          />
+
+                          <PlacePicker
+                            label="Location"
+                            placeholder="Search an address"
+                            value={stop.location}
+                            onChange={(location) => updateStop("lodging", stop.id, { location })}
+                            mode="address"
+                            cityContext={tripLocation}
+                            allowMapPin
+                          />
+
+                          <Textarea
+                            value={stop.notes}
+                            rows={3}
+                            onChange={(event) => updateStop("lodging", stop.id, { notes: event.target.value })}
+                            placeholder="What made this place good (or bad)?"
+                            className={`resize-none ${READABLE_TEXTAREA_CLASS}`}
+                          />
+
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              value={stop.cost}
+                              onChange={(event) => updateStop("lodging", stop.id, { cost: event.target.value })}
+                              placeholder="Cost (optional)"
+                              className={READABLE_INPUT_CLASS}
+                            />
+                            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
+                              <ImagePlus className="h-4 w-4 text-amber-700" />
+                              {stop.imageUrl ? "Change photo" : "Add photo"}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                disabled={stop.isProcessingImage}
+                                className="sr-only"
+                                onChange={(event) => {
+                                  setError("");
+                                  void handleStopImageUpload("lodging", stop.id, event.target.files?.[0]);
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {stop.isProcessingImage ? (
+                            <p className="text-xs text-stone-500">Uploading image...</p>
+                          ) : stop.imageUrl ? (
+                            <p className="text-xs text-emerald-700">Photo uploaded.</p>
+                          ) : (
+                            <p className="text-xs text-stone-500">No photo selected.</p>
+                          )}
+                          {stop.imageError ? <p className="text-xs font-medium text-red-600">{stop.imageError}</p> : null}
+                          {stop.imageUrl ? (
+                            <div className="rounded-lg border border-stone-200 bg-white p-2">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={stop.imageUrl}
+                                  alt={stop.title ? `${stop.title} preview` : "Stay photo preview"}
+                                  className="h-20 w-20 rounded-md border border-stone-200 object-cover"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium text-stone-700">
+                                    {stop.imageName || "Selected image"}
+                                  </p>
+                                  <p className="text-xs text-stone-500">Preview shown as it will appear in this post.</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="rounded-full"
+                                  onClick={() =>
+                                    updateStop("lodging", stop.id, {
+                                      imageUrl: "",
+                                      imageName: "",
+                                      imageError: "",
+                                      isProcessingImage: false,
+                                    })
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-stone-900">Things you did</h2>
+                    <Button type="button" variant="outline" className="rounded-full" onClick={() => addStop("activity")}>
+                      <Plus className="mr-1 h-4 w-4" />
+                      Add activity
+                    </Button>
+                  </div>
+
+                  {activities.length === 0 ? (
+                    <p className="text-sm text-stone-500">Add museums, hikes, restaurants, or events.</p>
+                  ) : null}
+
+                  <div className="space-y-4">
+                    {activities.map((stop, index) => (
+                      <div key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <p className="text-sm font-semibold text-stone-700">Activity #{index + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => removeStop("activity", stop.id)}
+                            className="rounded-full p-1 text-stone-400 transition-colors hover:bg-white hover:text-stone-700"
+                            aria-label="Remove activity"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid gap-3">
+                          <Input
+                            value={stop.title}
+                            onChange={(event) => updateStop("activity", stop.id, { title: event.target.value })}
+                            placeholder="Name this activity"
+                            className={READABLE_INPUT_CLASS}
+                          />
+
+                          <PlacePicker
+                            label="Location"
+                            placeholder="Search an address"
+                            value={stop.location}
+                            onChange={(location) => updateStop("activity", stop.id, { location })}
+                            mode="address"
+                            cityContext={tripLocation}
+                            allowMapPin
+                          />
+
+                          <Textarea
+                            value={stop.notes}
+                            rows={3}
+                            onChange={(event) => updateStop("activity", stop.id, { notes: event.target.value })}
+                            placeholder="What should people know before going?"
+                            className={`resize-none ${READABLE_TEXTAREA_CLASS}`}
+                          />
+
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              value={stop.cost}
+                              onChange={(event) => updateStop("activity", stop.id, { cost: event.target.value })}
+                              placeholder="Cost (optional)"
+                              className={READABLE_INPUT_CLASS}
+                            />
+                            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
+                              <ImagePlus className="h-4 w-4 text-amber-700" />
+                              {stop.imageUrl ? "Change photo" : "Add photo"}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                disabled={stop.isProcessingImage}
+                                className="sr-only"
+                                onChange={(event) => {
+                                  setError("");
+                                  void handleStopImageUpload("activity", stop.id, event.target.files?.[0]);
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {stop.isProcessingImage ? (
+                            <p className="text-xs text-stone-500">Uploading image...</p>
+                          ) : stop.imageUrl ? (
+                            <p className="text-xs text-emerald-700">Photo uploaded.</p>
+                          ) : (
+                            <p className="text-xs text-stone-500">No photo selected.</p>
+                          )}
+                          {stop.imageError ? <p className="text-xs font-medium text-red-600">{stop.imageError}</p> : null}
+                          {stop.imageUrl ? (
+                            <div className="rounded-lg border border-stone-200 bg-white p-2">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={stop.imageUrl}
+                                  alt={stop.title ? `${stop.title} preview` : "Activity photo preview"}
+                                  className="h-20 w-20 rounded-md border border-stone-200 object-cover"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium text-stone-700">
+                                    {stop.imageName || "Selected image"}
+                                  </p>
+                                  <p className="text-xs text-stone-500">Preview shown as it will appear in this post.</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="rounded-full"
+                                  onClick={() =>
+                                    updateStop("activity", stop.id, {
+                                      imageUrl: "",
+                                      imageName: "",
+                                      imageError: "",
+                                      isProcessingImage: false,
+                                    })
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
 
@@ -752,7 +983,9 @@ function TripsPageContent() {
                 onClick={() => void handleCreateTrip()}
                 disabled={isSavingTrip}
               >
-                {isSavingTrip ? "Posting..." : "Post Trip"}
+                {isSavingTrip
+                  ? isPopupMode ? "Posting..." : "Posting..."
+                  : isPopupMode ? "Post Pop-Up" : "Post Trip"}
               </Button>
             </div>
           </div>
@@ -771,9 +1004,17 @@ function TripsPageContent() {
                 style={{ backgroundImage: `url(${coverImage || BANNER_PLACEHOLDER})` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                {isPopupMode && (
+                  <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500/90 px-2.5 py-1 text-white backdrop-blur-sm">
+                    <Timer className="h-3 w-3" />
+                    <span className="text-xs font-semibold">Pop-Up</span>
+                  </div>
+                )}
                 <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/80">{formatPreviewDate(date)}</p>
-                  <h2 className="mt-1 text-2xl font-semibold leading-tight">{title || "Your trip title"}</h2>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/80">
+                    {isPopupMode ? formatEventTimePreview(eventStart, eventEnd) : formatPreviewDate(date)}
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold leading-tight">{title || (isPopupMode ? "Your pop-up title" : "Your trip title")}</h2>
                   <p className="mt-2 flex items-center gap-1 text-sm text-white/85">
                     <MapPin className="h-3.5 w-3.5" />
                     {tripLocation?.label || "Pick a primary location"}
@@ -783,7 +1024,7 @@ function TripsPageContent() {
 
               <div className="space-y-4 p-4">
                 <p className="text-sm leading-relaxed text-stone-700">
-                  {description || "Your trip story preview appears here as you write."}
+                  {description || (isPopupMode ? "Your pop-up description appears here." : "Your trip story preview appears here as you write.")}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -798,73 +1039,75 @@ function TripsPageContent() {
                   )}
                 </div>
 
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="font-semibold text-stone-800">Stays ({previewLodgings.length})</p>
-                    {previewLodgings.length > 0 ? (
-                      <div className="mt-2 space-y-2">
-                        {previewLodgings.map((stop) => (
-                          <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
-                            <div className="flex items-start gap-3">
-                              <img
-                                src={stop.imageUrl || BANNER_PLACEHOLDER}
-                                alt={stop.title ? `${stop.title} preview` : "Stay preview"}
-                                className="h-16 w-16 rounded-md border border-stone-200 object-cover"
-                              />
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <p className="truncate text-sm font-semibold text-stone-800">
-                                  {stop.title || "Untitled stay"}
-                                </p>
-                                <p className="truncate text-xs text-stone-500">
-                                  {stop.location?.label || stop.location?.address || "Location not set"}
-                                </p>
-                                <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
-                                  {stop.notes || "No stay notes yet."}
-                                </p>
-                                <p className="text-xs text-stone-500">{stop.cost ? `Cost: ${stop.cost}` : "No cost added"}</p>
+                {!isPopupMode && (
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="font-semibold text-stone-800">Stays ({previewLodgings.length})</p>
+                      {previewLodgings.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {previewLodgings.map((stop) => (
+                            <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
+                              <div className="flex items-start gap-3">
+                                <img
+                                  src={stop.imageUrl || BANNER_PLACEHOLDER}
+                                  alt={stop.title ? `${stop.title} preview` : "Stay preview"}
+                                  className="h-16 w-16 rounded-md border border-stone-200 object-cover"
+                                />
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p className="truncate text-sm font-semibold text-stone-800">
+                                    {stop.title || "Untitled stay"}
+                                  </p>
+                                  <p className="truncate text-xs text-stone-500">
+                                    {stop.location?.label || stop.location?.address || "Location not set"}
+                                  </p>
+                                  <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
+                                    {stop.notes || "No stay notes yet."}
+                                  </p>
+                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost: ${stop.cost}` : "No cost added"}</p>
+                                </div>
                               </div>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-stone-500">No stays added.</p>
-                    )}
-                  </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-stone-500">No stays added.</p>
+                      )}
+                    </div>
 
-                  <div>
-                    <p className="font-semibold text-stone-800">Activities ({previewActivities.length})</p>
-                    {previewActivities.length > 0 ? (
-                      <div className="mt-2 space-y-2">
-                        {previewActivities.map((stop) => (
-                          <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
-                            <div className="flex items-start gap-3">
-                              <img
-                                src={stop.imageUrl || BANNER_PLACEHOLDER}
-                                alt={stop.title ? `${stop.title} preview` : "Activity preview"}
-                                className="h-16 w-16 rounded-md border border-stone-200 object-cover"
-                              />
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <p className="truncate text-sm font-semibold text-stone-800">
-                                  {stop.title || "Untitled activity"}
-                                </p>
-                                <p className="truncate text-xs text-stone-500">
-                                  {stop.location?.label || stop.location?.address || "Location not set"}
-                                </p>
-                                <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
-                                  {stop.notes || "No activity notes yet."}
-                                </p>
-                                <p className="text-xs text-stone-500">{stop.cost ? `Cost: ${stop.cost}` : "No cost added"}</p>
+                    <div>
+                      <p className="font-semibold text-stone-800">Activities ({previewActivities.length})</p>
+                      {previewActivities.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {previewActivities.map((stop) => (
+                            <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
+                              <div className="flex items-start gap-3">
+                                <img
+                                  src={stop.imageUrl || BANNER_PLACEHOLDER}
+                                  alt={stop.title ? `${stop.title} preview` : "Activity preview"}
+                                  className="h-16 w-16 rounded-md border border-stone-200 object-cover"
+                                />
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p className="truncate text-sm font-semibold text-stone-800">
+                                    {stop.title || "Untitled activity"}
+                                  </p>
+                                  <p className="truncate text-xs text-stone-500">
+                                    {stop.location?.label || stop.location?.address || "Location not set"}
+                                  </p>
+                                  <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
+                                    {stop.notes || "No activity notes yet."}
+                                  </p>
+                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost: ${stop.cost}` : "No cost added"}</p>
+                                </div>
                               </div>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-stone-500">No activities added.</p>
-                    )}
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-stone-500">No activities added.</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

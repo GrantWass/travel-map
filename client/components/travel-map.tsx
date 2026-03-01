@@ -30,6 +30,7 @@ interface ProfileState {
     profile: UserProfile;
     expandFrom: "top-right" | "left";
     canManageTrips: boolean;
+    canEditProfile: boolean;
 }
 
 const REVIEW_PANEL_WIDTH = "min(483px, 100vw)";
@@ -161,7 +162,13 @@ export default function TravelMap() {
                     return;
                 }
 
-                setTrips(apiTrips.map(toMapTrip).filter((trip): trip is MapTrip => Boolean(trip)));
+                const now = new Date();
+                setTrips(
+                    apiTrips
+                        .map(toMapTrip)
+                        .filter((trip): trip is MapTrip => Boolean(trip))
+                        .filter((trip) => !trip.isPopup || (trip.eventEnd !== null && new Date(trip.eventEnd) > now)),
+                );
             } catch {
                 if (isMounted) {
                     setTrips([]);
@@ -230,6 +237,11 @@ export default function TravelMap() {
                     return;
                 }
 
+                // Don't open expired popups.
+                if (mappedTrip.isPopup && mappedTrip.eventEnd !== null && new Date(mappedTrip.eventEnd) <= new Date()) {
+                    return;
+                }
+
                 upsertTrip(mappedTrip);
                 if (requestId !== activeTripRequestIdRef.current) {
                     return;
@@ -273,6 +285,10 @@ export default function TravelMap() {
     }, []);
 
     const handleViewFull = useCallback((trip: MapTrip) => {
+        if (trip.isPopup) {
+            return;
+        }
+
         setFullScreenTrip(trip);
         setSelectedTrip(null);
         setSelectedActivity(null);
@@ -361,13 +377,15 @@ export default function TravelMap() {
 
     const openProfile = useCallback(
         async (targetUserId: number, expandFrom: "top-right" | "left") => {
-            const canManageTrips = userId !== null && targetUserId === userId;
+            const canManageTrips = userId !== null && targetUserId === userId && isStudent;
+            const canEditProfile = userId !== null && targetUserId === userId;
 
             if (userId !== null && targetUserId === userId && myProfile) {
                 setProfileState({
                     profile: toUserProfileFromApi(myProfile),
                     expandFrom,
                     canManageTrips,
+                    canEditProfile,
                 });
             }
 
@@ -377,6 +395,7 @@ export default function TravelMap() {
                     profile: cachedProfile,
                     expandFrom,
                     canManageTrips,
+                    canEditProfile,
                 });
             }
 
@@ -393,6 +412,7 @@ export default function TravelMap() {
                         profile: mappedOwnProfile,
                         expandFrom,
                         canManageTrips,
+                        canEditProfile,
                     });
                     return;
                 }
@@ -405,12 +425,13 @@ export default function TravelMap() {
                     profile: mappedProfile,
                     expandFrom,
                     canManageTrips,
+                    canEditProfile,
                 });
             } catch {
                 // Ignore profile lookup failures for now.
             }
         },
-        [myProfile, profileCacheByUser, refreshMyProfile, userId],
+        [isStudent, myProfile, profileCacheByUser, refreshMyProfile, userId],
     );
 
     const handleDeleteTrip = useCallback(
@@ -677,6 +698,7 @@ export default function TravelMap() {
                     profile={profileState.profile}
                     expandFrom={profileState.expandFrom}
                     canManageTrips={profileState.canManageTrips}
+                    canEditProfile={profileState.canEditProfile}
                     deletingTripId={deletingTripId}
                     onDeleteTrip={(tripId) => {
                         void handleDeleteTrip(tripId);
@@ -699,7 +721,8 @@ export default function TravelMap() {
                     router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
                 }}
                 onAddPopUp={() => {
-                    // Placeholder until pop-up feature is implemented.
+                    const returnTo = pathname || "/";
+                    router.push(`/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`);
                 }}
             />
 

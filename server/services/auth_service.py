@@ -13,6 +13,7 @@ from db import get_cursor
 AUTH_TOKEN_COOKIE_NAME = "travel_map_auth"
 AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30
 AUTH_TOKEN_ALGORITHM = "HS256"
+UNSET = object()
 
 
 def to_nullable_string(value: Any) -> str | None:
@@ -164,6 +165,50 @@ def update_profile(*, user_id: int, bio: str | None, college: str | None, profil
             WHERE user_id = %s
             """,
             (bio, college, profile_image_url, verified, user_id),
+        )
+
+    return get_user_by_id(user_id)
+
+
+def update_user_settings(
+    *,
+    user_id: int,
+    name: str | None | object = UNSET,
+    bio: str | None | object = UNSET,
+    college: str | None | object = UNSET,
+    profile_image_url: str | None | object = UNSET,
+) -> dict[str, Any] | None:
+    assignments: list[str] = []
+    values: list[Any] = []
+
+    if name is not UNSET:
+        assignments.append("name = %s")
+        values.append(name)
+
+    if bio is not UNSET:
+        assignments.append("bio = %s")
+        values.append(bio)
+
+    if college is not UNSET:
+        assignments.append("college = %s")
+        values.append(college)
+
+    if profile_image_url is not UNSET:
+        assignments.append("profile_image_url = %s")
+        values.append(profile_image_url)
+
+    if not assignments:
+        return get_user_by_id(user_id)
+
+    values.append(user_id)
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            f"""
+            UPDATE travelers
+            SET {", ".join(assignments)}
+            WHERE user_id = %s
+            """,
+            tuple(values),
         )
 
     return get_user_by_id(user_id)

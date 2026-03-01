@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request, session
 
-from services.auth_service import get_authenticated_user, to_nullable_string, update_profile
+from services.auth_service import UNSET, get_authenticated_user, to_nullable_string, update_profile, update_user_settings
 from services.trip_service import get_user_profile, list_user_trips
 
 profile_bp = Blueprint("profile", __name__)
@@ -72,3 +72,64 @@ def user_profile(user_id: int):
     except Exception as error:
         current_app.logger.exception("User profile lookup failed")
         return jsonify({"error": f"user profile lookup failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/profile/update", methods=["POST", "OPTIONS"])
+def update_profile_settings():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user(session)
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+
+        name: str | None | object = UNSET
+        if "name" in payload:
+            parsed_name = to_nullable_string(payload.get("name"))
+            if not parsed_name:
+                return jsonify({"error": "name is required"}), 400
+            name = parsed_name
+
+        bio: str | None | object = UNSET
+        if "bio" in payload:
+            bio = to_nullable_string(payload.get("bio"))
+
+        college: str | None | object = UNSET
+        if "college" in payload:
+            parsed_college = to_nullable_string(payload.get("college"))
+            if not parsed_college:
+                return jsonify({"error": "college is required"}), 400
+
+            if to_nullable_string(user.get("college")):
+                return jsonify({"error": "college is already set"}), 400
+            college = parsed_college
+
+        profile_image_url: str | None | object = UNSET
+        if "profile_image_url" in payload:
+            parsed_profile_image_url = to_nullable_string(payload.get("profile_image_url"))
+            if not parsed_profile_image_url:
+                return jsonify({"error": "profile_image_url is required"}), 400
+            profile_image_url = parsed_profile_image_url
+
+        if name is UNSET and bio is UNSET and college is UNSET and profile_image_url is UNSET:
+            return jsonify({"error": "no profile updates provided"}), 400
+
+        updated_user = update_user_settings(
+            user_id=user["user_id"],
+            name=name,
+            bio=bio,
+            college=college,
+            profile_image_url=profile_image_url,
+        )
+        if not updated_user:
+            return jsonify({"error": "user not found"}), 404
+
+        return jsonify({"message": "profile updated", "user": updated_user}), 200
+    except Exception as error:
+        current_app.logger.exception("Profile update failed")
+        return jsonify({"error": f"profile update failed: {str(error)}"}), 500

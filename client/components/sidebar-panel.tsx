@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { X, ArrowRight, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, User, BedDouble } from "lucide-react";
+import { X, ArrowRight, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer } from "lucide-react";
 import {
     type MapActivity,
     type MapLodging,
@@ -29,6 +29,23 @@ interface SidebarPanelProps {
     onShowNextTripAtLocation: () => void;
     canShowPreviousTripAtLocation: boolean;
     canShowNextTripAtLocation: boolean;
+}
+
+function formatPopupTimeRange(startIso: string, endIso: string): string {
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Time unavailable";
+
+    const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
+    const startTime = start.toLocaleTimeString("en-US", timeOpts);
+    const endTime = end.toLocaleTimeString("en-US", timeOpts);
+
+    const now = new Date();
+    const isToday = start.toDateString() === now.toDateString();
+    if (isToday) return `Today · ${startTime} – ${endTime}`;
+
+    const dateStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${dateStr} · ${startTime} – ${endTime}`;
 }
 
 function formatTripDate(value: string): string {
@@ -146,17 +163,24 @@ export default function SidebarPanel({
                             <User className="h-3.5 w-3.5" />
                             {review.author}
                         </button>
-                        <span className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatTripDate(review.date)}
-                        </span>
+                        {review.isPopup && review.eventStart && review.eventEnd ? (
+                            <span className="flex items-center gap-1.5 font-medium text-amber-700">
+                                <Timer className="h-3.5 w-3.5" />
+                                {formatPopupTimeRange(review.eventStart, review.eventEnd)}
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatTripDate(review.date)}
+                            </span>
+                        )}
                     </div>
 
                     {/* Summary */}
                     <p className="text-sm leading-relaxed text-foreground/80">{review.summary}</p>
 
-                    {/* Stays preview */}
-                    <div className="flex flex-col gap-3">
+                    {/* Stays preview — hidden for pop-up events */}
+                    {!review.isPopup && <div className="flex flex-col gap-3">
                         <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                             <BedDouble className="h-3.5 w-3.5" />
                             Places Stayed
@@ -188,10 +212,10 @@ export default function SidebarPanel({
                         ) : (
                             <p className="text-sm text-muted-foreground">No places stayed were added for this trip.</p>
                         )}
-                    </div>
+                    </div>}
 
-                    {/* Activities preview */}
-                    <div className="flex flex-col gap-3">
+                    {/* Activities preview — hidden for pop-up events */}
+                    {!review.isPopup && <div className="flex flex-col gap-3">
                         <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                             Activities
                         </h3>
@@ -227,16 +251,17 @@ export default function SidebarPanel({
                         ) : (
                             <p className="text-sm text-muted-foreground">No activities were added for this trip.</p>
                         )}
-                    </div>
+                    </div>}
 
-                    {/* View full button */}
-                    <button
-                        onClick={() => onViewFull(review)}
-                        className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-                    >
-                        View Full Review
-                        <ArrowRight className="h-4 w-4" />
-                    </button>
+                    {!review.isPopup && (
+                        <button
+                            onClick={() => onViewFull(review)}
+                            className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                        >
+                            View Full Review
+                            <ArrowRight className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
             </ScrollArea>
 

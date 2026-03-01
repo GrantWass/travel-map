@@ -3,6 +3,7 @@ import type {
   AddLodgingPayload,
   CreateTripPayload,
   SessionResponse,
+  SessionUser,
   Trip,
   UserProfileResponse,
 } from "@/lib/api-types";
@@ -105,7 +106,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getSession(): Promise<SessionResponse> {
-  if (shouldSkipSessionCheck()) {
+  // Safari cross-origin cookie checks can be flaky, but if we have a
+  // stored bearer token we should still validate the session via /me.
+  if (!readAuthToken() && shouldSkipSessionCheck()) {
     return { authenticated: false };
   }
 
@@ -130,6 +133,18 @@ export async function createProfileSetup(payload: {
   profile_image_url?: string;
 }) {
   return requestJson<{ message: string }>("/profile/setup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProfileSettings(payload: {
+  name?: string;
+  bio?: string;
+  college?: string;
+  profile_image_url?: string;
+}) {
+  return requestJson<{ message: string; user: SessionUser }>("/profile/update", {
     method: "POST",
     body: JSON.stringify(payload),
   });
