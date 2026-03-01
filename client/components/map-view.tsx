@@ -346,7 +346,6 @@ export default function MapView({
             width:${Math.round(size * 0.78)}px;height:${bodyHeight}px;
             border-radius:0 0 10px 10px;overflow:hidden;
             border:${isActive ? "3px solid #d4a055" : "2px solid #fff"};
-            box-shadow:0 4px 14px rgba(0,0,0,0.45);background:#111;
           ">
             <img
               src="${imageUrl}"

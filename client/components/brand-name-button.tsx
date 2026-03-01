@@ -5,7 +5,7 @@ import { APP_NAME, APP_NAME_DESCRIPTION } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 
 interface BrandNameButtonProps {
-    className?: string;
+    className?: string; 
     popupClassName?: string;
     popupPlacement?: "top" | "bottom";
 }
