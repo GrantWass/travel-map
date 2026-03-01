@@ -8,6 +8,36 @@ import type {
 } from "@/lib/api-types";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
+const AUTH_TOKEN_KEY = "travel-map.auth-token.v1";
+
+function readAuthToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.sessionStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (!token) {
+      window.sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      return;
+    }
+
+    window.sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function shouldSkipSessionCheck(): boolean {
   if (typeof window === "undefined") {
@@ -43,13 +73,20 @@ class ApiError extends Error {
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const authToken = readAuthToken();
+  if (authToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
+    headers,
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -126,9 +163,16 @@ export async function uploadImage(file: File, folder = "trips"): Promise<string>
   formData.append("file", file);
   formData.append("folder", folder);
 
+  const headers = new Headers();
+  const authToken = readAuthToken();
+  if (authToken) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}/uploads/images`, {
     method: "POST",
     credentials: "include",
+    headers,
     body: formData,
   });
 

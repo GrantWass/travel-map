@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { API_BASE_URL } from "@/lib/api-client";
+import { API_BASE_URL, setAuthToken } from "@/lib/api-client";
 import type { SessionUser } from "@/lib/api-types";
 
 type AccountType = "traveler" | "student";
@@ -41,6 +41,9 @@ export default function SignUpPage() {
             setError(data.error || "Invalid email or password");
             return null;
         }
+        if (typeof data?.auth_token === "string" && data.auth_token.trim()) {
+            setAuthToken(data.auth_token);
+        }
         if (!data?.user || typeof data.user.user_id !== "number") {
             setError("Login succeeded but user session data is missing.");
             return null;
@@ -65,6 +68,9 @@ export default function SignUpPage() {
                 if (!response.ok) {
                     setError(data.error || "Could not create account");
                     return;
+                }
+                if (typeof data?.auth_token === "string" && data.auth_token.trim()) {
+                    setAuthToken(data.auth_token);
                 }
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;

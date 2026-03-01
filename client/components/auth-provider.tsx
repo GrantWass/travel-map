@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { ApiError, getSession, getUserProfile, logoutSession } from "@/lib/api-client";
+import { ApiError, getSession, getUserProfile, logoutSession, setAuthToken } from "@/lib/api-client";
 import type { SessionUser, UserProfileResponse } from "@/lib/api-types";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -87,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setStatus("unauthenticated");
         setMyProfile(null);
+        setAuthToken(null);
         writeCachedJson(SESSION_CACHE_KEY, null);
         writeCachedJson(PROFILE_CACHE_KEY, null);
     }, []);
