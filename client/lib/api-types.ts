@@ -61,11 +61,11 @@ export interface TripActivity {
 
 export interface Trip {
   trip_id: number;
-  thumbnail_url: string | null;
+  thumbnail_url: string;
   title: string;
   description: string | null;
-  latitude: number | null;
-  longitude: number | null;
+  latitude: number;
+  longitude: number;
   cost: number | null;
   duration: string | null;
   date: string | null;

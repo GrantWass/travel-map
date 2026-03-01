@@ -5,55 +5,53 @@ import { ArrowLeft, BedDouble, Calendar, MapPin, Notebook, User } from "lucide-r
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { type MapActivity, type MapLodging, type MapTrip } from "@/lib/trip-models";
+import { useTripMapStore } from "@/stores/trip-map-store";
+import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 
 interface FullScreenReviewProps {
-    review: MapTrip;
-    selectedActivity: MapActivity | null;
-    selectedLodging: MapLodging | null;
+    review: Trip;
     onBack: () => void;
-    onSelectActivity: (activity: MapActivity | null) => void;
-    onSelectLodging: (lodging: MapLodging | null) => void;
     onOpenAuthorProfile: (userId: number) => void;
     savedActivityIds: ReadonlySet<number>;
     savedLodgingIds: ReadonlySet<number>;
-    onToggleSavedActivity: (tripId: number, activity: MapActivity) => void;
-    onToggleSavedLodging: (tripId: number, lodging: MapLodging) => void;
+    onToggleSavedActivity: (tripId: number, activity: TripActivity) => void;
+    onToggleSavedLodging: (tripId: number, lodging: TripLodging) => void;
 }
 
 export default function FullScreenReview({
     review,
-    selectedActivity,
-    selectedLodging,
     onBack,
-    onSelectActivity,
-    onSelectLodging,
     onOpenAuthorProfile,
     savedActivityIds,
     savedLodgingIds,
     onToggleSavedActivity,
     onToggleSavedLodging,
 }: FullScreenReviewProps) {
+    const selectedActivity = useTripMapStore((state) => state.selectedActivity);
+    const selectedLodging = useTripMapStore((state) => state.selectedLodging);
+    const setSelectedActivity = useTripMapStore((state) => state.setSelectedActivity);
+    const setSelectedLodging = useTripMapStore((state) => state.setSelectedLodging);
+
     const fabSaved = selectedActivity
-        ? savedActivityIds.has(selectedActivity.id)
+        ? savedActivityIds.has(selectedActivity.activity_id)
         : selectedLodging
-          ? savedLodgingIds.has(selectedLodging.id)
+          ? savedLodgingIds.has(selectedLodging.lodge_id)
           : false;
 
     const fabVisible = selectedActivity !== null || selectedLodging !== null;
 
     function handleFabClick() {
         if (selectedActivity) {
-            onToggleSavedActivity(review.id, selectedActivity);
+            onToggleSavedActivity(review.trip_id, selectedActivity);
         } else if (selectedLodging) {
-            onToggleSavedLodging(review.id, selectedLodging);
+            onToggleSavedLodging(review.trip_id, selectedLodging);
         }
     }
 
     return (
         <div className="relative flex h-full w-full flex-col border-r border-border bg-card">
             <div className="relative h-56 flex-shrink-0">
-                <Image src={review.thumbnail} alt={review.title} fill className="object-cover" priority />
+                <Image src={review.thumbnail_url} alt={review.title} fill className="object-cover" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                 <button
                     onClick={onBack}
@@ -71,11 +69,11 @@ export default function FullScreenReview({
                 <div className="flex flex-col gap-6 p-5 pb-20">
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <button
-                            onClick={() => onOpenAuthorProfile(review.ownerUserId)}
+                            onClick={() => onOpenAuthorProfile(review.owner_user_id)}
                             className="flex items-center gap-1.5 transition-colors hover:text-foreground"
                         >
                             <User className="h-3.5 w-3.5" />
-                            {review.author}
+                            {review.owner.name || "Unknown traveler"}
                         </button>
                         <span className="flex items-center gap-1.5">
                             <Calendar className="h-3.5 w-3.5" />
@@ -100,11 +98,11 @@ export default function FullScreenReview({
                             review.lodgings.map((lodging) => (
                                 <button
                                     type="button"
-                                    key={lodging.id}
-                                    onClick={() => onSelectLodging(selectedLodging?.id === lodging.id ? null : lodging)}
+                                    key={lodging.lodge_id}
+                                    onClick={() => setSelectedLodging(selectedLodging?.lodge_id === lodging.lodge_id ? null : lodging)}
                                     className={cn(
                                         "w-full rounded-xl border p-3 text-left transition-colors",
-                                        selectedLodging?.id === lodging.id
+                                        selectedLodging?.lodge_id === lodging.lodge_id
                                             ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
                                             : "border-border bg-secondary/30 hover:bg-secondary/50",
                                     )}
@@ -112,8 +110,8 @@ export default function FullScreenReview({
                                     <div className="grid gap-3 sm:grid-cols-[8rem,1fr]">
                                         <div className="relative h-28 w-full overflow-hidden rounded-lg sm:h-24">
                                             <Image
-                                                src={lodging.image}
-                                                alt={lodging.title}
+                                                src={lodging.thumbnail_url || ""}
+                                                alt={lodging.title || "Lodging"}
                                                 fill
                                                 className="object-cover"
                                             />
@@ -143,14 +141,14 @@ export default function FullScreenReview({
                         {review.activities.length > 0 ? (
                             review.activities.map((activity) => (
                                 <button
-                                    key={activity.id}
+                                    key={activity.activity_id}
                                     type="button"
                                     onClick={() =>
-                                        onSelectActivity(selectedActivity?.id === activity.id ? null : activity)
+                                        setSelectedActivity(selectedActivity?.activity_id === activity.activity_id ? null : activity)
                                     }
                                     className={cn(
                                         "w-full rounded-xl border p-3 text-left transition-colors",
-                                        selectedActivity?.id === activity.id
+                                        selectedActivity?.activity_id === activity.activity_id
                                             ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
                                             : "border-border bg-secondary/40 hover:bg-secondary/70",
                                     )}
@@ -158,8 +156,8 @@ export default function FullScreenReview({
                                     <div className="flex flex-col gap-3">
                                         <div className="relative h-40 w-full overflow-hidden rounded-lg">
                                             <Image
-                                                src={activity.image}
-                                                alt={activity.title}
+                                                src={activity.thumbnail_url || ""}
+                                                alt={activity.title || "Activity"}
                                                 fill
                                                 className="object-cover"
                                             />

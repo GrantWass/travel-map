@@ -63,7 +63,7 @@ export default function PlansSidebarPanel({
                     Activities ({savedActivities.length})
                   </p>
                   {savedActivities.map((entry) => (
-                    <div key={entry.activity.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3">
+                    <div key={entry.activity.activity_id} className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3">
                       <button
                         type="button"
                         onClick={() => onOpenTrip(entry.tripId)}
@@ -71,8 +71,8 @@ export default function PlansSidebarPanel({
                       >
                         <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
                           <Image
-                            src={entry.activity.image || entry.tripThumbnail}
-                            alt={entry.activity.title}
+                            src={entry.activity.thumbnail_url || entry.tripThumbnail}
+                            alt={entry.activity.title || "Activity"}
                             fill
                             className="object-cover"
                           />
@@ -88,7 +88,7 @@ export default function PlansSidebarPanel({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onToggleSavedActivity(entry.activity.id)}
+                        onClick={() => onToggleSavedActivity(entry.activity.activity_id)}
                         className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary transition-colors hover:bg-primary/20"
                         aria-label="Remove from plans"
                         title="Remove from plans"
@@ -106,7 +106,7 @@ export default function PlansSidebarPanel({
                     Places Stayed ({savedLodgings.length})
                   </p>
                   {savedLodgings.map((entry) => (
-                    <div key={entry.lodging.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3">
+                    <div key={entry.lodging.lodge_id} className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3">
                       <button
                         type="button"
                         onClick={() => onOpenTrip(entry.tripId)}
@@ -114,8 +114,8 @@ export default function PlansSidebarPanel({
                       >
                         <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
                           <Image
-                            src={entry.lodging.image || entry.tripThumbnail}
-                            alt={entry.lodging.title}
+                            src={entry.lodging.thumbnail_url || entry.tripThumbnail}
+                            alt={entry.lodging.title || "Lodging"}
                             fill
                             className="object-cover"
                           />
@@ -131,7 +131,7 @@ export default function PlansSidebarPanel({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onToggleSavedLodging(entry.lodging.id)}
+                        onClick={() => onToggleSavedLodging(entry.lodging.lodge_id)}
                         className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary transition-colors hover:bg-primary/20"
                         aria-label="Remove from plans"
                         title="Remove from plans"

@@ -4,17 +4,11 @@ import { useCallback, useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import type { MapActivity, MapLodging, MapTrip } from "@/lib/trip-models";
+import { useTripMapStore } from "@/stores/trip-map-store";
+import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 
 interface MapViewProps {
-    trips: MapTrip[];
-    selectedTrip: MapTrip | null;
-    fullScreenTrip: MapTrip | null;
-    selectedActivity: MapActivity | null;
-    selectedLodging: MapLodging | null;
     onSelectTripById: (tripId: number | null) => void;
-    onSelectActivity: (activity: MapActivity | null) => void;
-    onSelectLodging: (lodging: MapLodging | null) => void;
 }
 
 const MARKER_FALLBACK_IMAGE = "/images/nyc.jpg";
@@ -34,9 +28,9 @@ interface StoredMapView {
 }
 
 function hasCoordinates(
-    value: Pick<MapActivity, "lat" | "lng"> | Pick<MapLodging, "lat" | "lng">,
-): value is { lat: number; lng: number } {
-    return typeof value.lat === "number" && typeof value.lng === "number";
+    value: Pick<TripActivity, "latitude" | "longitude"> | Pick<TripLodging, "latitude" | "longitude">,
+): value is { latitude: number; longitude: number } {
+    return typeof value.latitude === "number" && typeof value.longitude === "number";
 }
 
 function escapeHtml(value: string): string {
@@ -101,16 +95,16 @@ function getLocationKey(lat: number, lng: number): string {
     return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
 }
 
-function getTripTimestamp(dateValue: string): number {
-    const timestamp = Date.parse(dateValue);
+function getTripTimestamp(dateValue: string | null | undefined): number {
+    const timestamp = Date.parse(dateValue ?? "");
     return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function getMostRecentTripsByLocation(trips: MapTrip[]): MapTrip[] {
-    const mostRecentByLocation = new Map<string, MapTrip>();
+function getMostRecentTripsByLocation(trips: Trip[]): Trip[] {
+    const mostRecentByLocation = new Map<string, Trip>();
 
     for (const trip of trips) {
-        const key = getLocationKey(trip.lat, trip.lng);
+        const key = getLocationKey(trip.latitude, trip.longitude);
         const current = mostRecentByLocation.get(key);
         if (!current || getTripTimestamp(trip.date) > getTripTimestamp(current.date)) {
             mostRecentByLocation.set(key, trip);
@@ -121,25 +115,26 @@ function getMostRecentTripsByLocation(trips: MapTrip[]): MapTrip[] {
 }
 
 export default function MapView({
-    trips,
-    selectedTrip,
-    fullScreenTrip,
-    selectedActivity,
-    selectedLodging,
     onSelectTripById,
-    onSelectActivity,
-    onSelectLodging,
 }: MapViewProps) {
+    const trips = useTripMapStore((state) => state.trips);
+    const selectedTrip = useTripMapStore((state) => state.selectedTrip);
+    const fullScreenTrip = useTripMapStore((state) => state.fullScreenTrip);
+    const selectedActivity = useTripMapStore((state) => state.selectedActivity);
+    const selectedLodging = useTripMapStore((state) => state.selectedLodging);
+    const setSelectedActivity = useTripMapStore((state) => state.setSelectedActivity);
+    const setSelectedLodging = useTripMapStore((state) => state.setSelectedLodging);
+
     const mapRef = useRef<L.Map | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const tripMarkersRef = useRef<L.Marker[]>([]);
     const detailMarkersRef = useRef<L.Marker[]>([]);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
     const lastFocusedDetailKeyRef = useRef<string | null>(null);
-    const selectedTripRef = useRef<MapTrip | null>(null);
-    const fullScreenTripRef = useRef<MapTrip | null>(null);
-    const selectedActivityRef = useRef<MapActivity | null>(null);
-    const selectedLodgingRef = useRef<MapLodging | null>(null);
+    const selectedTripRef = useRef<Trip | null>(null);
+    const fullScreenTripRef = useRef<Trip | null>(null);
+    const selectedActivityRef = useRef<TripActivity | null>(null);
+    const selectedLodgingRef = useRef<TripLodging | null>(null);
     useEffect(() => {
         selectedTripRef.current = selectedTrip;
     }, [selectedTrip]);
@@ -254,12 +249,12 @@ export default function MapView({
         };
     }, []);
 
-    const createTripIcon = useCallback((trip: MapTrip, isActive: boolean): L.DivIcon => {
+    const createTripIcon = useCallback((trip: Trip, isActive: boolean): L.DivIcon => {
         const size = isActive ? 80 : 64;
         const safeAltTitle = escapeHtml(trip.title);
         const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
-        const imageUrl = trip.thumbnail || MARKER_FALLBACK_IMAGE;
-        const popupBadge = trip.isPopup
+        const imageUrl = trip.thumbnail_url || MARKER_FALLBACK_IMAGE;
+        const popupBadge = trip.event_end && trip.event_start
             ? `<div style="
                 position:absolute;top:4px;right:4px;
                 width:24px;height:24px;border-radius:50%;
@@ -298,10 +293,10 @@ export default function MapView({
         });
     }, []);
 
-    const createActivityIcon = useCallback((activity: MapActivity, isActive: boolean): L.DivIcon => {
+    const createActivityIcon = useCallback((activity: TripActivity, isActive: boolean): L.DivIcon => {
         const size = isActive ? 80 : 65;
-        const safeTitle = escapeHtml(activity.title);
-        const imageUrl = activity.image || MARKER_FALLBACK_IMAGE;
+        const safeTitle = escapeHtml(activity.title || "Activity");
+        const imageUrl = activity.thumbnail_url || MARKER_FALLBACK_IMAGE;
         return L.divIcon({
             className: "activity-marker",
             html: `
@@ -323,12 +318,12 @@ export default function MapView({
         });
     }, []);
 
-    const createLodgingIcon = useCallback((lodging: MapLodging, isActive: boolean): L.DivIcon => {
+    const createLodgingIcon = useCallback((lodging: TripLodging, isActive: boolean): L.DivIcon => {
         const size = isActive ? 80 : 65;
         const roofHeight = Math.round(size * 0.34);
         const bodyHeight = size - roofHeight;
-        const safeTitle = escapeHtml(lodging.title);
-        const imageUrl = lodging.image || MARKER_FALLBACK_IMAGE;
+        const safeTitle = escapeHtml(lodging.title || "Lodging");
+        const imageUrl = lodging.thumbnail_url || MARKER_FALLBACK_IMAGE;
         return L.divIcon({
             className: "lodging-marker",
             html: `
@@ -372,25 +367,25 @@ export default function MapView({
 
         const mostRecentTrips = getMostRecentTripsByLocation(trips);
         if (fullScreenTrip) {
-            const fullScreenKey = getLocationKey(fullScreenTrip.lat, fullScreenTrip.lng);
+            const fullScreenKey = getLocationKey(fullScreenTrip.latitude, fullScreenTrip.longitude);
             const representative =
-                mostRecentTrips.find((trip) => getLocationKey(trip.lat, trip.lng) === fullScreenKey) ?? fullScreenTrip;
-            const marker = L.marker([representative.lat, representative.lng], {
+                mostRecentTrips.find((trip) => getLocationKey(trip.latitude, trip.longitude) === fullScreenKey) ?? fullScreenTrip;
+            const marker = L.marker([representative.latitude, representative.longitude], {
                 icon: createTripIcon(representative, true),
             }).addTo(map);
             tripMarkersRef.current.push(marker);
             return;
         }
 
-        const selectedLocationKey = selectedTrip ? getLocationKey(selectedTrip.lat, selectedTrip.lng) : null;
+        const selectedLocationKey = selectedTrip ? getLocationKey(selectedTrip.latitude, selectedTrip.longitude) : null;
         for (const trip of mostRecentTrips) {
-            const tripLocationKey = getLocationKey(trip.lat, trip.lng);
+            const tripLocationKey = getLocationKey(trip.latitude, trip.longitude);
             const isActive = selectedLocationKey !== null && selectedLocationKey === tripLocationKey;
-            const marker = L.marker([trip.lat, trip.lng], {
+            const marker = L.marker([trip.latitude, trip.longitude], {
                 icon: createTripIcon(trip, isActive),
             })
                 .addTo(map)
-                .on("click", () => onSelectTripById(trip.id));
+                .on("click", () => onSelectTripById(trip.trip_id));
             tripMarkersRef.current.push(marker);
         }
     }, [trips, selectedTrip, fullScreenTrip, createTripIcon, onSelectTripById]);
@@ -409,34 +404,34 @@ export default function MapView({
             return;
         }
 
-        const tripLocationKey = getLocationKey(focusTrip.lat, focusTrip.lng);
+        const tripLocationKey = getLocationKey(focusTrip.latitude, focusTrip.longitude);
 
         for (const activity of focusTrip.activities) {
             if (!hasCoordinates(activity)) continue;
-            if (getLocationKey(activity.lat, activity.lng) === tripLocationKey) continue;
-            const marker = L.marker([activity.lat, activity.lng], {
-                icon: createActivityIcon(activity, selectedActivity?.id === activity.id),
+            if (getLocationKey(activity.latitude, activity.longitude) === tripLocationKey) continue;
+            const marker = L.marker([activity.latitude, activity.longitude], {
+                icon: createActivityIcon(activity, selectedActivity?.activity_id === activity.activity_id),
             })
                 .addTo(map)
                 .on("click", () => {
-                    onSelectActivity(activity);
-                    onSelectLodging(null);
-                    map.flyTo([activity.lat, activity.lng], DETAIL_ZOOM, { duration: 0.9 });
+                    setSelectedActivity(activity);
+                    setSelectedLodging(null);
+                    map.flyTo([activity.latitude, activity.longitude], DETAIL_ZOOM, { duration: 0.9 });
                 });
             detailMarkersRef.current.push(marker);
         }
 
         for (const lodging of focusTrip.lodgings) {
             if (!hasCoordinates(lodging)) continue;
-            if (getLocationKey(lodging.lat, lodging.lng) === tripLocationKey) continue;
-            const marker = L.marker([lodging.lat, lodging.lng], {
-                icon: createLodgingIcon(lodging, selectedLodging?.id === lodging.id),
+            if (getLocationKey(lodging.latitude, lodging.longitude) === tripLocationKey) continue;
+            const marker = L.marker([lodging.latitude, lodging.longitude], {
+                icon: createLodgingIcon(lodging, selectedLodging?.lodge_id === lodging.lodge_id),
             })
                 .addTo(map)
                 .on("click", () => {
-                    onSelectActivity(null);
-                    onSelectLodging(lodging);
-                    map.flyTo([lodging.lat, lodging.lng], DETAIL_ZOOM, { duration: 0.9 });
+                    setSelectedActivity(null);
+                    setSelectedLodging(lodging);
+                    map.flyTo([lodging.latitude, lodging.longitude], DETAIL_ZOOM, { duration: 0.9 });
                 });
             detailMarkersRef.current.push(marker);
         }
@@ -447,8 +442,8 @@ export default function MapView({
         selectedLodging,
         createActivityIcon,
         createLodgingIcon,
-        onSelectActivity,
-        onSelectLodging,
+        setSelectedActivity,
+        setSelectedLodging,
     ]);
 
     useEffect(() => {
@@ -462,13 +457,13 @@ export default function MapView({
             return;
         }
 
-        const locationKey = getLocationKey(selectedTrip.lat, selectedTrip.lng);
+        const locationKey = getLocationKey(selectedTrip.latitude, selectedTrip.longitude);
         if (lastFocusedLocationKeyRef.current === locationKey) {
             return;
         }
 
         lastFocusedLocationKeyRef.current = locationKey;
-        map.flyTo([selectedTrip.lat, selectedTrip.lng], SELECTED_REVIEW_ZOOM, { duration: 1.1 });
+        map.flyTo([selectedTrip.latitude, selectedTrip.longitude], SELECTED_REVIEW_ZOOM, { duration: 1.1 });
     }, [selectedTrip, fullScreenTrip]);
 
     useEffect(() => {
@@ -477,14 +472,14 @@ export default function MapView({
             return;
         }
 
-        const points: [number, number][] = [[fullScreenTrip.lat, fullScreenTrip.lng]];
+        const points: [number, number][] = [[fullScreenTrip.latitude, fullScreenTrip.longitude]];
         fullScreenTrip.activities.forEach((activity) => {
             if (!hasCoordinates(activity)) return;
-            points.push([activity.lat, activity.lng]);
+            points.push([activity.latitude, activity.longitude]);
         });
         fullScreenTrip.lodgings.forEach((lodging) => {
             if (!hasCoordinates(lodging)) return;
-            points.push([lodging.lat, lodging.lng]);
+            points.push([lodging.latitude, lodging.longitude]);
         });
 
         const bounds = L.latLngBounds(points);
@@ -509,22 +504,22 @@ export default function MapView({
         }
 
         if (selectedActivity) {
-            const key = `activity:${selectedActivity.id}`;
+            const key = `activity:${selectedActivity.activity_id}`;
             if (lastFocusedDetailKeyRef.current !== key) {
                 lastFocusedDetailKeyRef.current = key;
                 if (hasCoordinates(selectedActivity)) {
-                    map.flyTo([selectedActivity.lat, selectedActivity.lng], DETAIL_ZOOM, { duration: 0.8 });
+                    map.flyTo([selectedActivity.latitude, selectedActivity.longitude], DETAIL_ZOOM, { duration: 0.8 });
                 }
             }
             return;
         }
 
         if (selectedLodging) {
-            const key = `lodging:${selectedLodging.id}`;
+            const key = `lodging:${selectedLodging.lodge_id}`;
             if (lastFocusedDetailKeyRef.current !== key) {
                 lastFocusedDetailKeyRef.current = key;
                 if (hasCoordinates(selectedLodging)) {
-                    map.flyTo([selectedLodging.lat, selectedLodging.lng], DETAIL_ZOOM, { duration: 0.8 });
+                    map.flyTo([selectedLodging.latitude, selectedLodging.longitude], DETAIL_ZOOM, { duration: 0.8 });
                 }
             }
             return;

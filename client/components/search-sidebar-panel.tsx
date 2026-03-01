@@ -5,20 +5,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
-import type { MapActivity, MapLodging, MapTrip } from "@/lib/trip-models";
+import type { TripActivity, TripLodging, Trip} from "@/lib/api-types";
 
 const MAX_COST = 500;
 const MAX_VISIBLE_TAGS = 15;
 
 interface SearchResult {
-    trip: MapTrip;
-    matchedActivities: MapActivity[];
-    matchedLodgings: MapLodging[];
+    trip: Trip;
+    matchedActivities: TripActivity[];
+    matchedLodgings: TripLodging[];
 }
 
 interface SearchSidebarPanelProps {
     query: string;
-    trips: MapTrip[];
+    trips: Trip[];
     onQueryChange: (value: string) => void;
     onClose: () => void;
     onSelectTrip: (tripId: number) => void;
@@ -67,20 +67,20 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
             }
 
             const tripMatches =
-                trip.title.toLowerCase().includes(q) || trip.author.toLowerCase().includes(q);
+                trip.title.toLowerCase().includes(q) || trip.owner?.name?.toLowerCase().includes(q);
 
             const matchedActivities = trip.activities.filter(
                 (a) =>
-                    a.title.toLowerCase().includes(q) ||
-                    a.address.toLowerCase().includes(q) ||
-                    a.description.toLowerCase().includes(q),
+                    a?.title?.toLowerCase().includes(q) ||
+                    a?.address?.toLowerCase().includes(q) ||
+                    a?.description?.toLowerCase().includes(q),
             );
 
             const matchedLodgings = trip.lodgings.filter(
                 (l) =>
-                    l.title.toLowerCase().includes(q) ||
-                    l.address.toLowerCase().includes(q) ||
-                    l.description.toLowerCase().includes(q),
+                    l?.title?.toLowerCase().includes(q) ||
+                    l?.address?.toLowerCase().includes(q) ||
+                    l?.description?.toLowerCase().includes(q),
             );
 
             if (tripMatches || matchedActivities.length > 0 || matchedLodgings.length > 0) {
@@ -219,21 +219,21 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                             searchResults.map(({ trip, matchedActivities, matchedLodgings }) => {
                                 const hasSubItems = matchedActivities.length > 0 || matchedLodgings.length > 0;
                                 return (
-                                    <div key={trip.id} className="flex flex-col gap-1">
+                                    <div key={trip.trip_id} className="flex flex-col gap-1">
                                         {/* Trip row */}
                                         <button
                                             type="button"
-                                            onClick={() => onSelectTrip(trip.id)}
+                                            onClick={() => onSelectTrip(trip.trip_id)}
                                             className="flex w-full items-center gap-3 rounded-lg bg-secondary/40 p-3 text-left transition-colors hover:bg-secondary/70 active:bg-secondary"
                                         >
                                             <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                <Image src={trip.thumbnail} alt={trip.title} fill className="object-cover" />
+                                                <Image src={trip.thumbnail_url} alt={trip.title} fill className="object-cover" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-foreground">{trip.title}</p>
                                                 <p className="flex items-center gap-1 text-xs text-muted-foreground">
                                                     <User className="h-3 w-3 flex-shrink-0" />
-                                                    <span className="truncate">{trip.author}</span>
+                                                    <span className="truncate">{trip.owner?.name}</span>
                                                 </p>
                                                 {(trip.cost !== null || trip.tags.length > 0) && (
                                                     <div className="mt-0.5 flex items-center gap-2">
@@ -255,13 +255,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                             <div className="ml-4 flex flex-col gap-1 border-l-2 border-border pl-3">
                                                 {matchedActivities.map((activity) => (
                                                     <button
-                                                        key={`activity-${activity.id}`}
+                                                        key={`activity-${activity.activity_id}`}
                                                         type="button"
-                                                        onClick={() => onSelectTrip(trip.id)}
+                                                        onClick={() => onSelectTrip(trip.trip_id)}
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={activity.image} alt={activity.title} fill className="object-cover" />
+                                                            <Image src={activity.thumbnail_url || ""} alt={activity.title || "Activity"} fill className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{activity.title}</p>
@@ -274,13 +274,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                 ))}
                                                 {matchedLodgings.map((lodging) => (
                                                     <button
-                                                        key={`lodging-${lodging.id}`}
+                                                        key={`lodging-${lodging.lodge_id}`}
                                                         type="button"
-                                                        onClick={() => onSelectTrip(trip.id)}
+                                                        onClick={() => onSelectTrip(trip.trip_id)}
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={lodging.image} alt={lodging.title} fill className="object-cover" />
+                                                            <Image src={lodging.thumbnail_url || ""} alt={lodging.title || "Lodging"} fill className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{lodging.title}</p>

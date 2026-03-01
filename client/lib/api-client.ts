@@ -7,6 +7,7 @@ import type {
   Trip,
   UserProfileResponse,
 } from "@/lib/api-types";
+import { toDisplayDate } from "@/lib/trip-models";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 const AUTH_TOKEN_KEY = "travel-map.auth-token.v1";
@@ -155,9 +156,20 @@ export async function getTrips(): Promise<Trip[]> {
   return data.trips;
 }
 
+const PLACEHOLDER_IMAGE =
+  "https://images.unsplash.com/photo-1488085061387-422e29b40080?auto=format&fit=crop&w=1200&q=80";
+
 export async function getTrip(tripId: number): Promise<Trip> {
   const data = await requestJson<{ trip: Trip }>(`/trips/${tripId}`, { method: "GET" });
-  return data.trip;
+
+  const trip = {
+    ...data.trip,
+    date: toDisplayDate(data.trip.date),
+    description: data.trip.description || "No trip description yet.",
+    thumbnail_url: data.trip.thumbnail_url || PLACEHOLDER_IMAGE,
+  };
+  return trip;
+
 }
 
 export async function getMyTrips(): Promise<Trip[]> {

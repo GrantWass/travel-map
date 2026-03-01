@@ -2,27 +2,20 @@
 
 import Image from "next/image";
 import { X, ArrowRight, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer } from "lucide-react";
-import {
-    type MapActivity,
-    type MapLodging,
-    type MapTrip,
-} from "@/lib/trip-models";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useTripMapStore } from "@/stores/trip-map-store";
+import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 
 interface SidebarPanelProps {
-    review: MapTrip;
+    review: Trip;
     onClose: () => void;
-    onViewFull: (trip: MapTrip) => void;
+    onViewFull: (trip: Trip) => void;
     onOpenAuthorProfile: (userId: number) => void;
     savedActivityIds: ReadonlySet<number>;
     savedLodgingIds: ReadonlySet<number>;
-    onToggleSavedActivity: (tripId: number, activity: MapActivity) => void;
-    onToggleSavedLodging: (tripId: number, lodging: MapLodging) => void;
-    selectedActivityId: number | null;
-    selectedLodgingId: number | null;
-    onSelectActivity: (activity: MapActivity | null) => void;
-    onSelectLodging: (lodging: MapLodging | null) => void;
+    onToggleSavedActivity: (tripId: number, activity: TripActivity) => void;
+    onToggleSavedLodging: (tripId: number, lodging: TripLodging) => void;
     locationTripCount: number;
     locationTripPosition: number;
     onShowPreviousTripAtLocation: () => void;
@@ -78,10 +71,6 @@ export default function SidebarPanel({
     savedLodgingIds,
     onToggleSavedActivity,
     onToggleSavedLodging,
-    selectedActivityId,
-    selectedLodgingId,
-    onSelectActivity,
-    onSelectLodging,
     locationTripCount,
     locationTripPosition,
     onShowPreviousTripAtLocation,
@@ -89,22 +78,29 @@ export default function SidebarPanel({
     canShowPreviousTripAtLocation,
     canShowNextTripAtLocation,
 }: SidebarPanelProps) {
-    const fabActivity = review.activities.find((a) => a.id === selectedActivityId) ?? null;
-    const fabLodging = !fabActivity ? (review.lodgings.find((l) => l.id === selectedLodgingId) ?? null) : null;
+    const selectedActivity = useTripMapStore((state) => state.selectedActivity);
+    const selectedLodging = useTripMapStore((state) => state.selectedLodging);
+    const setSelectedActivity = useTripMapStore((state) => state.setSelectedActivity);
+    const setSelectedLodging = useTripMapStore((state) => state.setSelectedLodging);
+    const selectedActivityId = selectedActivity?.activity_id ?? null;
+    const selectedLodgingId = selectedLodging?.lodge_id ?? null;
+
+    const fabActivity = review.activities.find((a) => a.activity_id === selectedActivityId) ?? null;
+    const fabLodging = !fabActivity ? (review.lodgings.find((l) => l.lodge_id === selectedLodgingId) ?? null) : null;
 
     const fabSaved = fabActivity
-        ? savedActivityIds.has(fabActivity.id)
+        ? savedActivityIds.has(fabActivity.activity_id)
         : fabLodging
-          ? savedLodgingIds.has(fabLodging.id)
+          ? savedLodgingIds.has(fabLodging.lodge_id)
           : false;
 
     const fabVisible = fabActivity !== null || fabLodging !== null;
 
     function handleFabClick() {
         if (fabActivity) {
-            onToggleSavedActivity(review.id, fabActivity);
+            onToggleSavedActivity(review.trip_id, fabActivity);
         } else if (fabLodging) {
-            onToggleSavedLodging(review.id, fabLodging);
+            onToggleSavedLodging(review.trip_id, fabLodging);
         }
     }
 
@@ -112,7 +108,7 @@ export default function SidebarPanel({
         <div className="relative flex h-full w-full flex-col bg-card border-r border-border">
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
-                <Image src={review.thumbnail} alt={review.title} fill className="object-cover" />
+                <Image src={review.thumbnail_url} alt={review.title} fill className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 {locationTripCount > 1 && (
                     <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm">
@@ -157,30 +153,32 @@ export default function SidebarPanel({
                     {/* Meta */}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <button
-                            onClick={() => onOpenAuthorProfile(review.ownerUserId)}
+                            onClick={() => onOpenAuthorProfile(review.owner_user_id)}
                             className="flex items-center gap-1.5 hover:text-foreground transition-colors"
                         >
                             <User className="h-3.5 w-3.5" />
-                            {review.author}
+                            {review.owner.name || "Unknown traveler"}
                         </button>
-                        {review.isPopup && review.eventStart && review.eventEnd ? (
+                        {review.event_start && review.event_end ? (
                             <span className="flex items-center gap-1.5 font-medium text-amber-700">
                                 <Timer className="h-3.5 w-3.5" />
-                                {formatPopupTimeRange(review.eventStart, review.eventEnd)}
+                                {formatPopupTimeRange(review.event_start, review.event_end)}
                             </span>
                         ) : (
+                            (review.date && 
                             <span className="flex items-center gap-1.5">
                                 <Calendar className="h-3.5 w-3.5" />
                                 {formatTripDate(review.date)}
                             </span>
+                            )
                         )}
                     </div>
 
                     {/* Summary */}
-                    <p className="text-sm leading-relaxed text-foreground/80">{review.summary}</p>
+                    <p className="text-sm leading-relaxed text-foreground/80">{review.description}</p>
 
                     {/* Stays preview — hidden for pop-up events */}
-                    {!review.isPopup && <div className="flex flex-col gap-3">
+                    {!(review.event_end && review.event_start) && <div className="flex flex-col gap-3">
                         <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                             <BedDouble className="h-3.5 w-3.5" />
                             Places Stayed
@@ -189,17 +187,17 @@ export default function SidebarPanel({
                             review.lodgings.map((lodging) => (
                                 <button
                                     type="button"
-                                    key={lodging.id}
-                                    onClick={() => onSelectLodging(selectedLodgingId === lodging.id ? null : lodging)}
+                                    key={lodging.lodge_id}
+                                    onClick={() => setSelectedLodging(selectedLodgingId === lodging.lodge_id ? null : lodging)}
                                     className={cn(
                                         "flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors",
-                                        selectedLodgingId === lodging.id
+                                        selectedLodgingId === lodging.lodge_id
                                             ? "bg-primary/10 ring-1 ring-primary/30"
                                             : "bg-secondary/40 hover:bg-secondary/60",
                                     )}
                                 >
                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                        <Image src={lodging.image} alt={lodging.title} fill className="object-cover" />
+                                        <Image src={lodging.thumbnail_url || ""} alt={lodging.title || "Lodging"} fill className="object-cover" />
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-medium text-foreground break-words">{lodging.title}</p>
@@ -215,27 +213,27 @@ export default function SidebarPanel({
                     </div>}
 
                     {/* Activities preview — hidden for pop-up events */}
-                    {!review.isPopup && <div className="flex flex-col gap-3">
+                    {!(review.event_end && review.event_start) && <div className="flex flex-col gap-3">
                         <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                             Activities
                         </h3>
                         {review.activities.length > 0 ? (
                             review.activities.map((activity) => (
                                 <button
-                                    key={activity.id}
+                                    key={activity.activity_id}
                                     type="button"
                                     onClick={() =>
-                                        onSelectActivity(selectedActivityId === activity.id ? null : activity)
+                                        setSelectedActivity(selectedActivityId === activity.activity_id ? null : activity)
                                     }
                                     className={cn(
                                         "flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors",
-                                        selectedActivityId === activity.id
+                                        selectedActivityId === activity.activity_id
                                             ? "bg-primary/10 ring-1 ring-primary/30"
                                             : "bg-secondary/60 hover:bg-secondary",
                                     )}
                                 >
                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                        <Image src={activity.image} alt={activity.title} fill className="object-cover" />
+                                        <Image src={activity.thumbnail_url || ""} alt={activity.title || "Activity"} fill className="object-cover" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground break-words">
@@ -253,7 +251,7 @@ export default function SidebarPanel({
                         )}
                     </div>}
 
-                    {!review.isPopup && (
+                    {!(review.event_end && review.event_start) && (
                         <button
                             onClick={() => onViewFull(review)}
                             className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"

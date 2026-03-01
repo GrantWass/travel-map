@@ -1,12 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { ApiError, getSession, getUserProfile, logoutSession, setAuthToken } from "@/lib/api-client";
 import type { SessionUser, UserProfileResponse } from "@/lib/api-types";
-
-type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+import { useAuthStore, type AuthStatus } from "@/stores/auth-store";
 
 interface AuthContextValue {
     status: AuthStatus;
@@ -60,43 +59,33 @@ function writeCachedJson<T>(key: string, value: T | null) {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
-    const [status, setStatus] = useState<AuthStatus>("loading");
-    const [user, setUser] = useState<SessionUser | null>(null);
-    const [myProfile, setMyProfile] = useState<UserProfileResponse | null>(null);
-    const [isHydratedFromCache, setIsHydratedFromCache] = useState(false);
+    const status = useAuthStore((state) => state.status);
+    const user = useAuthStore((state) => state.user);
+    const myProfile = useAuthStore((state) => state.myProfile);
+    const isHydratedFromCache = useAuthStore((state) => state.isHydratedFromCache);
+    const hydrateFromCache = useAuthStore((state) => state.hydrateFromCache);
+    const setStoreMyProfile = useAuthStore((state) => state.setMyProfile);
+    const setStoreAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
+    const clearStoreAuthState = useAuthStore((state) => state.clearAuthState);
 
     useEffect(() => {
         const cachedUser = readCachedJson<SessionUser>(SESSION_CACHE_KEY);
         const cachedProfile = readCachedJson<UserProfileResponse>(PROFILE_CACHE_KEY);
 
-        if (cachedUser && typeof cachedUser.user_id === "number") {
-            setUser(cachedUser);
-            setStatus("authenticated");
-        } else {
-            setStatus("loading");
-        }
-
-        if (cachedProfile && cachedUser && cachedProfile.user && cachedProfile.user.user_id === cachedUser.user_id) {
-            setMyProfile(cachedProfile);
-        }
-
-        setIsHydratedFromCache(true);
-    }, []);
+        hydrateFromCache(cachedUser, cachedProfile);
+    }, [hydrateFromCache]);
 
     const clearAuthState = useCallback(() => {
-        setUser(null);
-        setStatus("unauthenticated");
-        setMyProfile(null);
+        clearStoreAuthState();
         setAuthToken(null);
         writeCachedJson(SESSION_CACHE_KEY, null);
         writeCachedJson(PROFILE_CACHE_KEY, null);
-    }, []);
+    }, [clearStoreAuthState]);
 
     const setAuthenticatedUser = useCallback((nextUser: SessionUser) => {
-        setUser(nextUser);
-        setStatus("authenticated");
+        setStoreAuthenticatedUser(nextUser);
         writeCachedJson(SESSION_CACHE_KEY, nextUser);
-    }, []);
+    }, [setStoreAuthenticatedUser]);
 
     const refreshSession = useCallback(async () => {
         try {
@@ -123,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         async (userIdOverride?: number) => {
             const targetUserId = userIdOverride ?? user?.user_id;
             if (!targetUserId) {
-                setMyProfile(null);
+                setStoreMyProfile(null);
                 writeCachedJson(PROFILE_CACHE_KEY, null);
                 return null;
             }
@@ -134,14 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return null;
                 }
 
-                setMyProfile(profile);
+                setStoreMyProfile(profile);
                 writeCachedJson(PROFILE_CACHE_KEY, profile);
                 return profile;
             } catch {
                 return myProfile;
             }
         },
-        [myProfile, user?.user_id],
+        [myProfile, setStoreMyProfile, user?.user_id],
     );
 
     const signOut = useCallback(async () => {
@@ -195,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (status !== "authenticated" || !user?.user_id) {
-            setMyProfile(null);
+            setStoreMyProfile(null);
             writeCachedJson(PROFILE_CACHE_KEY, null);
             return;
         }
@@ -205,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         void refreshMyProfile(user.user_id);
-    }, [myProfile?.user?.user_id, refreshMyProfile, status, user?.user_id]);
+    }, [myProfile?.user?.user_id, refreshMyProfile, setStoreMyProfile, status, user?.user_id]);
 
     const value = useMemo<AuthContextValue>(() => {
         const userId = user?.user_id ?? null;
