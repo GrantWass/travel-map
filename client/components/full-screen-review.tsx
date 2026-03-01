@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowLeft, BedDouble, Calendar, MapPin, Notebook, User } from "lucide-react";
+import { ArrowLeft, BedDouble, Calendar, Expand, MapPin, Notebook, User } from "lucide-react";
 
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { type MapActivity, type MapLodging, type MapTrip } from "@/lib/trip-models";
@@ -15,6 +16,7 @@ interface FullScreenReviewProps {
     onSelectActivity: (activity: MapActivity | null) => void;
     onSelectLodging: (lodging: MapLodging | null) => void;
     onOpenAuthorProfile: (userId: number) => void;
+    onExpandImage: (image: { src: string; alt: string }) => void;
     savedActivityIds: ReadonlySet<number>;
     savedLodgingIds: ReadonlySet<number>;
     onToggleSavedActivity: (tripId: number, activity: MapActivity) => void;
@@ -29,6 +31,7 @@ export default function FullScreenReview({
     onSelectActivity,
     onSelectLodging,
     onOpenAuthorProfile,
+    onExpandImage,
     savedActivityIds,
     savedLodgingIds,
     onToggleSavedActivity,
@@ -98,25 +101,46 @@ export default function FullScreenReview({
                         </h2>
                         {review.lodgings.length > 0 ? (
                             review.lodgings.map((lodging) => (
-                                <button
-                                    type="button"
+                                <div
                                     key={lodging.id}
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => onSelectLodging(selectedLodging?.id === lodging.id ? null : lodging)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            onSelectLodging(selectedLodging?.id === lodging.id ? null : lodging);
+                                        }
+                                    }}
                                     className={cn(
-                                        "w-full rounded-xl border p-3 text-left transition-colors",
+                                        "w-full cursor-pointer rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
                                         selectedLodging?.id === lodging.id
                                             ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
                                             : "border-border bg-secondary/30 hover:bg-secondary/50",
                                     )}
                                 >
-                                    <div className="grid gap-3 sm:grid-cols-[8rem,1fr]">
-                                        <div className="relative h-28 w-full overflow-hidden rounded-lg sm:h-24">
-                                            <Image
-                                                src={lodging.image}
-                                                alt={lodging.title}
-                                                fill
-                                                className="object-cover"
-                                            />
+                                    <div className="grid gap-3 sm:grid-cols-[10rem,1fr]">
+                                        <div className="group relative overflow-hidden rounded-lg">
+                                            <AspectRatio ratio={4 / 3} className="bg-muted">
+                                                <Image
+                                                    src={lodging.image}
+                                                    alt={lodging.title}
+                                                    fill
+                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                />
+                                            </AspectRatio>
+                                            <button
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onExpandImage({ src: lodging.image, alt: lodging.title });
+                                                }}
+                                                className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                                                aria-label={`Expand ${lodging.title} image`}
+                                            >
+                                                <Expand className="h-3 w-3" />
+                                                Expand
+                                            </button>
                                         </div>
                                         <div className="flex min-w-0 flex-col gap-1.5">
                                             <h3 className="text-base font-semibold text-foreground">{lodging.title}</h3>
@@ -128,7 +152,7 @@ export default function FullScreenReview({
                                             </p>
                                         </div>
                                     </div>
-                                </button>
+                                </div>
                             ))
                         ) : (
                             <p className="text-sm text-muted-foreground">No places stayed were added for this trip.</p>
@@ -142,27 +166,48 @@ export default function FullScreenReview({
                         </h2>
                         {review.activities.length > 0 ? (
                             review.activities.map((activity) => (
-                                <button
+                                <div
                                     key={activity.id}
-                                    type="button"
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() =>
                                         onSelectActivity(selectedActivity?.id === activity.id ? null : activity)
                                     }
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            onSelectActivity(selectedActivity?.id === activity.id ? null : activity);
+                                        }
+                                    }}
                                     className={cn(
-                                        "w-full rounded-xl border p-3 text-left transition-colors",
+                                        "w-full cursor-pointer rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
                                         selectedActivity?.id === activity.id
                                             ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
                                             : "border-border bg-secondary/40 hover:bg-secondary/70",
                                     )}
                                 >
                                     <div className="flex flex-col gap-3">
-                                        <div className="relative h-40 w-full overflow-hidden rounded-lg">
-                                            <Image
-                                                src={activity.image}
-                                                alt={activity.title}
-                                                fill
-                                                className="object-cover"
-                                            />
+                                        <div className="group relative overflow-hidden rounded-lg">
+                                            <AspectRatio ratio={16 / 9} className="bg-muted">
+                                                <Image
+                                                    src={activity.image}
+                                                    alt={activity.title}
+                                                    fill
+                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                />
+                                            </AspectRatio>
+                                            <button
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onExpandImage({ src: activity.image, alt: activity.title });
+                                                }}
+                                                className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                                                aria-label={`Expand ${activity.title} image`}
+                                            >
+                                                <Expand className="h-3 w-3" />
+                                                Expand
+                                            </button>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex min-w-0 items-start justify-between gap-2">
@@ -181,7 +226,7 @@ export default function FullScreenReview({
                                             </p>
                                         </div>
                                     </div>
-                                </button>
+                                </div>
                             ))
                         ) : (
                             <p className="text-sm text-muted-foreground">No activities were added for this trip.</p>
