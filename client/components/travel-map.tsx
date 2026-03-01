@@ -14,6 +14,7 @@ import StudentAddMenu from "@/components/student-add-menu";
 import UserProfileModal, { type UserProfile } from "@/components/user-profile-modal";
 import { deleteTrip, getSavedPlans, getTrip, getTrips, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { UserProfileResponse } from "@/lib/api-types";
+import { APP_NAME } from "@/lib/branding";
 import type { MapActivity, MapLodging, MapTrip, ModalProfile, SavedActivityEntry, SavedLodgingEntry } from "@/lib/trip-models";
 import { toMapTrip, toModalProfile } from "@/lib/trip-models";
 
@@ -589,7 +590,7 @@ export default function TravelMap() {
             <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
                 <div className="hidden items-center gap-2 rounded-full border border-border bg-card/90 px-5 py-2.5 shadow-sm backdrop-blur-sm sm:flex">
                     <MapPin className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-semibold tracking-tight text-foreground">Travel Map</span>
+                    <span className="text-lg font-brand text-foreground">{APP_NAME}</span>
                 </div>
                 <button
                     onClick={() => {
