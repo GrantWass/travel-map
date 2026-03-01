@@ -61,3 +61,20 @@ export function getTripTimestamp(dateValue: string): number {
     const timestamp = Date.parse(dateValue);
     return Number.isNaN(timestamp) ? 0 : timestamp;
 }
+
+export function toDisplayDate(dateValue: string | null | undefined): string {
+  if (!dateValue) {
+    return "No date";
+  }
+
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return dateValue;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsed);
+}

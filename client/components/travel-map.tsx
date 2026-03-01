@@ -16,7 +16,7 @@ import UserProfileModal from "@/components/user-profile-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import { deleteTrip, getSavedPlans, getTrip, getTrips, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
-import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/trip-models";
+import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { getLocationKey, getTripTimestamp } from "@/lib/utils";

@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useRef } from "react";
 import type { Trip, TripActivity, TripLodging } from "@/lib/api-types";
 import L from "leaflet";
 
@@ -25,7 +24,7 @@ function truncateTripMarkerTitle(value: string, maxLength: number): string {
     return `${trimmed.slice(0, Math.max(maxLength - 3, 1)).trimEnd()}...`;
 }
 
-export const createTripIcon = useCallback((trip: Trip, isActive: boolean): L.DivIcon => {
+export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
     const size = isActive ? 80 : 64;
     const safeAltTitle = escapeHtml(trip.title);
     const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
@@ -67,9 +66,9 @@ export const createTripIcon = useCallback((trip: Trip, isActive: boolean): L.Div
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
     });
-}, []);
+}
 
-export const createActivityIcon = useCallback((activity: TripActivity, isActive: boolean): L.DivIcon => {
+export function createActivityIcon(activity: TripActivity, isActive: boolean): L.DivIcon {
     const size = isActive ? 80 : 65;
     const safeTitle = escapeHtml(activity.title || "Activity");
     const imageUrl = activity.thumbnail_url || MARKER_FALLBACK_IMAGE;
@@ -92,9 +91,9 @@ export const createActivityIcon = useCallback((activity: TripActivity, isActive:
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
     });
-}, []);
+}
 
-export const createLodgingIcon = useCallback((lodging: TripLodging, isActive: boolean): L.DivIcon => {
+export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.DivIcon {
     const size = isActive ? 80 : 65;
     const roofHeight = Math.round(size * 0.34);
     const bodyHeight = size - roofHeight;
@@ -130,4 +129,4 @@ export const createLodgingIcon = useCallback((lodging: TripLodging, isActive: bo
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
     });
-}, []);
+}

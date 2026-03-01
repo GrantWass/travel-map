@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { Loader2, MapPin, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { PlaceCenter, PlaceOption } from "@/lib/place-types";
+import type { PlaceCenter, PlaceOption } from "@/lib/client-types";
 
 interface PinMapPickerProps {
   open: boolean;

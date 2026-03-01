@@ -7,7 +7,7 @@ import type {
   Trip,
   UserProfileResponse,
 } from "@/lib/api-types";
-import { toDisplayDate } from "@/lib/trip-models";
+import { toDisplayDate } from "@/lib/utils";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 const AUTH_TOKEN_KEY = "travel-map.auth-token.v1";
