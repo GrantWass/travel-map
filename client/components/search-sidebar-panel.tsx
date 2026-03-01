@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import type { MapActivity, MapLodging, MapTrip } from "@/lib/trip-models";
 
 const MAX_COST = 500;
+const MAX_VISIBLE_TAGS = 15;
 
 interface SearchResult {
     trip: MapTrip;
@@ -30,22 +31,32 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     const availableTags = useMemo(() => {
         const counts = new Map<string, number>();
         for (const trip of trips) {
-            for (const tag of trip.tags) {
+            for (const rawTag of trip.tags) {
+                const tag = rawTag.trim().toLowerCase();
+                if (!tag) {
+                    continue;
+                }
                 counts.set(tag, (counts.get(tag) ?? 0) + 1);
             }
         }
         return Array.from(counts.entries())
-            .sort((a, b) => b[1] - a[1])
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, MAX_VISIBLE_TAGS)
             .map(([tag]) => tag);
     }, [trips]);
+
+    useEffect(() => {
+        setSelectedTags((current) => current.filter((tag) => availableTags.includes(tag)));
+    }, [availableTags]);
 
     const searchResults = useMemo<SearchResult[]>(() => {
         const q = query.trim().toLowerCase();
         const results: SearchResult[] = [];
 
         for (const trip of trips) {
+            const normalizedTripTags = new Set(trip.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean));
             // Tag filter (always applied)
-            if (selectedTags.length > 0 && !selectedTags.every((tag) => trip.tags.includes(tag))) continue;
+            if (selectedTags.length > 0 && !selectedTags.every((tag) => normalizedTripTags.has(tag))) continue;
             // Cost filter (always applied)
             if (maxCost < MAX_COST && trip.cost !== null && trip.cost > maxCost) continue;
 
@@ -145,20 +156,21 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                 <Tag className="h-3 w-3" />
                                 Tags
                             </p>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-wrap items-start gap-1.5 pr-1">
                                 {availableTags.map((tag) => {
                                     const active = selectedTags.includes(tag);
                                     return (
                                         <button
                                             key={tag}
                                             onClick={() => toggleTag(tag)}
-                                            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${
+                                            title={tag}
+                                            className={`inline-flex min-w-0 max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${
                                                 active
                                                     ? "border-primary/40 bg-primary/10 text-primary"
                                                     : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
                                             }`}
                                         >
-                                            {tag}
+                                            <span className="truncate">{tag}</span>
                                         </button>
                                     );
                                 })}

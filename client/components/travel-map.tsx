@@ -530,39 +530,64 @@ export default function TravelMap() {
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {showTopLeftControls && (
-                <div className={`absolute left-4 top-3 z-[1000] ${topLeftControlsWidthClass}`}>
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border bg-card/95 px-5 shadow-sm backdrop-blur-sm">
-                            <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                            <input
-                                value={searchQuery}
-                                onChange={(e) => handleSearchChange(e.target.value)}
-                                onFocus={handleSearchFocus}
-                                placeholder="Search trips, places, or keywords"
-                                className="h-full w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-                                aria-label="Search trips"
-                            />
+                <>
+                    <div className={`absolute left-4 top-3 z-[1000] hidden sm:block ${topLeftControlsWidthClass}`}>
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border bg-card/95 px-5 shadow-sm backdrop-blur-sm">
+                                <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                                <input
+                                    value={searchQuery}
+                                    onChange={(e) => handleSearchChange(e.target.value)}
+                                    onFocus={handleSearchFocus}
+                                    placeholder="Search trips, places, or keywords"
+                                    className="h-full w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                                    aria-label="Search trips"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleTogglePlansPanel}
+                                className={`flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors ${
+                                    showPlansPanel
+                                        ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                                        : "border-border bg-card/95 text-foreground hover:bg-card"
+                                }`}
+                                aria-label="Open plans"
+                                title="Plans"
+                            >
+                                <Notebook className="h-5 w-5" />
+                                <span className="hidden sm:inline">Plans</span>
+                            </button>
                         </div>
+                    </div>
+                    <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 sm:hidden">
+                        <button
+                            type="button"
+                            onClick={handleSearchFocus}
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                            aria-label="Open search"
+                        >
+                            <Search className="h-5 w-5 text-foreground" />
+                        </button>
                         <button
                             type="button"
                             onClick={handleTogglePlansPanel}
-                            className={`flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors ${
+                            className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-colors ${
                                 showPlansPanel
                                     ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                                    : "border-border bg-card/95 text-foreground hover:bg-card"
+                                    : "border-border bg-card/90 text-foreground hover:bg-card"
                             }`}
                             aria-label="Open plans"
                             title="Plans"
                         >
                             <Notebook className="h-5 w-5" />
-                            <span className="hidden sm:inline">Plans</span>
                         </button>
                     </div>
-                </div>
+                </>
             )}
 
-            <div className="absolute right-4 top-4 z-[1000] flex items-center gap-2">
-                <div className="flex items-center gap-2 rounded-full border border-border bg-card/90 px-5 py-2.5 shadow-sm backdrop-blur-sm">
+            <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-card/90 px-5 py-2.5 shadow-sm backdrop-blur-sm sm:flex">
                     <MapPin className="h-5 w-5 text-primary" />
                     <span className="text-sm font-semibold tracking-tight text-foreground">Travel Map</span>
                 </div>
