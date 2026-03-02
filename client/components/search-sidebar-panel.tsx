@@ -6,6 +6,7 @@ import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import type { TripActivity, TripLodging, Trip} from "@/lib/api-types";
+import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 
 const MAX_COST = 500;
 const MAX_VISIBLE_TAGS = 15;
@@ -261,7 +262,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={activity.thumbnail_url || ""} alt={activity.title || "Activity"} fill className="object-cover" />
+                                                            <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{activity.title}</p>
@@ -280,7 +281,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={lodging.thumbnail_url || ""} alt={lodging.title || "Lodging"} fill className="object-cover" />
+                                                            <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{lodging.title}</p>

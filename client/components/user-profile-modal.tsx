@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { X, Mail, GraduationCap, Trash2, Plus, Settings, Upload, Loader2 } from "lucide-react";
-import { useAuth } from "@/components/auth-provider";
 import { ApiError, updateProfileSettings, uploadImage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User } from "@/lib/api-types";
 import { formatTripDate, initialsFromName } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
+import { DEFAULT_FALLBACK_IMAGE, DEFAULT_PROFILE_BIO } from "@/lib/trip-constants";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -24,8 +25,6 @@ interface UserProfileModalProps {
     expandFrom?: "top-right" | "left";
 }
 
-const DEFAULT_PROFILE_BIO = "Traveler sharing experiences from the road.";
-
 export default function UserProfileModal({
     profile,
     onClose,
@@ -37,13 +36,15 @@ export default function UserProfileModal({
     onDeleteTrip,
     expandFrom = "top-right",
 }: UserProfileModalProps) {
-    const { signOut, refreshMyProfile, refreshSession } = useAuth();
+    const signOut = useAuthStore((state) => state.signOut);
+    const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
+    const refreshSession = useAuthStore((state) => state.refreshSession);
     const animClass = expandFrom === "left" ? "modal-expand-left" : "modal-expand";
 
     const [displayState, setDisplayState] = useState(() => ({
         name: profile.name || "Traveler",
         university: profile.college || "—",
-        bio: profile.bio,
+        bio: profile.bio || DEFAULT_PROFILE_BIO,
         imageUrl: profile.profile_image_url,
     }));
     const [formState, setFormState] = useState(() => ({
@@ -71,7 +72,7 @@ export default function UserProfileModal({
         setDisplayState({
             name: profile.name || "Traveler",
             university: profile.college || "—",
-            bio: profile.bio,
+            bio: profile.bio || DEFAULT_PROFILE_BIO,
             imageUrl: profile.profile_image_url,
         });
         setFormState((current) => {
@@ -108,7 +109,7 @@ export default function UserProfileModal({
 
     const normalizedUniversity = displayState.university.trim();
     const hasSchool = normalizedUniversity !== "" && normalizedUniversity !== "—";
-    const profileImageUrl = (displayState.imageUrl || "").trim();
+    const profileImageUrl = (displayState.imageUrl || DEFAULT_FALLBACK_IMAGE).trim();
     const showProfileImage = Boolean(profileImageUrl) && !profileImageFailed;
     const displayInitials = useMemo(
         () => initialsFromName(displayState.name.trim() || profile.name || profile.initials),

@@ -6,7 +6,6 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { CircleUser, MapPin, Notebook, Search, X } from "lucide-react";
 
-import { useAuth } from "@/components/auth-provider";
 import FullScreenReview from "@/components/full-screen-review";
 import PlansSidebarPanel from "@/components/plans-sidebar-panel";
 import SearchSidebarPanel from "@/components/search-sidebar-panel";
@@ -14,12 +13,10 @@ import SidebarPanel from "@/components/sidebar-panel";
 import StudentAddMenu from "@/components/student-add-menu";
 import UserProfileModal from "@/components/user-profile-modal";
 import BrandNameButton from "@/components/brand-name-button";
-import { deleteTrip, getSavedPlans, getTrip, getTrips, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
-import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -42,20 +39,18 @@ const REVIEW_PANEL_WIDTH = "min(483px, 100vw)";
 export default function TravelMap() {
     const router = useRouter();
     const pathname = usePathname();
-    const { userId, isStudent, myProfile, refreshMyProfile } = useAuth();
-    const toUserProfileFromApi = useAuthStore((state) => state.toUserProfileFromApi);
+    const userId = useAuthStore((state) => state.user?.user_id ?? null);
+    const isStudent = Boolean(useAuthStore((state) => state.user?.verified));
+    const myProfile = useAuthStore((state) => state.myProfile);
+    const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
 
     const trips = useTripMapStore((state) => state.trips);
     const selectedTrip = useTripMapStore((state) => state.selectedTrip);
     const fullScreenTrip = useTripMapStore((state) => state.fullScreenTrip);
     const searchQuery = useTripMapStore((state) => state.searchQuery);
-    const searchPanelOpen = useTripMapStore((state) => state.searchPanelOpen);
-    const plansPanelOpen = useTripMapStore((state) => state.plansPanelOpen);
-    const savedActivityIds = useTripMapStore((state) => state.savedActivityIds);
-    const savedLodgingIds = useTripMapStore((state) => state.savedLodgingIds);
     const isLoadingTrips = useTripMapStore((state) => state.isLoadingTrips);
     const isLoadingTripById = useTripMapStore((state) => state.isLoadingTripById);
-    const setTrips = useTripMapStore((state) => state.setTrips);
+    const loadTrips = useTripMapStore((state) => state.loadTrips);
     const upsertTrip = useTripMapStore((state) => state.upsertTrip);
     const removeTripById = useTripMapStore((state) => state.removeTripById);
     const setSelectedTrip = useTripMapStore((state) => state.setSelectedTrip);
@@ -74,7 +69,6 @@ export default function TravelMap() {
     const toggleSavedLodgingId = useTripMapStore((state) => state.toggleSavedLodgingId);
     const removeSavedActivityId = useTripMapStore((state) => state.removeSavedActivityId);
     const removeSavedLodgingId = useTripMapStore((state) => state.removeSavedLodgingId);
-    const setIsLoadingTrips = useTripMapStore((state) => state.setIsLoadingTrips);
     const setIsLoadingTripById = useTripMapStore((state) => state.setIsLoadingTripById);
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
@@ -92,84 +86,42 @@ export default function TravelMap() {
         return new Map(trips.map((trip) => [trip.trip_id, trip]));
     }, [trips]);
 
-    const savedActivityIdSet = useMemo(() => new Set(savedActivityIds), [savedActivityIds]);
-    const savedLodgingIdSet = useMemo(() => new Set(savedLodgingIds), [savedLodgingIds]);
+    const getSavedActivities = useTripMapStore((state) => state.getSavedActivities);
+    const savedActivities = getSavedActivities();
 
-    const savedActivities = useMemo<SavedActivityEntry[]>(() => {
-        return trips.flatMap((trip) =>
-            trip.activities
-                .filter((activity) => savedActivityIdSet.has(activity.activity_id))
-                .map((activity) => ({
-                    tripId: trip.trip_id,
-                    tripTitle: trip.title || "",
-                    tripThumbnail: trip.thumbnail_url,
-                    activity,
-                })),
-        );
-    }, [trips, savedActivityIdSet]);
+    const getSavedLodgings = useTripMapStore((state) => state.getSavedLodgings);
+    const savedLodgings = getSavedLodgings();
 
-    const savedLodgings = useMemo<SavedLodgingEntry[]>(() => {
-        return trips.flatMap((trip) =>
-            trip.lodgings
-                .filter((lodging) => savedLodgingIdSet.has(lodging.lodge_id))
-                .map((lodging) => ({
-                    tripId: trip.trip_id,
-                    tripTitle: trip.title || "",
-                    tripThumbnail: trip.thumbnail_url,
-                    lodging,
-                })),
-        );
-    }, [trips, savedLodgingIdSet]);
+    const getTripsAtSelectedLocation = useTripMapStore((state) => state.getTripsAtSelectedLocation);
+    const tripsAtSelectedLocation = getTripsAtSelectedLocation();
+
+    const getSelectedTripLocationIndex = useTripMapStore((state) => state.getSelectedTripLocationIndex);
+    const selectedTripLocationIndex = getSelectedTripLocationIndex();
+
+    const showSidebar = useTripMapStore((state) => state.getMapPanels().showSidebar);
+    const showFullScreen = useTripMapStore((state) => state.getMapPanels().showFullScreen);
+    const showSearchPanel = useTripMapStore((state) => state.getMapPanels().showSearchPanel);
+    const showPlansPanel = useTripMapStore((state) => state.getMapPanels().showPlansPanel);
+    const showTopLeftControls = useTripMapStore((state) => state.getMapPanels().showTopLeftControls);
+    const showAnyLeftSidebar = useTripMapStore((state) => state.getMapPanels().showAnyLeftSidebar);
 
     const handleToggleSavedActivity = useCallback((_tripId: number, activity: TripActivity) => {
-        const id = activity.activity_id;
-        toggleSavedActivityId(id);
-        void toggleSavedActivityApi(id).then((plans) => {
+        toggleSavedActivityId(activity.activity_id);
+        void toggleSavedActivityApi(activity.activity_id).then((plans) => {
             applySavedPlans(plans);
         });
     }, [applySavedPlans, toggleSavedActivityId]);
 
     const handleToggleSavedLodging = useCallback((_tripId: number, lodging: TripLodging) => {
-        const id = lodging.lodge_id;
-        toggleSavedLodgingId(id);
-        void toggleSavedLodgingApi(id).then((plans) => {
+        toggleSavedLodgingId(lodging.lodge_id);
+        void toggleSavedLodgingApi(lodging.lodge_id).then((plans) => {
             applySavedPlans(plans);
         });
     }, [applySavedPlans, toggleSavedLodgingId]);
 
     useEffect(() => {
-        let isMounted = true;
-
-        async function loadTrips() {
-            try {
-                const apiTrips = await getTrips();
-                if (!isMounted) {
-                    return;
-                }
-
-                const now = new Date();
-                setTrips(
-                    apiTrips
-                        .filter((trip): trip is Trip => Boolean(trip))
-                        .filter((trip) => !(trip.event_end && trip.event_start) || (trip.event_end !== null && new Date(trip.event_end) > now)),
-                );
-            } catch {
-                if (isMounted) {
-                    setTrips([]);
-                }
-            } finally {
-                if (isMounted) {
-                    setIsLoadingTrips(false);
-                }
-            }
-        }
-
         void loadTrips();
-
-        return () => {
-            isMounted = false;
-        };
-    }, []);
+    }, [loadTrips]);
 
     useEffect(() => {
         if (userId === null) return;
@@ -273,32 +225,6 @@ export default function TravelMap() {
     const handleBack = useCallback(() => {
         showFullScreenTripInSidebar();
     }, [showFullScreenTripInSidebar]);
-
-    const tripsAtSelectedLocation = useMemo(() => {
-        if (!selectedTrip) {
-            return [];
-        }
-
-        const selectedLocationKey = getLocationKey(selectedTrip.latitude, selectedTrip.longitude);
-
-        return trips
-            .filter((trip) => getLocationKey(trip.latitude, trip.longitude) === selectedLocationKey)
-            .sort((left, right) => {
-                if (!left.date || !right.date) {
-                    return 0;
-                }
-
-                return getTripTimestamp(right.date) - getTripTimestamp(left.date);
-            });
-    }, [trips, selectedTrip]);
-
-    const selectedTripLocationIndex = useMemo(() => {
-        if (!selectedTrip) {
-            return -1;
-        }
-
-        return tripsAtSelectedLocation.findIndex((trip) => trip.trip_id === selectedTrip.trip_id);
-    }, [selectedTrip, tripsAtSelectedLocation]);
 
     const handleShowPreviousTripAtLocation = useCallback(() => {
         if (selectedTripLocationIndex <= 0) {
@@ -437,13 +363,6 @@ export default function TravelMap() {
         [refreshMyProfile, removeTripById, userId],
     );
 
-    const showSidebar = !!selectedTrip && !fullScreenTrip;
-    const showFullScreen = !!fullScreenTrip;
-    const showSearchPanel = searchPanelOpen && !showSidebar && !showFullScreen;
-    const showPlansPanel = plansPanelOpen && !showSidebar && !showFullScreen && !showSearchPanel;
-    const showTopLeftControls = !showSidebar && !showFullScreen && !showSearchPanel && !showPlansPanel;
-    const showAnyLeftSidebar = showSidebar || showFullScreen || showSearchPanel || showPlansPanel;
-
     const topLeftControlsWidthClass = "w-[min(506px,calc(100vw-2rem))]";
 
     return (
@@ -542,8 +461,6 @@ export default function TravelMap() {
                             onOpenAuthorProfile={(profileUserId) => {
                                 void openProfile(profileUserId, "left");
                             }}
-                            savedActivityIds={savedActivityIdSet}
-                            savedLodgingIds={savedLodgingIdSet}
                             onToggleSavedActivity={handleToggleSavedActivity}
                             onToggleSavedLodging={handleToggleSavedLodging}
                             locationTripCount={tripsAtSelectedLocation.length}
@@ -565,8 +482,6 @@ export default function TravelMap() {
                                 void openProfile(profileUserId, "left");
                             }}
                             onExpandImage={setExpandedImage}
-                            savedActivityIds={savedActivityIdSet}
-                            savedLodgingIds={savedLodgingIdSet}
                             onToggleSavedActivity={handleToggleSavedActivity}
                             onToggleSavedLodging={handleToggleSavedLodging}
                         />

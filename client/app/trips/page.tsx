@@ -5,7 +5,6 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ImagePlus, MapPin, Plus, Sparkles, Timer, Trash2 } from "lucide-react";
 
-import { useAuth } from "@/components/auth-provider";
 import PlacePicker from "@/components/place-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +13,7 @@ import { ApiError, createTrip, uploadImage } from "@/lib/api-client";
 import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
 import type { TripDuration, TripVisibility } from "@/lib/api-types";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface StopDraft {
   id: string;
@@ -137,7 +137,8 @@ function TripsPageContent() {
   const isPopupMode = searchParams.get("mode") === "popup";
   const tripComposerHref = `/trips?returnTo=${encodeURIComponent(returnTo)}`;
   const popupComposerHref = `/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`;
-  const { status, isStudent } = useAuth();
+  const status = useAuthStore((state) => state.status);
+  const isStudent = Boolean(useAuthStore((state) => state.user?.verified));
 
   const [isSavingTrip, setIsSavingTrip] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);

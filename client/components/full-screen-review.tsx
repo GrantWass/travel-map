@@ -8,14 +8,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
+import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 
 interface FullScreenReviewProps {
     review: Trip;
     onBack: () => void;
     onOpenAuthorProfile: (userId: number) => void;
     onExpandImage: (image: { src: string; alt: string }) => void;
-    savedActivityIds: ReadonlySet<number>;
-    savedLodgingIds: ReadonlySet<number>;
     onToggleSavedActivity: (tripId: number, activity: TripActivity) => void;
     onToggleSavedLodging: (tripId: number, lodging: TripLodging) => void;
 }
@@ -25,8 +24,6 @@ export default function FullScreenReview({
     onBack,
     onOpenAuthorProfile,
     onExpandImage,
-    savedActivityIds,
-    savedLodgingIds,
     onToggleSavedActivity,
     onToggleSavedLodging,
 }: FullScreenReviewProps) {
@@ -34,6 +31,8 @@ export default function FullScreenReview({
     const selectedLodging = useTripMapStore((state) => state.selectedLodging);
     const setSelectedActivity = useTripMapStore((state) => state.setSelectedActivity);
     const setSelectedLodging = useTripMapStore((state) => state.setSelectedLodging);
+    const savedActivityIds = new Set(useTripMapStore((state) => state.savedActivityIds));
+    const savedLodgingIds = new Set(useTripMapStore((state) => state.savedLodgingIds));
 
     const fabSaved = selectedActivity
         ? savedActivityIds.has(selectedActivity.activity_id)
@@ -123,7 +122,7 @@ export default function FullScreenReview({
                                         <div className="group relative overflow-hidden rounded-lg">
                                             <AspectRatio ratio={4 / 3} className="bg-muted">
                                                 <Image
-                                                    src={lodging.thumbnail_url || ""}
+                                                    src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
                                                     alt={lodging.title || "Lodging"}
                                                     fill
                                                     className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -133,7 +132,7 @@ export default function FullScreenReview({
                                                 type="button"
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    onExpandImage({ src: lodging.thumbnail_url || "", alt: lodging.title || "Lodging" });
+                                                    onExpandImage({ src: lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE, alt: lodging.title || "Lodging" });
                                                 }}
                                                 className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                                                 aria-label={`Expand ${lodging.title} image`}
@@ -191,7 +190,7 @@ export default function FullScreenReview({
                                         <div className="group relative overflow-hidden rounded-lg">
                                             <AspectRatio ratio={16 / 9} className="bg-muted">
                                                 <Image
-                                                    src={activity.thumbnail_url || ""}
+                                                    src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
                                                     alt={activity.title || "Activity"}
                                                     fill
                                                     className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -201,7 +200,7 @@ export default function FullScreenReview({
                                                 type="button"
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    onExpandImage({ src: activity.thumbnail_url || "", alt: activity.title || "Activity" });
+                                                    onExpandImage({ src: activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE, alt: activity.title || "Activity" });
                                                 }}
                                                 className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                                                 aria-label={`Expand ${activity.title || "Activity"} image`}

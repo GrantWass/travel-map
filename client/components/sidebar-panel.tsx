@@ -7,14 +7,13 @@ import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 import { formatTripDate, formatPopupTimeRange } from "@/lib/utils";
+import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 
 interface SidebarPanelProps {
     review: Trip;
     onClose: () => void;
     onViewFull: (trip: Trip) => void;
     onOpenAuthorProfile: (userId: number) => void;
-    savedActivityIds: ReadonlySet<number>;
-    savedLodgingIds: ReadonlySet<number>;
     onToggleSavedActivity: (tripId: number, activity: TripActivity) => void;
     onToggleSavedLodging: (tripId: number, lodging: TripLodging) => void;
     locationTripCount: number;
@@ -30,8 +29,6 @@ export default function SidebarPanel({
     onClose,
     onViewFull,
     onOpenAuthorProfile,
-    savedActivityIds,
-    savedLodgingIds,
     onToggleSavedActivity,
     onToggleSavedLodging,
     locationTripCount,
@@ -45,6 +42,8 @@ export default function SidebarPanel({
     const selectedLodging = useTripMapStore((state) => state.selectedLodging);
     const setSelectedActivity = useTripMapStore((state) => state.setSelectedActivity);
     const setSelectedLodging = useTripMapStore((state) => state.setSelectedLodging);
+    const savedActivityIds = new Set(useTripMapStore((state) => state.savedActivityIds));
+    const savedLodgingIds = new Set(useTripMapStore((state) => state.savedLodgingIds));
     const selectedActivityId = selectedActivity?.activity_id ?? null;
     const selectedLodgingId = selectedLodging?.lodge_id ?? null;
 
@@ -160,7 +159,7 @@ export default function SidebarPanel({
                                     )}
                                 >
                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                        <Image src={lodging.thumbnail_url || ""} alt={lodging.title || "Lodging"} fill className="object-cover" />
+                                        <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill className="object-cover" />
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-medium text-foreground break-words">{lodging.title}</p>
@@ -196,7 +195,7 @@ export default function SidebarPanel({
                                     )}
                                 >
                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                        <Image src={activity.thumbnail_url || ""} alt={activity.title || "Activity"} fill className="object-cover" />
+                                        <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill className="object-cover" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground break-words">

@@ -1,6 +1,9 @@
 import { create } from "zustand";
 
+import { getTrips } from "@/lib/api-client";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
+import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
+import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 
 interface TripMapStoreState {
     trips: Trip[];
@@ -15,6 +18,7 @@ interface TripMapStoreState {
     savedLodgingIds: number[];
     isLoadingTrips: boolean;
     isLoadingTripById: boolean;
+    loadTrips: () => Promise<void>;
     setTrips: (trips: Trip[]) => void;
     upsertTrip: (trip: Trip) => void;
     removeTripById: (tripId: number) => void;
@@ -38,9 +42,25 @@ interface TripMapStoreState {
     removeSavedLodgingId: (id: number) => void;
     setIsLoadingTrips: (isLoading: boolean ) => void;
     setIsLoadingTripById: (isLoading: boolean) => void;
+    getSavedActivityIdSet: () => Set<number>;
+    getSavedLodgingIdSet: () => Set<number>;
+    getSavedActivities: () => SavedActivityEntry[];
+    getSavedLodgings: () => SavedLodgingEntry[];
+    getTripsAtSelectedLocation: () => Trip[];
+    getSelectedTripLocationIndex: () => number;
+    getMapPanels: () => TripMapPanels;
 }
 
-export const useTripMapStore = create<TripMapStoreState>((set) => ({
+export interface TripMapPanels {
+    showSidebar: boolean;
+    showFullScreen: boolean;
+    showSearchPanel: boolean;
+    showPlansPanel: boolean;
+    showTopLeftControls: boolean;
+    showAnyLeftSidebar: boolean;
+}
+
+export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     trips: [],
     selectedTrip: null,
     fullScreenTrip: null,
@@ -53,6 +73,24 @@ export const useTripMapStore = create<TripMapStoreState>((set) => ({
     savedLodgingIds: [],
     isLoadingTrips: true,
     isLoadingTripById: false,
+    loadTrips: async () => {
+        set({ isLoadingTrips: true });
+
+        try {
+            const apiTrips = await getTrips();
+            const now = new Date();
+
+            set({
+                trips: apiTrips
+                    .filter((trip): trip is Trip => Boolean(trip))
+                    .filter((trip) => !(trip.event_end && trip.event_start) || (trip.event_end !== null && new Date(trip.event_end) > now)),
+            });
+        } catch {
+            set({ trips: [] });
+        } finally {
+            set({ isLoadingTrips: false });
+        }
+    },
     setTrips: (trips) => set({ trips }),
     upsertTrip: (trip) =>
         set((state) => {
@@ -177,4 +215,96 @@ export const useTripMapStore = create<TripMapStoreState>((set) => ({
         })),
     setIsLoadingTrips: (isLoadingTrips) => set({ isLoadingTrips }),
     setIsLoadingTripById: (isLoadingTripById) => set({ isLoadingTripById }),
+    getSavedActivityIdSet: () => {
+        return new Set(get().savedActivityIds);
+    },
+    getSavedLodgingIdSet: () => {
+        return new Set(get().savedLodgingIds);
+    },
+    getSavedActivities: () => {
+        const state = get();
+        const savedActivityIds = new Set(state.savedActivityIds);
+
+        return state.trips.flatMap((trip) =>
+            trip.activities
+                .filter((activity) => savedActivityIds.has(activity.activity_id))
+                .map((activity) => ({
+                    tripId: trip.trip_id,
+                    tripTitle: trip.title || "",
+                    tripThumbnail: trip.thumbnail_url,
+                    activity,
+                })),
+        );
+    },
+    getSavedLodgings: () => {
+        const state = get();
+        const savedLodgingIds = new Set(state.savedLodgingIds);
+
+        return state.trips.flatMap((trip) =>
+            trip.lodgings
+                .filter((lodging) => savedLodgingIds.has(lodging.lodge_id))
+                .map((lodging) => ({
+                    tripId: trip.trip_id,
+                    tripTitle: trip.title || "",
+                    tripThumbnail: trip.thumbnail_url,
+                    lodging,
+                })),
+        );
+    },
+    getTripsAtSelectedLocation: () => {
+        const state = get();
+        if (!state.selectedTrip) {
+            return [];
+        }
+
+        const selectedLocationKey = getLocationKey(state.selectedTrip.latitude, state.selectedTrip.longitude);
+
+        return state.trips
+            .filter((trip) => getLocationKey(trip.latitude, trip.longitude) === selectedLocationKey)
+            .sort((left, right) => {
+                if (!left.date || !right.date) {
+                    return 0;
+                }
+
+                return getTripTimestamp(right.date) - getTripTimestamp(left.date);
+            });
+    },
+    getSelectedTripLocationIndex: () => {
+        const state = get();
+        if (!state.selectedTrip) {
+            return -1;
+        }
+
+        const selectedLocationKey = getLocationKey(state.selectedTrip.latitude, state.selectedTrip.longitude);
+        const tripsAtSelectedLocation = state.trips
+            .filter((trip) => getLocationKey(trip.latitude, trip.longitude) === selectedLocationKey)
+            .sort((left, right) => {
+                if (!left.date || !right.date) {
+                    return 0;
+                }
+
+                return getTripTimestamp(right.date) - getTripTimestamp(left.date);
+            });
+
+        return tripsAtSelectedLocation.findIndex((trip) => trip.trip_id === state.selectedTrip?.trip_id);
+    },
+    getMapPanels: () => {
+        const state = get();
+
+        const showSidebar = !!state.selectedTrip && !state.fullScreenTrip;
+        const showFullScreen = !!state.fullScreenTrip;
+        const showSearchPanel = state.searchPanelOpen && !showSidebar && !showFullScreen;
+        const showPlansPanel = state.plansPanelOpen && !showSidebar && !showFullScreen && !showSearchPanel;
+        const showTopLeftControls = !showSidebar && !showFullScreen && !showSearchPanel && !showPlansPanel;
+        const showAnyLeftSidebar = showSidebar || showFullScreen || showSearchPanel || showPlansPanel;
+
+        return {
+            showSidebar,
+            showFullScreen,
+            showSearchPanel,
+            showPlansPanel,
+            showTopLeftControls,
+            showAnyLeftSidebar,
+        };
+    },
 }));

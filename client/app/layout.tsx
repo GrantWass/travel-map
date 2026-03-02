@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Pacifico } from "next/font/google";
-import { AuthProvider } from "@/components/auth-provider";
+import AuthBootstrap from "@/components/auth-bootstrap";
 import { APP_NAME } from "@/lib/branding";
 import "./globals.css";
 
@@ -23,7 +23,7 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className={`${_brandDisplay.variable} font-sans antialiased overflow-hidden`}>
-                <AuthProvider>{children}</AuthProvider>
+                <AuthBootstrap>{children}</AuthBootstrap>
             </body>
         </html>
     );

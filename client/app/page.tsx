@@ -4,11 +4,11 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import TravelMap from "@/components/travel-map";
-import { useAuth } from "@/components/auth-provider";
+import { useAuthStore } from "@/stores/auth-store";
 
 export default function Page() {
   const router = useRouter();
-  const { status } = useAuth();
+  const status = useAuthStore((state) => state.status);
 
   useEffect(() => {
     if (status === "unauthenticated") {

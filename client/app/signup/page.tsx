@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
-import { useAuth } from "@/components/auth-provider";
 import BrandNameButton from "@/components/brand-name-button";
 import { API_BASE_URL, setAuthToken } from "@/lib/api-client";
 import type { User } from "@/lib/api-types";
+import { useAuthStore } from "@/stores/auth-store";
 
 type AccountType = "traveler" | "student";
 type Mode = "signup" | "signin";
@@ -14,7 +14,8 @@ type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
     const router = useRouter();
-    const { setAuthenticatedUser, refreshMyProfile } = useAuth();
+    const setAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
+    const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const [mode, setMode] = useState<Mode>("signup");
     const [accountType, setAccountType] = useState<AccountType>("traveler");
     const [displayedType, setDisplayedType] = useState<AccountType>("traveler");

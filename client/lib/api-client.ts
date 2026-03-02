@@ -245,6 +245,29 @@ export async function getUserProfile(userId: number): Promise<UserProfileRespons
   return requestJson<UserProfileResponse>(`/users/${userId}/profile`, { method: "GET" });
 }
 
+export function toUserProfileFromApi(profileResponse: UserProfileResponse): User {
+  const initials = profileResponse.user.name || ""
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  const user = {
+      user_id: profileResponse.user.user_id,
+      name: profileResponse.user.name || "Traveler", 
+      email: profileResponse.user.email,
+      bio: profileResponse.user.bio || "Traveler sharing experiences from the road.",
+      verified: profileResponse.user.verified,
+      college: profileResponse.user.college || "—",
+      profile_image_url: profileResponse.user.profile_image_url,
+      trips: profileResponse.trips || null,
+      initials: initials,
+  };
+
+  return user;
+}
+
 export interface SavedPlans {
   saved_activity_ids: number[];
   saved_lodging_ids: number[];

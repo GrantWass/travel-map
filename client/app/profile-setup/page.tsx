@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Camera, GraduationCap, UserRound, Globe, ArrowRight } from "lucide-react";
 import { createProfileSetup, uploadImage } from "@/lib/api-client";
-import { useAuth } from "@/components/auth-provider";
+import { useAuthStore } from "@/stores/auth-store";
 
 type AccountType = "student" | "traveler";
 type StepId = "photo" | "bio" | "college" | "finish";
@@ -40,7 +40,8 @@ export default function ProfileSetupPage() {
 function ProfileSetupContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { userId, refreshMyProfile } = useAuth();
+    const userId = useAuthStore((state) => state.user?.user_id ?? null);
+    const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const accountTypeParam = searchParams.get("accountType");
     const accountType: AccountType = accountTypeParam === "student" ? "student" : "traveler";
 

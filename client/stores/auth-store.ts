@@ -1,14 +1,49 @@
 import { create } from "zustand";
 
+import { ApiError, getSession, getUserProfile, logoutSession, setAuthToken } from "@/lib/api-client";
 import type { User, UserProfileResponse } from "@/lib/api-types";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+
+const SESSION_CACHE_KEY = "travel-map.session-user.v1";
+const PROFILE_CACHE_KEY = "travel-map.my-profile.v1";
+
+function readCachedJson<T>(key: string): T | null {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    try {
+        const raw = window.sessionStorage.getItem(key);
+        if (!raw) {
+            return null;
+        }
+
+        return JSON.parse(raw) as T;
+    } catch {
+        return null;
+    }
+}
+
+function writeCachedJson<T>(key: string, value: T | null) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    if (value === null) {
+        window.sessionStorage.removeItem(key);
+        return;
+    }
+
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+}
 
 interface AuthStoreState {
     status: AuthStatus;
     user: User | null;
     myProfile: UserProfileResponse | null;
     isHydratedFromCache: boolean;
+    initializeFromCache: () => void;
     hydrateFromCache: (
         cachedUser: User | null,
         cachedProfile: UserProfileResponse | null,
@@ -17,14 +52,22 @@ interface AuthStoreState {
     setMyProfile: (profile: UserProfileResponse | null) => void;
     setAuthenticatedUser: (user: User) => void;
     clearAuthState: () => void;
-    toUserProfileFromApi: (profileResponse: UserProfileResponse) => User;
+    refreshSession: () => Promise<User | null>;
+    refreshMyProfile: (userIdOverride?: number) => Promise<UserProfileResponse | null>;
+    signOut: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthStoreState>((set) => ({
+export const useAuthStore = create<AuthStoreState>((set, get) => ({
     status: "loading",
     user: null,
     myProfile: null,
     isHydratedFromCache: false,
+    initializeFromCache: () => {
+        const cachedUser = readCachedJson<User>(SESSION_CACHE_KEY);
+        const cachedProfile = readCachedJson<UserProfileResponse>(PROFILE_CACHE_KEY);
+
+        get().hydrateFromCache(cachedUser, cachedProfile);
+    },
     hydrateFromCache: (cachedUser, cachedProfile) => {
         set(() => {
             const hasValidCachedUser =
@@ -43,28 +86,70 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
         });
     },
     setStatus: (status) => set({ status }),
-    setMyProfile: (myProfile) => set({ myProfile }),
-    setAuthenticatedUser: (user) => set({ user, status: "authenticated" }),
-    clearAuthState: () => set({ user: null, status: "unauthenticated", myProfile: null }),
-    toUserProfileFromApi(profileResponse: UserProfileResponse): User {
-        const initials = profileResponse.user.name || ""
-            .split(" ")
-            .filter(Boolean)
-            .map((part) => part[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase();
-        const user = {
-            user_id: profileResponse.user.user_id,
-            name: profileResponse.user.name || "Traveler", 
-            email: profileResponse.user.email,
-            bio: profileResponse.user.bio || "Traveler sharing experiences from the road.",
-            verified: profileResponse.user.verified,
-            college: profileResponse.user.college || "—",
-            profile_image_url: profileResponse.user.profile_image_url,
-            trips: profileResponse.user.trips || null,
-            initials: initials,
+    setMyProfile: (myProfile) => {
+        set({ myProfile });
+        writeCachedJson(PROFILE_CACHE_KEY, myProfile);
+    },
+    setAuthenticatedUser: (user) => {
+        set({ user, status: "authenticated" });
+        writeCachedJson(SESSION_CACHE_KEY, user);
+    },
+    clearAuthState: () => {
+        set({ user: null, status: "unauthenticated", myProfile: null });
+        setAuthToken(null);
+        writeCachedJson(SESSION_CACHE_KEY, null);
+        writeCachedJson(PROFILE_CACHE_KEY, null);
+    },
+    refreshSession: async () => {
+        try {
+            const response = await getSession();
+            if (response.authenticated && response.user) {
+                get().setAuthenticatedUser(response.user);
+                return response.user;
+            }
+
+            get().clearAuthState();
+            return null;
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 401) {
+                get().clearAuthState();
+                return null;
+            }
+
+            get().clearAuthState();
+            return null;
         }
-        return user
+    },
+    refreshMyProfile: async (userIdOverride?: number) => {
+        const targetUserId = userIdOverride ?? get().user?.user_id;
+        if (!targetUserId) {
+            get().setMyProfile(null);
+            return null;
+        }
+
+        try {
+            const profile = await getUserProfile(targetUserId);
+            if (profile.user.user_id !== targetUserId) {
+                return null;
+            }
+
+            get().setMyProfile(profile);
+            return profile;
+        } catch {
+            return get().myProfile;
+        }
+    },
+    signOut: async () => {
+        try {
+            await logoutSession();
+        } catch {
+            // Continue clearing client auth state even if network logout fails.
+        }
+
+        get().clearAuthState();
+
+        if (typeof window !== "undefined") {
+            window.location.replace("/signup");
+        }
     }
 }));
