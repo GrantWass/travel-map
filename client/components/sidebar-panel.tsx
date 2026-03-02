@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer, Expand, Pencil } from "lucide-react";
+import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -225,6 +225,10 @@ export default function SidebarPanel({
                                         >
                                             {isExpanded ? (
                                                 <div className="flex flex-col gap-3 p-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-medium text-foreground">{lodging.title}</p>
+                                                        <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                    </div>
                                                     <div className="group relative overflow-hidden rounded-lg">
                                                         <AspectRatio ratio={4 / 3} className="bg-muted">
                                                             <Image
@@ -270,6 +274,7 @@ export default function SidebarPanel({
                                                         <p className="text-sm font-medium text-foreground break-words">{lodging.title}</p>
                                                         <p className="text-xs text-muted-foreground break-words whitespace-normal">{formatAddress(lodging.address)}</p>
                                                     </div>
+                                                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                 </div>
                                             )}
                                         </div>
@@ -311,6 +316,10 @@ export default function SidebarPanel({
                                         >
                                             {isExpanded ? (
                                                 <div className="flex flex-col gap-3 p-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-medium text-foreground">{activity.title}</p>
+                                                        <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                    </div>
                                                     <div className="group relative overflow-hidden rounded-lg">
                                                         <AspectRatio ratio={16 / 9} className="bg-muted">
                                                             <Image
@@ -368,6 +377,7 @@ export default function SidebarPanel({
                                                             </span>
                                                         )}
                                                     </div>
+                                                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                 </div>
                                             )}
                                         </div>
