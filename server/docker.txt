@@ -77,6 +77,8 @@ export POSTGRES_PASSWORD='Exposed4!?'
 export SECRET_KEY='signai'
 export S3_BUCKET_NAME='travel-map-media'
 
+# POSTGRESS_HOST=proxy-1772426230819-travel-map.proxy-cdum0m4222p3.us-east-1.rds.amazonaws.com
+
 # 6B) Apply all env vars in one Lambda update call
 aws lambda update-function-configuration \
   --function-name ${FUNCTION_NAME} \

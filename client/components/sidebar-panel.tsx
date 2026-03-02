@@ -370,10 +370,12 @@ export default function SidebarPanel({
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-foreground break-words">{activity.title}</p>
-                                                        <p className="flex items-start gap-1 text-xs text-muted-foreground break-words whitespace-normal">
-                                                            <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                                                            <span className="min-w-0">{formatAddress(activity.address)}</span>
-                                                        </p>
+                                                        {formatAddress(activity.address) && (
+                                                            <span className="inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground break-words whitespace-normal">
+                                                                <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                                                                <span className="min-w-0 break-words whitespace-normal">{formatAddress(activity.address)}</span>
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                 </div>
