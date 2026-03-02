@@ -1,0 +1,29 @@
+import type { TripLodging, TripActivity } from "@/lib/api-types";
+
+export interface SavedActivityEntry {
+  tripId: number;
+  tripTitle: string;
+  tripThumbnail: string;
+  activity: TripActivity;
+}
+
+export interface SavedLodgingEntry {
+  tripId: number;
+  tripTitle: string;
+  tripThumbnail: string;
+  lodging: TripLodging;
+}
+
+export interface SavedActivityEntry {
+  tripId: number;
+  tripTitle: string;
+  tripThumbnail: string;
+  activity: TripActivity;
+}
+
+export interface SavedLodgingEntry {
+  tripId: number;
+  tripTitle: string;
+  tripThumbnail: string;
+  lodging: TripLodging;
+}

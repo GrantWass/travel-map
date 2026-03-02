@@ -7,32 +7,13 @@ import { useAuth } from "@/components/auth-provider";
 import { ApiError, updateProfileSettings, uploadImage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-// Swap MOCK_PROFILE in travel-map.tsx with real data from your DB/auth context.
-
-export interface TripEntry {
-    id: number;
-    title: string;
-    thumbnail: string;
-    date: string;
-}
-
-export interface UserProfile {
-    userId: number;
-    name: string;
-    initials: string;
-    email: string;
-    university: string;
-    bio: string;
-    image_url: string | null;
-    trips: TripEntry[];
-}
+import { User } from "@/lib/api-types";
+import { formatTripDate, initialsFromName } from "@/lib/utils";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface UserProfileModalProps {
-    profile: UserProfile;
+    profile: User;
     onClose: () => void;
     onSelectTrip?: (tripId: number) => void;
     onAddTrip?: () => void;
@@ -41,37 +22,6 @@ interface UserProfileModalProps {
     deletingTripId?: number | null;
     onDeleteTrip?: (tripId: number) => void;
     expandFrom?: "top-right" | "left";
-}
-
-function initialsFromName(value: string): string {
-    const initials = value
-        .split(" ")
-        .filter(Boolean)
-        .map((part) => part[0]?.toUpperCase() || "")
-        .join("")
-        .slice(0, 2);
-    return initials || "TR";
-}
-
-function formatTripDate(value: string): string {
-    const trimmed = value.trim();
-    const match = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(trimmed);
-    if (!match) {
-        return value;
-    }
-
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    if (!Number.isInteger(year) || month < 1 || month > 12) {
-        return value;
-    }
-
-    const date = new Date(Date.UTC(year, month - 1, 1));
-    return new Intl.DateTimeFormat("en-US", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-    }).format(date);
 }
 
 const DEFAULT_PROFILE_BIO = "Traveler sharing experiences from the road.";
@@ -90,115 +40,153 @@ export default function UserProfileModal({
     const { signOut, refreshMyProfile, refreshSession } = useAuth();
     const animClass = expandFrom === "left" ? "modal-expand-left" : "modal-expand";
 
-    const [currentName, setCurrentName] = useState(profile.name);
-    const [currentUniversity, setCurrentUniversity] = useState(profile.university);
-    const [currentBio, setCurrentBio] = useState(profile.bio);
-    const [currentImageUrl, setCurrentImageUrl] = useState(profile.image_url);
+    const [displayState, setDisplayState] = useState(() => ({
+        name: profile.name || "Traveler",
+        university: profile.college || "—",
+        bio: profile.bio,
+        imageUrl: profile.profile_image_url,
+    }));
+    const [formState, setFormState] = useState(() => ({
+        nameInput: profile.name || "",
+        bioInput: profile.bio || "",
+        collegeInput: "",
+        profileImageFile: null as File | null,
+        profileImagePreviewUrl: null as string | null,
+    }));
+    const [saveState, setSaveState] = useState({
+        isSaving: false,
+        error: "",
+        success: "",
+    });
+    const [collegeLookupState, setCollegeLookupState] = useState({
+        results: [] as string[],
+        isOpen: false,
+        isLoading: false,
+        error: "",
+    });
     const [profileImageFailed, setProfileImageFailed] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [nameInput, setNameInput] = useState(profile.name);
-    const [bioInput, setBioInput] = useState(profile.bio);
-    const [collegeInput, setCollegeInput] = useState("");
-    const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
-    const [profileImagePreviewUrl, setProfileImagePreviewUrl] = useState<string | null>(null);
-    const [isSavingSettings, setIsSavingSettings] = useState(false);
-    const [settingsError, setSettingsError] = useState("");
-    const [settingsSuccess, setSettingsSuccess] = useState("");
-    const [collegeResults, setCollegeResults] = useState<string[]>([]);
-    const [isCollegeMenuOpen, setIsCollegeMenuOpen] = useState(false);
-    const [isSearchingColleges, setIsSearchingColleges] = useState(false);
-    const [collegeSearchError, setCollegeSearchError] = useState("");
 
     useEffect(() => {
-        setCurrentName(profile.name);
-        setCurrentUniversity(profile.university);
-        setCurrentBio(profile.bio);
-        setCurrentImageUrl(profile.image_url);
-        setNameInput(profile.name);
-        setBioInput(profile.bio);
-        setCollegeInput("");
-        setCollegeResults([]);
-        setIsCollegeMenuOpen(false);
-        setProfileImageFile(null);
-        setProfileImagePreviewUrl(null);
+        setDisplayState({
+            name: profile.name || "Traveler",
+            university: profile.college || "—",
+            bio: profile.bio,
+            imageUrl: profile.profile_image_url,
+        });
+        setFormState((current) => {
+            if (current.profileImagePreviewUrl) {
+                URL.revokeObjectURL(current.profileImagePreviewUrl);
+            }
+
+            return {
+                nameInput: profile.name || "",
+                bioInput: profile.bio || "",
+                collegeInput: "",
+                profileImageFile: null,
+                profileImagePreviewUrl: null,
+            };
+        });
+        setCollegeLookupState({
+            results: [],
+            isOpen: false,
+            isLoading: false,
+            error: "",
+        });
         setProfileImageFailed(false);
-        setSettingsError("");
-        setSettingsSuccess("");
+        setSaveState({ isSaving: false, error: "", success: "" });
         setSettingsOpen(false);
-    }, [profile.bio, profile.image_url, profile.name, profile.university]);
+    }, [profile.bio, profile.profile_image_url, profile.name, profile.college]);
 
     useEffect(() => {
         return () => {
-            if (profileImagePreviewUrl) {
-                URL.revokeObjectURL(profileImagePreviewUrl);
+            if (formState.profileImagePreviewUrl) {
+                URL.revokeObjectURL(formState.profileImagePreviewUrl);
             }
         };
-    }, [profileImagePreviewUrl]);
+    }, [formState.profileImagePreviewUrl]);
 
-    const normalizedUniversity = currentUniversity.trim();
+    const normalizedUniversity = displayState.university.trim();
     const hasSchool = normalizedUniversity !== "" && normalizedUniversity !== "—";
-    const profileImageUrl = (currentImageUrl || "").trim();
+    const profileImageUrl = (displayState.imageUrl || "").trim();
     const showProfileImage = Boolean(profileImageUrl) && !profileImageFailed;
     const displayInitials = useMemo(
-        () => initialsFromName(currentName.trim() || profile.name || profile.initials),
-        [currentName, profile.initials, profile.name],
+        () => initialsFromName(displayState.name.trim() || profile.name || profile.initials),
+        [displayState.name, profile.initials, profile.name],
     );
 
     useEffect(() => {
-        if (!settingsOpen || hasSchool || collegeInput.trim().length < 2) {
-            setCollegeResults([]);
-            setCollegeSearchError("");
-            setIsSearchingColleges(false);
+        if (!settingsOpen || hasSchool || formState.collegeInput.trim().length < 2) {
+            setCollegeLookupState((current) => ({
+                ...current,
+                results: [],
+                error: "",
+                isLoading: false,
+            }));
             return;
         }
 
         const fetchColleges = async () => {
             try {
-                setIsSearchingColleges(true);
-                setCollegeSearchError("");
-                const response = await fetch(`/api/universities?name=${encodeURIComponent(collegeInput)}`);
+                setCollegeLookupState((current) => ({
+                    ...current,
+                    isLoading: true,
+                    error: "",
+                }));
+                const response = await fetch(`/api/universities?name=${encodeURIComponent(formState.collegeInput)}`);
                 const data = await response.json();
 
                 if (!response.ok) {
                     throw new Error(data?.error || "Could not fetch universities");
                 }
 
-                setCollegeResults(Array.isArray(data.universities) ? data.universities : []);
+                setCollegeLookupState((current) => ({
+                    ...current,
+                    results: Array.isArray(data.universities) ? data.universities : [],
+                }));
             } catch (error) {
                 console.error("Error fetching universities:", error);
-                setCollegeResults([]);
-                setCollegeSearchError("Could not fetch universities right now.");
+                setCollegeLookupState((current) => ({
+                    ...current,
+                    results: [],
+                    error: "Could not fetch universities right now.",
+                }));
             } finally {
-                setIsSearchingColleges(false);
+                setCollegeLookupState((current) => ({
+                    ...current,
+                    isLoading: false,
+                }));
             }
         };
 
         const timeoutId = setTimeout(fetchColleges, 300);
         return () => clearTimeout(timeoutId);
-    }, [collegeInput, hasSchool, settingsOpen]);
+    }, [formState.collegeInput, hasSchool, settingsOpen]);
 
     function handleProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0] ?? null;
-        setProfileImageFile(file);
-        setSettingsSuccess("");
-        setSettingsError("");
+        setSaveState((current) => ({ ...current, success: "", error: "" }));
+        setFormState((current) => {
+            if (current.profileImagePreviewUrl) {
+                URL.revokeObjectURL(current.profileImagePreviewUrl);
+            }
 
-        if (profileImagePreviewUrl) {
-            URL.revokeObjectURL(profileImagePreviewUrl);
-        }
-        setProfileImagePreviewUrl(file ? URL.createObjectURL(file) : null);
+            return {
+                ...current,
+                profileImageFile: file,
+                profileImagePreviewUrl: file ? URL.createObjectURL(file) : null,
+            };
+        });
         setProfileImageFailed(false);
     }
 
     async function handleSaveSettings() {
-        setSettingsError("");
-        setSettingsSuccess("");
-        setIsSavingSettings(true);
+        setSaveState({ isSaving: true, error: "", success: "" });
 
         try {
-            const trimmedName = nameInput.trim();
+            const trimmedName = formState.nameInput.trim();
             if (!trimmedName) {
-                setSettingsError("Username is required.");
+                setSaveState({ isSaving: false, error: "Username is required.", success: "" });
                 return;
             }
 
@@ -209,73 +197,79 @@ export default function UserProfileModal({
                 profile_image_url?: string;
             } = {};
 
-            if (trimmedName !== currentName.trim()) {
+            if (trimmedName !== displayState.name.trim()) {
                 payload.name = trimmedName;
             }
 
-            const trimmedBio = bioInput.trim();
-            if (trimmedBio !== currentBio.trim()) {
+            const trimmedBio = formState.bioInput.trim();
+            if (trimmedBio !== (displayState.bio || "").trim()) {
                 payload.bio = trimmedBio;
             }
 
             if (!hasSchool) {
-                const trimmedCollege = collegeInput.trim();
+                const trimmedCollege = formState.collegeInput.trim();
                 if (trimmedCollege) {
                     payload.college = trimmedCollege;
                 }
             }
 
-            if (profileImageFile) {
-                const uploadedUrl = await uploadImage(profileImageFile, "profiles");
+            if (formState.profileImageFile) {
+                const uploadedUrl = await uploadImage(formState.profileImageFile, "profiles");
                 payload.profile_image_url = uploadedUrl;
             }
 
             if (!payload.name && payload.bio === undefined && !payload.college && !payload.profile_image_url) {
-                setSettingsSuccess("No changes to save.");
+                setSaveState({ isSaving: false, error: "", success: "No changes to save." });
                 return;
             }
 
             const response = await updateProfileSettings(payload);
             const updatedUser = response.user;
 
-            if (updatedUser.name) {
-                setCurrentName(updatedUser.name);
-                setNameInput(updatedUser.name);
-            }
-
-            if (updatedUser.college) {
-                setCurrentUniversity(updatedUser.college);
-                setCollegeInput("");
-                setCollegeResults([]);
-                setIsCollegeMenuOpen(false);
-            }
-
+            const nextName = updatedUser.name || displayState.name;
+            const nextUniversity = updatedUser.college || displayState.university;
             const nextBio = (updatedUser.bio ?? "").trim();
-            setCurrentBio(nextBio);
-            setBioInput(nextBio);
+            const nextImageUrl = updatedUser.profile_image_url || displayState.imageUrl;
 
-            if (updatedUser.profile_image_url) {
-                setCurrentImageUrl(updatedUser.profile_image_url);
-                setProfileImageFailed(false);
-            }
+            setDisplayState({
+                name: nextName,
+                university: nextUniversity,
+                bio: nextBio,
+                imageUrl: nextImageUrl,
+            });
 
-            if (profileImagePreviewUrl) {
-                URL.revokeObjectURL(profileImagePreviewUrl);
-            }
-            setProfileImagePreviewUrl(null);
-            setProfileImageFile(null);
+            setFormState((current) => {
+                if (current.profileImagePreviewUrl) {
+                    URL.revokeObjectURL(current.profileImagePreviewUrl);
+                }
+
+                return {
+                    nameInput: nextName,
+                    bioInput: nextBio,
+                    collegeInput: "",
+                    profileImageFile: null,
+                    profileImagePreviewUrl: null,
+                };
+            });
+
+            setCollegeLookupState((current) => ({
+                ...current,
+                results: [],
+                isOpen: false,
+            }));
+            setProfileImageFailed(false);
 
             await refreshSession();
-            await refreshMyProfile(profile.userId);
-            setSettingsSuccess("Profile updated.");
+            await refreshMyProfile(profile.user_id);
+            setSaveState((current) => ({ ...current, success: "Profile updated.", error: "" }));
         } catch (error) {
             if (error instanceof ApiError) {
-                setSettingsError(error.message);
+                setSaveState((current) => ({ ...current, error: error.message, success: "" }));
             } else {
-                setSettingsError("Could not update profile right now.");
+                setSaveState((current) => ({ ...current, error: "Could not update profile right now.", success: "" }));
             }
         } finally {
-            setIsSavingSettings(false);
+            setSaveState((current) => ({ ...current, isSaving: false }));
         }
     }
 
@@ -291,8 +285,7 @@ export default function UserProfileModal({
                         <button
                             onClick={() => {
                                 setSettingsOpen((current) => !current);
-                                setSettingsError("");
-                                setSettingsSuccess("");
+                                setSaveState((current) => ({ ...current, error: "", success: "" }));
                             }}
                             className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-border transition-colors"
                             aria-label="Open profile settings"
@@ -320,8 +313,8 @@ export default function UserProfileModal({
                                             Username
                                         </span>
                                         <input
-                                            value={nameInput}
-                                            onChange={(event) => setNameInput(event.target.value)}
+                                            value={formState.nameInput}
+                                            onChange={(event) => setFormState((current) => ({ ...current, nameInput: event.target.value }))}
                                             className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
                                             placeholder="Your name"
                                         />
@@ -332,8 +325,8 @@ export default function UserProfileModal({
                                             Bio
                                         </span>
                                         <textarea
-                                            value={bioInput}
-                                            onChange={(event) => setBioInput(event.target.value)}
+                                            value={formState.bioInput}
+                                            onChange={(event) => setFormState((current) => ({ ...current, bioInput: event.target.value }))}
                                             rows={4}
                                             placeholder="Tell people what kind of trips and experiences you enjoy."
                                             className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
@@ -355,16 +348,16 @@ export default function UserProfileModal({
                                                     onChange={handleProfileImageChange}
                                                 />
                                             </label>
-                                            {profileImageFile ? (
+                                            {formState.profileImageFile ? (
                                                 <span className="truncate text-xs text-muted-foreground">
-                                                    {profileImageFile.name}
+                                                    {formState.profileImageFile.name}
                                                 </span>
                                             ) : null}
                                         </div>
-                                        {profileImagePreviewUrl ? (
+                                        {formState.profileImagePreviewUrl ? (
                                             <div className="flex items-center gap-2">
                                                 <img
-                                                    src={profileImagePreviewUrl}
+                                                    src={formState.profileImagePreviewUrl}
                                                     alt="New profile preview"
                                                     className="h-12 w-12 rounded-full border border-border object-cover"
                                                 />
@@ -383,43 +376,45 @@ export default function UserProfileModal({
                                             <div className="relative">
                                                 <input
                                                     type="text"
-                                                    value={collegeInput}
+                                                    value={formState.collegeInput}
                                                     onChange={(event) => {
-                                                        setCollegeInput(event.target.value);
-                                                        setIsCollegeMenuOpen(true);
+                                                        setFormState((current) => ({ ...current, collegeInput: event.target.value }));
+                                                        setCollegeLookupState((current) => ({ ...current, isOpen: true }));
                                                     }}
-                                                    onFocus={() => setIsCollegeMenuOpen(true)}
+                                                    onFocus={() => setCollegeLookupState((current) => ({ ...current, isOpen: true }))}
                                                     onBlur={() => {
-                                                        window.setTimeout(() => setIsCollegeMenuOpen(false), 120);
+                                                        window.setTimeout(() => {
+                                                            setCollegeLookupState((current) => ({ ...current, isOpen: false }));
+                                                        }, 120);
                                                     }}
                                                     placeholder="Search your school"
                                                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
                                                 />
-                                                {isCollegeMenuOpen && (
+                                                {collegeLookupState.isOpen && (
                                                     <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg">
-                                                        {isSearchingColleges ? (
+                                                        {collegeLookupState.isLoading ? (
                                                             <p className="px-3 py-2 text-sm text-muted-foreground">
                                                                 Searching schools...
                                                             </p>
-                                                        ) : collegeSearchError ? (
+                                                        ) : collegeLookupState.error ? (
                                                             <p className="px-3 py-2 text-sm text-red-600">
-                                                                {collegeSearchError}
+                                                                {collegeLookupState.error}
                                                             </p>
-                                                        ) : collegeResults.length > 0 ? (
-                                                            collegeResults.map((school) => (
+                                                        ) : collegeLookupState.results.length > 0 ? (
+                                                            collegeLookupState.results.map((school) => (
                                                                 <button
                                                                     key={school}
                                                                     type="button"
                                                                     onClick={() => {
-                                                                        setCollegeInput(school);
-                                                                        setIsCollegeMenuOpen(false);
+                                                                        setFormState((current) => ({ ...current, collegeInput: school }));
+                                                                        setCollegeLookupState((current) => ({ ...current, isOpen: false }));
                                                                     }}
                                                                     className="w-full px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70"
                                                                 >
                                                                     {school}
                                                                 </button>
                                                             ))
-                                                        ) : collegeInput.trim().length >= 2 ? (
+                                                        ) : formState.collegeInput.trim().length >= 2 ? (
                                                             <p className="px-3 py-2 text-sm text-muted-foreground">
                                                                 No schools found.
                                                             </p>
@@ -430,7 +425,7 @@ export default function UserProfileModal({
                                         </div>
                                     ) : (
                                         <p className="text-xs text-muted-foreground">
-                                            School is already set to <span className="font-medium text-foreground">{currentUniversity}</span>.
+                                            School is already set to <span className="font-medium text-foreground">{displayState.university}</span>.
                                         </p>
                                     )}
 
@@ -439,9 +434,9 @@ export default function UserProfileModal({
                                             type="button"
                                             size="sm"
                                             onClick={() => void handleSaveSettings()}
-                                            disabled={isSavingSettings}
+                                            disabled={saveState.isSaving}
                                         >
-                                            {isSavingSettings ? (
+                                            {saveState.isSaving ? (
                                                 <>
                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                     Saving...
@@ -459,11 +454,11 @@ export default function UserProfileModal({
                                             Logout
                                         </Button>
                                     </div>
-                                    {settingsError ? (
-                                        <p className="text-xs font-medium text-red-600">{settingsError}</p>
+                                    {saveState.error ? (
+                                        <p className="text-xs font-medium text-red-600">{saveState.error}</p>
                                     ) : null}
-                                    {settingsSuccess ? (
-                                        <p className="text-xs font-medium text-emerald-700">{settingsSuccess}</p>
+                                    {saveState.success ? (
+                                        <p className="text-xs font-medium text-emerald-700">{saveState.success}</p>
                                     ) : null}
                                 </div>
                             </div>
@@ -475,7 +470,7 @@ export default function UserProfileModal({
                                 {showProfileImage ? (
                                     <img
                                         src={profileImageUrl}
-                                        alt={`${currentName} profile photo`}
+                                        alt={`${displayState.name} profile photo`}
                                         className="h-full w-full object-cover"
                                         loading="lazy"
                                         onError={() => setProfileImageFailed(true)}
@@ -486,7 +481,7 @@ export default function UserProfileModal({
                             </div>
                             <div className="flex flex-col gap-1 pt-1">
                                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                                    {currentName}
+                                    {displayState.name}
                                 </h1>
                                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                                     <Mail className="h-3.5 w-3.5 flex-shrink-0" />
@@ -494,25 +489,25 @@ export default function UserProfileModal({
                                 </p>
                                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                                     <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" />
-                                    {currentUniversity}
+                                    {displayState.university}
                                 </p>
                             </div>
                         </div>
 
                         {/* Bio */}
                         <p className="max-w-2xl text-sm leading-relaxed text-foreground/75 mb-8">
-                            {currentBio.trim() || DEFAULT_PROFILE_BIO}
+                            {(displayState.bio || "").trim() || DEFAULT_PROFILE_BIO}
                         </p>
 
                         <div className="h-px bg-border mb-8" />
 
                         {/* Trips */}
-                        {(canManageTrips || profile.trips.length > 0) && (
+                        {(canManageTrips || (profile.trips || []).length > 0) && (
                             <h2 className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                 Trips
                             </h2>
                         )}
-                        {canManageTrips || profile.trips.length > 0 ? (
+                        {canManageTrips || (profile.trips || []).length > 0 ? (
                             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                                 {canManageTrips && (
                                     <button
@@ -527,22 +522,22 @@ export default function UserProfileModal({
                                         <span className="text-sm font-medium">Add Trip</span>
                                     </button>
                                 )}
-                                {profile.trips.map((trip) => (
+                                {profile.trips?.map((trip) => (
                                     <div
-                                        key={trip.id}
+                                        key={trip.trip_id}
                                         className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background hover:border-primary/30 transition-colors"
                                     >
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                onSelectTrip?.(trip.id);
+                                                onSelectTrip?.(trip.trip_id);
                                                 onClose();
                                             }}
                                             className="text-left"
                                         >
                                             <div className="relative aspect-video overflow-hidden">
                                                 <Image
-                                                    src={trip.thumbnail}
+                                                    src={trip.thumbnail_url}
                                                     alt={trip.title}
                                                     fill
                                                     className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -553,7 +548,7 @@ export default function UserProfileModal({
                                                     {trip.title}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                                    {formatTripDate(trip.date)}
+                                                    {formatTripDate(trip.date || "")}
                                                 </p>
                                             </div>
                                         </button>
@@ -562,9 +557,9 @@ export default function UserProfileModal({
                                                 type="button"
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    onDeleteTrip?.(trip.id);
+                                                    onDeleteTrip?.(trip.trip_id);
                                                 }}
-                                                disabled={deletingTripId === trip.id}
+                                                disabled={deletingTripId === trip.trip_id}
                                                 className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 disabled:cursor-not-allowed disabled:opacity-70"
                                                 aria-label={`Delete ${trip.title}`}
                                             >

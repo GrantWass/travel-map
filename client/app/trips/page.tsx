@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, createTrip, uploadImage } from "@/lib/api-client";
-import type { PlaceOption } from "@/lib/place-types";
+import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
 import type { TripDuration, TripVisibility } from "@/lib/api-types";
 

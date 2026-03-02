@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Notebook, X, MapPin, BedDouble } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/trip-models";
+import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 
 interface PlansSidebarPanelProps {
   savedActivities: SavedActivityEntry[];

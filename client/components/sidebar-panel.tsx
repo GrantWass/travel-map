@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
+import { formatTripDate, formatPopupTimeRange } from "@/lib/utils";
 
 interface SidebarPanelProps {
     review: Trip;
@@ -22,44 +23,6 @@ interface SidebarPanelProps {
     onShowNextTripAtLocation: () => void;
     canShowPreviousTripAtLocation: boolean;
     canShowNextTripAtLocation: boolean;
-}
-
-function formatPopupTimeRange(startIso: string, endIso: string): string {
-    const start = new Date(startIso);
-    const end = new Date(endIso);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Time unavailable";
-
-    const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
-    const startTime = start.toLocaleTimeString("en-US", timeOpts);
-    const endTime = end.toLocaleTimeString("en-US", timeOpts);
-
-    const now = new Date();
-    const isToday = start.toDateString() === now.toDateString();
-    if (isToday) return `Today · ${startTime} – ${endTime}`;
-
-    const dateStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `${dateStr} · ${startTime} – ${endTime}`;
-}
-
-function formatTripDate(value: string): string {
-    const trimmed = value.trim();
-    const match = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(trimmed);
-    if (!match) {
-        return value;
-    }
-
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    if (!Number.isInteger(year) || month < 1 || month > 12) {
-        return value;
-    }
-
-    const date = new Date(Date.UTC(year, month - 1, 1));
-    return new Intl.DateTimeFormat("en-US", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-    }).format(date);
 }
 
 export default function SidebarPanel({

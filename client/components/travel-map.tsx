@@ -12,13 +12,14 @@ import PlansSidebarPanel from "@/components/plans-sidebar-panel";
 import SearchSidebarPanel from "@/components/search-sidebar-panel";
 import SidebarPanel from "@/components/sidebar-panel";
 import StudentAddMenu from "@/components/student-add-menu";
-import UserProfileModal, { type UserProfile } from "@/components/user-profile-modal";
+import UserProfileModal from "@/components/user-profile-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import { deleteTrip, getSavedPlans, getTrip, getTrips, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
-import type { UserProfileResponse, TripActivity, Trip, TripLodging } from "@/lib/api-types";
-import type { ModalProfile, SavedActivityEntry, SavedLodgingEntry } from "@/lib/trip-models";
-import { toModalProfile } from "@/lib/trip-models";
+import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
+import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { useTripMapStore } from "@/stores/trip-map-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -30,7 +31,7 @@ const MapView = dynamic(() => import("@/components/map-view"), {
 });
 
 interface ProfileState {
-    profile: UserProfile;
+    profile: User;
     expandFrom: "top-right" | "left";
     canManageTrips: boolean;
     canEditProfile: boolean;
@@ -38,36 +39,11 @@ interface ProfileState {
 
 const REVIEW_PANEL_WIDTH = "min(483px, 100vw)";
 
-function getLocationKey(lat: number, lng: number): string {
-    return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
-}
-
-function getTripTimestamp(dateValue: string): number {
-    const timestamp = Date.parse(dateValue);
-    return Number.isNaN(timestamp) ? 0 : timestamp;
-}
-
-function toUserProfile(profile: ModalProfile): UserProfile {
-    return {
-        userId: profile.userId,
-        name: profile.name,
-        initials: profile.initials,
-        email: profile.email,
-        university: profile.university,
-        bio: profile.bio,
-        trips: profile.trips,
-        image_url: profile.image_url,
-    };
-}
-
-function toUserProfileFromApi(profileResponse: UserProfileResponse): UserProfile {
-    return toUserProfile(toModalProfile(profileResponse));
-}
-
 export default function TravelMap() {
     const router = useRouter();
     const pathname = usePathname();
     const { userId, isStudent, myProfile, refreshMyProfile } = useAuth();
+    const toUserProfileFromApi = useAuthStore((state) => state.toUserProfileFromApi);
 
     const trips = useTripMapStore((state) => state.trips);
     const selectedTrip = useTripMapStore((state) => state.selectedTrip);
@@ -104,7 +80,7 @@ export default function TravelMap() {
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
-    const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, UserProfile>>({});
+    const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const activeTripRequestIdRef = useRef(0);
 
     const applySavedPlans = useCallback((plans: Awaited<ReturnType<typeof getSavedPlans>>) => {
@@ -213,7 +189,7 @@ export default function TravelMap() {
         }
 
         const cached = toUserProfileFromApi(myProfile);
-        setProfileCacheByUser((current) => ({ ...current, [cached.userId]: cached }));
+        setProfileCacheByUser((current) => ({ ...current, [cached.user_id]: cached }));
     }, [myProfile]);
 
     const openTripById = useCallback(
@@ -384,7 +360,7 @@ export default function TravelMap() {
                     }
 
                     const mappedOwnProfile = toUserProfileFromApi(refreshedOwnProfile);
-                    setProfileCacheByUser((current) => ({ ...current, [mappedOwnProfile.userId]: mappedOwnProfile }));
+                    setProfileCacheByUser((current) => ({ ...current, [mappedOwnProfile.user_id]: mappedOwnProfile }));
                     setProfileState({
                         profile: mappedOwnProfile,
                         expandFrom,
@@ -397,7 +373,7 @@ export default function TravelMap() {
                 const profileResponse = await getUserProfile(targetUserId);
                 const mappedProfile = toUserProfileFromApi(profileResponse);
 
-                setProfileCacheByUser((current) => ({ ...current, [mappedProfile.userId]: mappedProfile }));
+                setProfileCacheByUser((current) => ({ ...current, [mappedProfile.user_id]: mappedProfile }));
                 setProfileState({
                     profile: mappedProfile,
                     expandFrom,
@@ -424,7 +400,7 @@ export default function TravelMap() {
                 removeTripById(tripId);
 
                 setProfileState((current) => {
-                    if (!current || current.profile.userId !== userId) {
+                    if (!current || current.profile.user_id !== userId) {
                         return current;
                     }
 
@@ -432,7 +408,7 @@ export default function TravelMap() {
                         ...current,
                         profile: {
                             ...current.profile,
-                            trips: current.profile.trips.filter((trip) => trip.id !== tripId),
+                            trips: (current.profile.trips ?? []).filter((trip) => trip.trip_id !== tripId),
                         },
                     };
                 });
@@ -440,9 +416,9 @@ export default function TravelMap() {
                 const refreshedOwnProfile = await refreshMyProfile(userId);
                 if (refreshedOwnProfile) {
                     const mappedOwnProfile = toUserProfileFromApi(refreshedOwnProfile);
-                    setProfileCacheByUser((current) => ({ ...current, [mappedOwnProfile.userId]: mappedOwnProfile }));
+                    setProfileCacheByUser((current) => ({ ...current, [mappedOwnProfile.user_id]: mappedOwnProfile }));
                     setProfileState((current) => {
-                        if (!current || current.profile.userId !== mappedOwnProfile.userId) {
+                        if (!current || current.profile.user_id !== mappedOwnProfile.user_id) {
                             return current;
                         }
 
@@ -679,7 +655,7 @@ export default function TravelMap() {
 
             {profileState && (
                 <UserProfileModal
-                    key={`${profileState.profile.userId}-${profileState.expandFrom}`}
+                    key={`${profileState.profile.user_id}-${profileState.expandFrom}`}
                     profile={profileState.profile}
                     expandFrom={profileState.expandFrom}
                     canManageTrips={profileState.canManageTrips}

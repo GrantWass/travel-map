@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, MapPin, X } from "lucide-react";
 
-import type { PlaceCenter, PlaceOption } from "@/lib/place-types";
+import type { PlaceCenter, PlaceOption } from "@/lib/client-types";
 
 const PinMapPicker = dynamic(() => import("@/components/pin-map-picker"), { ssr: false });
 
