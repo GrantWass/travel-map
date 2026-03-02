@@ -27,8 +27,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-geist), 'Geist Fallback';
+  --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
   --font-brand: var(--font-brand-display), 'Pacifico', 'Brush Script MT', cursive;
   --color-background: var(--background);
   --color-foreground: var(--foreground);

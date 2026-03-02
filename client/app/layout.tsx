@@ -4,8 +4,8 @@ import AuthBootstrap from "@/components/auth-bootstrap";
 import { APP_NAME } from "@/lib/branding";
 import "./globals.css";
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const _geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 const _brandDisplay = Pacifico({ subsets: ["latin"], weight: "400", variable: "--font-brand-display" });
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={`${_brandDisplay.variable} font-sans antialiased overflow-hidden`}>
+            <body className={`${_geist.variable} ${_geistMono.variable} ${_brandDisplay.variable} font-sans antialiased overflow-hidden`}>
                 <AuthBootstrap>{children}</AuthBootstrap>
             </body>
         </html>

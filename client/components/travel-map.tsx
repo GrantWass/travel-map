@@ -6,7 +6,6 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { CircleUser, MapPin, Notebook, Search, X } from "lucide-react";
 
-import FullScreenReview from "@/components/full-screen-review";
 import PlansSidebarPanel from "@/components/plans-sidebar-panel";
 import SearchSidebarPanel from "@/components/search-sidebar-panel";
 import SidebarPanel from "@/components/sidebar-panel";
@@ -46,7 +45,6 @@ export default function TravelMap() {
 
     const trips = useTripMapStore((state) => state.trips);
     const selectedTrip = useTripMapStore((state) => state.selectedTrip);
-    const fullScreenTrip = useTripMapStore((state) => state.fullScreenTrip);
     const searchQuery = useTripMapStore((state) => state.searchQuery);
     const isLoadingTrips = useTripMapStore((state) => state.isLoadingTrips);
     const isLoadingTripById = useTripMapStore((state) => state.isLoadingTripById);
@@ -60,8 +58,6 @@ export default function TravelMap() {
     const closeSearchPanel = useTripMapStore((state) => state.closeSearchPanel);
     const togglePlansPanel = useTripMapStore((state) => state.togglePlansPanel);
     const closePlansPanel = useTripMapStore((state) => state.closePlansPanel);
-    const showTripInFullScreen = useTripMapStore((state) => state.showTripInFullScreen);
-    const showFullScreenTripInSidebar = useTripMapStore((state) => state.showFullScreenTripInSidebar);
     const previewTripAtLocation = useTripMapStore((state) => state.previewTripAtLocation);
     const setSavedActivityIds = useTripMapStore((state) => state.setSavedActivityIds);
     const setSavedLodgingIds = useTripMapStore((state) => state.setSavedLodgingIds);
@@ -99,7 +95,6 @@ export default function TravelMap() {
     const selectedTripLocationIndex = getSelectedTripLocationIndex();
 
     const showSidebar = useTripMapStore((state) => state.getMapPanels().showSidebar);
-    const showFullScreen = useTripMapStore((state) => state.getMapPanels().showFullScreen);
     const showSearchPanel = useTripMapStore((state) => state.getMapPanels().showSearchPanel);
     const showPlansPanel = useTripMapStore((state) => state.getMapPanels().showPlansPanel);
     const showTopLeftControls = useTripMapStore((state) => state.getMapPanels().showTopLeftControls);
@@ -213,18 +208,6 @@ export default function TravelMap() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleViewFull = useCallback((trip: Trip) => {
-        const isPopup = trip.event_end && trip.event_start
-        if (isPopup) {
-            return;
-        }
-
-        showTripInFullScreen(trip);
-    }, [showTripInFullScreen]);
-
-    const handleBack = useCallback(() => {
-        showFullScreenTripInSidebar();
-    }, [showFullScreenTripInSidebar]);
 
     const handleShowPreviousTripAtLocation = useCallback(() => {
         if (selectedTripLocationIndex <= 0) {
@@ -450,19 +433,28 @@ export default function TravelMap() {
                     className="h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                     style={{
                         width:
-                            showSidebar || showFullScreen || showSearchPanel || showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
+                            showSidebar || showSearchPanel || showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
                     }}
                 >
                     {showSidebar && selectedTrip && (
                         <SidebarPanel
                             review={selectedTrip}
                             onClose={() => void openTripById(null)}
-                            onViewFull={handleViewFull}
                             onOpenAuthorProfile={(profileUserId) => {
                                 void openProfile(profileUserId, "left");
                             }}
+                            onExpandImage={setExpandedImage}
                             onToggleSavedActivity={handleToggleSavedActivity}
                             onToggleSavedLodging={handleToggleSavedLodging}
+                            onEditTrip={
+                                userId !== null && isStudent && selectedTrip.owner_user_id === userId
+                                    ? () => {
+                                          const isPopup = Boolean(selectedTrip.event_start && selectedTrip.event_end);
+                                          const base = `/trips?edit=${selectedTrip.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
+                                          router.push(isPopup ? `${base}&mode=popup` : base);
+                                      }
+                                    : undefined
+                            }
                             locationTripCount={tripsAtSelectedLocation.length}
                             locationTripPosition={selectedTripLocationIndex >= 0 ? selectedTripLocationIndex + 1 : 1}
                             onShowPreviousTripAtLocation={handleShowPreviousTripAtLocation}
@@ -472,18 +464,6 @@ export default function TravelMap() {
                                 selectedTripLocationIndex >= 0 &&
                                 selectedTripLocationIndex < tripsAtSelectedLocation.length - 1
                             }
-                        />
-                    )}
-                    {showFullScreen && fullScreenTrip && (
-                        <FullScreenReview
-                            review={fullScreenTrip}
-                            onBack={handleBack}
-                            onOpenAuthorProfile={(profileUserId) => {
-                                void openProfile(profileUserId, "left");
-                            }}
-                            onExpandImage={setExpandedImage}
-                            onToggleSavedActivity={handleToggleSavedActivity}
-                            onToggleSavedLodging={handleToggleSavedLodging}
                         />
                     )}
                     {showSearchPanel && (
@@ -585,6 +565,14 @@ export default function TravelMap() {
                     onAddTrip={() => {
                         const returnTo = pathname || "/";
                         router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
+                    }}
+                    onEditTrip={(tripId) => {
+                        const returnTo = pathname || "/";
+                        // Check if the trip is a popup by looking it up in the store.
+                        const trip = trips.find((t) => t.trip_id === tripId);
+                        const isPopup = Boolean(trip?.event_start && trip?.event_end);
+                        const base = `/trips?edit=${tripId}&returnTo=${encodeURIComponent(returnTo)}`;
+                        router.push(isPopup ? `${base}&mode=popup` : base);
                     }}
                     onClose={() => setProfileState(null)}
                 />

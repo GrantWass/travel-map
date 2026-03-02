@@ -69,7 +69,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
 }
 
 export function createActivityIcon(activity: TripActivity, isActive: boolean): L.DivIcon {
-    const size = isActive ? 80 : 65;
+    const size = isActive ? 70 : 50;
     const safeTitle = escapeHtml(activity.title || "Activity");
     const imageUrl = activity.thumbnail_url || MARKER_FALLBACK_IMAGE;
     return L.divIcon({
@@ -94,7 +94,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
 }
 
 export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.DivIcon {
-    const size = isActive ? 80 : 65;
+    const size = isActive ? 70 : 50;
     const roofHeight = Math.round(size * 0.34);
     const bodyHeight = size - roofHeight;
     const safeTitle = escapeHtml(lodging.title || "Lodging");

@@ -681,6 +681,92 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
     }
 
 
+def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    _require_trip_owner(trip_id=trip_id, user_id=owner_user_id)
+
+    title = to_nullable_string(payload.get("title"))
+    if not title:
+        raise TripValidationError("title is required")
+
+    lodgings = payload.get("lodgings") or []
+    activities = payload.get("activities") or []
+    tags = payload.get("tags") or []
+
+    if not isinstance(lodgings, list):
+        raise TripValidationError("lodgings must be a list")
+    if not isinstance(activities, list):
+        raise TripValidationError("activities must be a list")
+    if not isinstance(tags, list):
+        raise TripValidationError("tags must be a list")
+
+    event_start = _parse_event_datetime(payload.get("event_start"), field_name="event_start")
+    event_end = _parse_event_datetime(payload.get("event_end"), field_name="event_end")
+    if (event_start is None) != (event_end is None):
+        raise TripValidationError("event_start and event_end must both be provided for pop-up events")
+    if event_start is not None and event_end is not None and event_end <= event_start:
+        raise TripValidationError("event_end must be after event_start")
+    is_popup_event = event_start is not None and event_end is not None
+    if is_popup_event and lodgings:
+        raise TripValidationError("pop-up events cannot include lodgings")
+    if is_popup_event and activities:
+        raise TripValidationError("pop-up events cannot include activities")
+
+    duration = None if is_popup_event else _parse_duration(payload.get("duration"))
+    date = None if is_popup_event else _parse_trip_date(payload.get("date"))
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            UPDATE trips SET
+                thumbnail_url = %s,
+                title = %s,
+                description = %s,
+                latitude = %s,
+                longitude = %s,
+                cost = %s,
+                duration = %s,
+                date = %s,
+                visibility = %s,
+                event_start = %s,
+                event_end = %s
+            WHERE trip_id = %s
+            """,
+            (
+                _parse_thumbnail_url(payload.get("thumbnail_url")),
+                title,
+                to_nullable_string(payload.get("description")),
+                _parse_latitude(payload.get("latitude")),
+                _parse_longitude(payload.get("longitude")),
+                _parse_cost(payload.get("cost")),
+                duration,
+                date,
+                _parse_visibility(payload.get("visibility")),
+                event_start,
+                event_end,
+                trip_id,
+            ),
+        )
+        if cur.rowcount < 1:
+            raise TripNotFoundError("trip not found")
+
+        cur.execute("DELETE FROM trip_tags WHERE trip_id = %s", (trip_id,))
+        _insert_tags(cur, trip_id=trip_id, tags=tags)
+
+        cur.execute("DELETE FROM lodgings WHERE trip_id = %s", (trip_id,))
+        _insert_lodgings(cur, trip_id=trip_id, lodgings=lodgings)
+
+        cur.execute("DELETE FROM activities WHERE trip_id = %s", (trip_id,))
+        _insert_activities(cur, trip_id=trip_id, activities=activities)
+
+    updated_trip = get_trip(trip_id, owner_user_id)
+    if not updated_trip:
+        raise TripValidationError("failed to load updated trip")
+
+    invalidate_trip_list_cache()
+
+    return updated_trip
+
+
 def delete_trip(*, trip_id: int, owner_user_id: int):
     _require_trip_owner(trip_id=trip_id, user_id=owner_user_id)
 

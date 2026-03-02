@@ -13,6 +13,7 @@ from services.trip_service import (
     delete_trip,
     get_trip,
     list_trips,
+    update_trip,
 )
 
 trips_bp = Blueprint("trips", __name__)
@@ -50,6 +51,27 @@ def get_trip_by_id(trip_id: int):
     except Exception as error:
         current_app.logger.exception("Get trip failed")
         return jsonify({"error": f"get trip failed: {str(error)}"}), 500
+
+
+@trips_bp.route("/trips/<int:trip_id>", methods=["PUT"])
+def update_trip_route(trip_id: int):
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        trip = update_trip(trip_id=trip_id, owner_user_id=user["user_id"], payload=payload)
+        return jsonify({"message": "trip updated", "trip": trip}), 200
+    except TripValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except TripNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    except TripForbiddenError as error:
+        return jsonify({"error": str(error)}), 403
+    except Exception as error:
+        current_app.logger.exception("Update trip failed")
+        return jsonify({"error": f"update trip failed: {str(error)}"}), 500
 
 
 @trips_bp.route("/trips/<int:trip_id>", methods=["DELETE"])

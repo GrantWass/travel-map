@@ -13,10 +13,10 @@ interface MapViewProps {
 }
 
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
-const SELECTED_REVIEW_ZOOM = 16;
-const DETAIL_ZOOM = 13;
+const DETAIL_ZOOM = 16;
 const INITIAL_USER_ZOOM = 12;
-const FULL_SCREEN_MAX_ZOOM = 12;
+const CITY_LEVEL_ZOOM = 12;
+const TRIP_MAX_ZOOM = 16;
 
 let hasAutoCenteredOnUser = false;
 
@@ -111,6 +111,7 @@ export default function MapView({
     const detailMarkersRef = useRef<L.Marker[]>([]);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
     const lastFocusedDetailKeyRef = useRef<string | null>(null);
+    const lastFocusedTripCoordsRef = useRef<[number, number] | null>(null);
     const selectedTripRef = useRef<Trip | null>(null);
     const fullScreenTripRef = useRef<Trip | null>(null);
     const selectedActivityRef = useRef<TripActivity | null>(null);
@@ -253,10 +254,34 @@ export default function MapView({
                 icon: createTripIcon(trip, isActive),
             })
                 .addTo(map)
-                .on("click", () => onSelectTripById(trip.trip_id));
+                .on("click", () => {
+                    const currentTrip = selectedTripRef.current;
+                    const currentMap = mapRef.current;
+                    if (currentTrip && currentTrip.trip_id === trip.trip_id && currentMap) {
+                        // Same trip clicked while already selected — clear any detail selection
+                        // and re-zoom to the full trip bounds without a refetch.
+                        setSelectedActivity(null);
+                        setSelectedLodging(null);
+                        lastFocusedDetailKeyRef.current = null;
+                        lastFocusedLocationKeyRef.current = null;
+                        const points: [number, number][] = [[currentTrip.latitude, currentTrip.longitude]];
+                        for (const a of currentTrip.activities) {
+                            if (hasCoordinates(a)) points.push([a.latitude, a.longitude]);
+                        }
+                        for (const l of currentTrip.lodgings) {
+                            if (hasCoordinates(l)) points.push([l.latitude, l.longitude]);
+                        }
+                        const bounds = L.latLngBounds(points);
+                        if (bounds.isValid()) {
+                            currentMap.flyToBounds(bounds, { padding: [56, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+                        }
+                    } else {
+                        onSelectTripById(trip.trip_id);
+                    }
+                });
             tripMarkersRef.current.push(marker);
         }
-    }, [trips, selectedTrip, fullScreenTrip, createTripIcon, onSelectTripById]);
+    }, [trips, selectedTrip, fullScreenTrip, createTripIcon, onSelectTripById, setSelectedActivity, setSelectedLodging]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -321,49 +346,46 @@ export default function MapView({
         }
 
         if (!selectedTrip) {
+            // Zoom back to city level when the panel closes.
+            if (lastFocusedTripCoordsRef.current) {
+                map.flyTo(lastFocusedTripCoordsRef.current, CITY_LEVEL_ZOOM, { duration: 1.0 });
+            }
             lastFocusedLocationKeyRef.current = null;
             return;
         }
 
-        const locationKey = getLocationKey(selectedTrip.latitude, selectedTrip.longitude);
-        if (lastFocusedLocationKeyRef.current === locationKey) {
+        // Include activity + lodging count in the key so the zoom re-fires once the
+        // full trip data loads (the cached trip may arrive first with empty arrays).
+        const focusKey = `${selectedTrip.trip_id}:${selectedTrip.activities.length}:${selectedTrip.lodgings.length}`;
+        if (lastFocusedLocationKeyRef.current === focusKey) {
             return;
         }
 
-        lastFocusedLocationKeyRef.current = locationKey;
-        map.flyTo([selectedTrip.latitude, selectedTrip.longitude], SELECTED_REVIEW_ZOOM, { duration: 1.1 });
-    }, [selectedTrip, fullScreenTrip]);
+        lastFocusedLocationKeyRef.current = focusKey;
+        lastFocusedTripCoordsRef.current = [selectedTrip.latitude, selectedTrip.longitude];
 
-    useEffect(() => {
-        const map = mapRef.current;
-        if (!map || !fullScreenTrip) {
-            return;
+        // Collect all activity/lodging coordinates (same logic the full-screen view used).
+        const points: [number, number][] = [[selectedTrip.latitude, selectedTrip.longitude]];
+        for (const activity of selectedTrip.activities) {
+            if (hasCoordinates(activity)) {
+                points.push([activity.latitude, activity.longitude]);
+            }
         }
-
-        const points: [number, number][] = [[fullScreenTrip.latitude, fullScreenTrip.longitude]];
-        fullScreenTrip.activities.forEach((activity) => {
-            if (!hasCoordinates(activity)) return;
-            points.push([activity.latitude, activity.longitude]);
-        });
-        fullScreenTrip.lodgings.forEach((lodging) => {
-            if (!hasCoordinates(lodging)) return;
-            points.push([lodging.latitude, lodging.longitude]);
-        });
+        for (const lodging of selectedTrip.lodgings) {
+            if (hasCoordinates(lodging)) {
+                points.push([lodging.latitude, lodging.longitude]);
+            }
+        }
 
         const bounds = L.latLngBounds(points);
         if (!bounds.isValid()) {
             return;
         }
 
-        map.flyToBounds(bounds, {
-            padding: [56, 56],
-            maxZoom: FULL_SCREEN_MAX_ZOOM,
-            duration: 1.1,
-        });
-
-        // Force a closer re-focus when the user exits full-screen back to sidebar.
-        lastFocusedLocationKeyRef.current = null;
-    }, [fullScreenTrip]);
+        // Always use flyToBounds — Leaflet picks the zoom from the bounding box.
+        // TRIP_MAX_ZOOM caps the zoom for single-location trips (degenerate bounds → max cap).
+        map.flyToBounds(bounds, { padding: [56, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+    }, [selectedTrip, fullScreenTrip]);
 
     useEffect(() => {
         const map = mapRef.current;

@@ -2,6 +2,7 @@ import type {
   AddActivityPayload,
   AddLodgingPayload,
   CreateTripPayload,
+  UpdateTripPayload,
   SessionResponse,
   User,
   Trip,
@@ -152,6 +153,19 @@ export async function createTrip(payload: CreateTripPayload): Promise<Trip> {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return data.trip;
+}
+
+export async function updateTrip(tripId: number, payload: UpdateTripPayload): Promise<Trip> {
+  const data = await requestJson<{ trip: Trip }>(`/trips/${tripId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return data.trip;
+}
+
+export async function getTripRaw(tripId: number): Promise<Trip> {
+  const data = await requestJson<{ trip: Trip }>(`/trips/${tripId}`, { method: "GET" });
   return data.trip;
 }
 

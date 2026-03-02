@@ -9,7 +9,7 @@ import PlacePicker from "@/components/place-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ApiError, createTrip, uploadImage } from "@/lib/api-client";
+import { ApiError, createTrip, getTripRaw, updateTrip, uploadImage } from "@/lib/api-client";
 import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
 import type { TripDuration, TripVisibility } from "@/lib/api-types";
@@ -111,6 +111,7 @@ function makeStopDraft(): StopDraft {
 
 const READABLE_INPUT_CLASS = "bg-white text-stone-900 placeholder:text-stone-500";
 const READABLE_TEXTAREA_CLASS = "bg-white text-stone-900 placeholder:text-stone-500";
+const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"] as const;
 
 function hasStopContent(stop: StopDraft): boolean {
   return Boolean(
@@ -134,15 +135,20 @@ function TripsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/";
-  const isPopupMode = searchParams.get("mode") === "popup";
-  const tripComposerHref = `/trips?returnTo=${encodeURIComponent(returnTo)}`;
-  const popupComposerHref = `/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`;
+  const editTripIdParam = searchParams.get("edit");
+  const editTripId = editTripIdParam ? Number(editTripIdParam) : null;
+  const isEditMode = Boolean(editTripId && Number.isFinite(editTripId) && editTripId > 0);
+  // In edit mode, popup-mode is determined by the fetched trip (overridden in effect below).
+  const [isPopupMode, setIsPopupMode] = useState(!isEditMode && searchParams.get("mode") === "popup");
   const status = useAuthStore((state) => state.status);
   const isStudent = Boolean(useAuthStore((state) => state.user?.verified));
+  const userId = useAuthStore((state) => state.user?.user_id ?? null);
 
   const [isSavingTrip, setIsSavingTrip] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [error, setError] = useState("");
+  const [isLoadingEditTrip, setIsLoadingEditTrip] = useState(isEditMode);
+  const [editLoadError, setEditLoadError] = useState("");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -152,7 +158,9 @@ function TripsPageContent() {
   const [tripLocation, setTripLocation] = useState<PlaceOption | null>(null);
   const [cost, setCost] = useState("");
   const [duration, setDuration] = useState<TripDuration>("multiday trip");
-  const [date, setDate] = useState("");
+  const [dateMonth, setDateMonth] = useState("");
+  const [dateYear, setDateYear] = useState("");
+  const date = dateYear && dateMonth ? `${dateYear}-${dateMonth}` : "";
   const [visibility, setVisibility] = useState<TripVisibility>("public");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
@@ -182,6 +190,99 @@ function TripsPageContent() {
       router.replace("/");
     }
   }, [isStudent, router, status]);
+
+  // When editing, fetch the existing trip and pre-populate the form.
+  useEffect(() => {
+    if (!isEditMode || !editTripId || status !== "authenticated") return;
+
+    setIsLoadingEditTrip(true);
+    setEditLoadError("");
+
+    getTripRaw(editTripId)
+      .then((trip) => {
+        if (userId !== null && trip.owner_user_id !== userId) {
+          setEditLoadError("You don't have permission to edit this trip.");
+          return;
+        }
+
+        const isPopup = Boolean(trip.event_start && trip.event_end);
+        setIsPopupMode(isPopup);
+
+        setTitle(trip.title);
+        setDescription(trip.description || "");
+        setCoverImage(trip.thumbnail_url || "");
+        setTripLocation({
+          label: "Current location",
+          address: "Current location",
+          latitude: trip.latitude,
+          longitude: trip.longitude,
+        });
+        setCost(trip.cost != null ? String(trip.cost) : "");
+        setDuration((trip.duration as TripDuration) || "multiday trip");
+        const [tripYear, tripMonth] = (trip.date || "").split("-");
+        setDateYear(tripYear ?? "");
+        setDateMonth(tripMonth ?? "");
+        setVisibility(trip.visibility);
+        setSelectedTags(trip.tags);
+
+        if (isPopup && trip.event_start && trip.event_end) {
+          setEventStart(toLocalDatetimeInput(new Date(trip.event_start)));
+          setEventEnd(toLocalDatetimeInput(new Date(trip.event_end)));
+        }
+
+        setLodgings(
+          trip.lodgings.map((lodging) => ({
+            id: crypto.randomUUID(),
+            title: lodging.title || "",
+            notes: lodging.description || "",
+            cost: lodging.cost != null ? String(lodging.cost) : "",
+            imageUrl: lodging.thumbnail_url || "",
+            imageName: lodging.thumbnail_url ? "Existing image" : "",
+            imageError: "",
+            isProcessingImage: false,
+            location:
+              lodging.latitude != null && lodging.longitude != null
+                ? {
+                    label: lodging.address || lodging.title || "",
+                    address: lodging.address || "",
+                    latitude: lodging.latitude,
+                    longitude: lodging.longitude,
+                  }
+                : null,
+          })),
+        );
+
+        setActivities(
+          trip.activities.map((activity) => ({
+            id: crypto.randomUUID(),
+            title: activity.title || "",
+            notes: activity.description || "",
+            cost: activity.cost != null ? String(activity.cost) : "",
+            imageUrl: activity.thumbnail_url || "",
+            imageName: activity.thumbnail_url ? "Existing image" : "",
+            imageError: "",
+            isProcessingImage: false,
+            location:
+              activity.latitude != null && activity.longitude != null
+                ? {
+                    label: activity.location || activity.address || activity.title || "",
+                    address: activity.address || "",
+                    latitude: activity.latitude,
+                    longitude: activity.longitude,
+                  }
+                : null,
+          })),
+        );
+      })
+      .catch(() => {
+        setEditLoadError("Could not load trip for editing. Please try again.");
+      })
+      .finally(() => {
+        setIsLoadingEditTrip(false);
+      });
+    // Only run once when editTripId and auth status are ready.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, editTripId, status]);
 
   if (status !== "authenticated" || !isStudent) {
     return null;
@@ -295,7 +396,7 @@ function TripsPageContent() {
     }
   }
 
-  async function handleCreateTrip() {
+  async function handleSubmitTrip() {
     setError("");
 
     if (!title.trim()) {
@@ -331,61 +432,65 @@ function TripsPageContent() {
 
     setIsSavingTrip(true);
 
+    const tripPayload = {
+      title: title.trim(),
+      thumbnail_url: clean(coverImage),
+      description: clean(description),
+      latitude: `${tripLocation.latitude}`,
+      longitude: `${tripLocation.longitude}`,
+      cost: clean(cost),
+      visibility,
+      tags: selectedTags,
+      ...(isPopupMode
+        ? {
+            event_start: normalizedEventStart ?? undefined,
+            event_end: normalizedEventEnd ?? undefined,
+          }
+        : {
+            duration,
+            date: clean(date),
+            lodgings: lodgings
+              .filter(hasStopContent)
+              .map((stop) => ({
+                title: clean(stop.title),
+                description: clean(stop.notes),
+                address: stop.location?.address,
+                latitude: stop.location ? `${stop.location.latitude}` : undefined,
+                longitude: stop.location ? `${stop.location.longitude}` : undefined,
+                cost: clean(stop.cost),
+                thumbnail_url: clean(stop.imageUrl),
+              })),
+            activities: activities
+              .filter(hasStopContent)
+              .map((stop) => ({
+                title: clean(stop.title),
+                description: clean(stop.notes),
+                location: stop.location?.label,
+                address: stop.location?.address,
+                latitude: stop.location ? `${stop.location.latitude}` : undefined,
+                longitude: stop.location ? `${stop.location.longitude}` : undefined,
+                cost: clean(stop.cost),
+                thumbnail_url: clean(stop.imageUrl),
+              })),
+          }),
+    };
+
     try {
-      const newTrip = await createTrip({
-        title: title.trim(),
-        thumbnail_url: clean(coverImage),
-        description: clean(description),
-        latitude: `${tripLocation.latitude}`,
-        longitude: `${tripLocation.longitude}`,
-        cost: clean(cost),
-        visibility,
-        tags: selectedTags,
-        ...(isPopupMode
-          ? {
-              event_start: normalizedEventStart ?? undefined,
-              event_end: normalizedEventEnd ?? undefined,
-            }
-          : {
-              duration,
-              date: clean(date),
-              lodgings: lodgings
-                .filter(hasStopContent)
-                .map((stop) => ({
-                  title: clean(stop.title),
-                  description: clean(stop.notes),
-                  address: stop.location?.address,
-                  latitude: stop.location ? `${stop.location.latitude}` : undefined,
-                  longitude: stop.location ? `${stop.location.longitude}` : undefined,
-                  cost: clean(stop.cost),
-                  thumbnail_url: clean(stop.imageUrl),
-                })),
-              activities: activities
-                .filter(hasStopContent)
-                .map((stop) => ({
-                  title: clean(stop.title),
-                  description: clean(stop.notes),
-                  location: stop.location?.label,
-                  address: stop.location?.address,
-                  latitude: stop.location ? `${stop.location.latitude}` : undefined,
-                  longitude: stop.location ? `${stop.location.longitude}` : undefined,
-                  cost: clean(stop.cost),
-                  thumbnail_url: clean(stop.imageUrl),
-                })),
-            }),
-      });
+      const savedTrip = isEditMode && editTripId
+        ? await updateTrip(editTripId, tripPayload)
+        : await createTrip(tripPayload);
 
       const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/";
       const [pathnamePart, queryPart] = safeReturnTo.split("?");
       const destinationPath = pathnamePart || "/";
       const destinationParams = new URLSearchParams(queryPart || "");
-      destinationParams.set("selectTrip", String(newTrip.trip_id));
+      destinationParams.set("selectTrip", String(savedTrip.trip_id));
       const destinationQuery = destinationParams.toString();
       router.push(destinationQuery ? `${destinationPath}?${destinationQuery}` : destinationPath);
       return;
-    } catch (createError) {
-      if (createError instanceof ApiError) {
-        setError(createError.message);
+    } catch (submitError) {
+      if (submitError instanceof ApiError) {
+        setError(submitError.message);
       } else {
         setError(isPopupMode ? "Could not post this pop-up right now. Please try again." : "Could not post this trip right now. Please try again.");
       }
@@ -400,7 +505,12 @@ function TripsPageContent() {
         <section className="w-full rounded-3xl border border-stone-200/80 bg-white/85 p-5 shadow-xl shadow-stone-200/30 backdrop-blur-sm md:p-7 lg:w-2/3">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              {isPopupMode ? (
+              {isEditMode ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">{isPopupMode ? "Pop-Up Editor" : "Trip Editor"}</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">{isPopupMode ? "Edit your pop-up" : "Edit your trip"}</h1>
+                </>
+              ) : isPopupMode ? (
                 <>
                   <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Pop-Up Composer</p>
                   <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Post a pop-up event</h1>
@@ -411,26 +521,6 @@ function TripsPageContent() {
                   <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Craft your next post</h1>
                 </>
               )}
-              <div className="mt-3 inline-flex items-center rounded-full border border-stone-200 bg-white p-1">
-                <button
-                  type="button"
-                  onClick={() => router.replace(tripComposerHref)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    !isPopupMode ? "bg-amber-600 text-white" : "text-stone-600 hover:bg-stone-100"
-                  }`}
-                >
-                  Trip
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.replace(popupComposerHref)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    isPopupMode ? "bg-amber-600 text-white" : "text-stone-600 hover:bg-stone-100"
-                  }`}
-                >
-                  Pop-Up
-                </button>
-              </div>
             </div>
             <Link href={returnTo}>
               <Button variant="outline" className="rounded-full">
@@ -612,12 +702,28 @@ function TripsPageContent() {
               <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Date</label>
-                  <Input
-                    type="month"
-                    value={date}
-                    onChange={(event) => setDate(event.target.value)}
-                    className={READABLE_INPUT_CLASS}
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={dateMonth}
+                      onChange={(e) => setDateMonth(e.target.value)}
+                      className="h-9 flex-1 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="">Month</option>
+                      {MONTH_LABELS.map((name, i) => (
+                        <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={dateYear}
+                      onChange={(e) => setDateYear(e.target.value)}
+                      className="h-9 w-28 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="">Year</option>
+                      {Array.from({ length: 16 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                        <option key={year} value={String(year)}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost</label>
@@ -975,19 +1081,28 @@ function TripsPageContent() {
               </>
             )}
 
+            {editLoadError ? <p className="text-sm font-medium text-red-600">{editLoadError}</p> : null}
             {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
 
             <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                className="rounded-full bg-amber-600 px-6 hover:bg-amber-700"
-                onClick={() => void handleCreateTrip()}
-                disabled={isSavingTrip}
-              >
-                {isSavingTrip
-                  ? isPopupMode ? "Posting..." : "Posting..."
-                  : isPopupMode ? "Post Pop-Up" : "Post Trip"}
-              </Button>
+              {isLoadingEditTrip ? (
+                <p className="text-sm text-stone-500">Loading trip data...</p>
+              ) : (
+                <Button
+                  type="button"
+                  className="rounded-full bg-amber-600 px-6 hover:bg-amber-700"
+                  onClick={() => void handleSubmitTrip()}
+                  disabled={isSavingTrip || Boolean(editLoadError)}
+                >
+                  {isSavingTrip
+                    ? "Saving..."
+                    : isEditMode
+                      ? "Save Changes"
+                      : isPopupMode
+                        ? "Post Pop-Up"
+                        : "Post Trip"}
+                </Button>
+              )}
             </div>
           </div>
         </section>

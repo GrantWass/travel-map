@@ -112,6 +112,8 @@ export interface CreateTripPayload {
   }>;
 }
 
+export type UpdateTripPayload = CreateTripPayload;
+
 export interface AddLodgingPayload {
   address?: string;
   thumbnail_url?: string;
