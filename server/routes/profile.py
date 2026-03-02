@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import UNSET, get_authenticated_user, to_nullable_string, update_profile, update_user_settings
 from services.trip_service import get_user_profile, list_user_trips
@@ -13,7 +13,7 @@ def profile_setup():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -47,7 +47,7 @@ def my_trips():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -60,7 +60,7 @@ def user_profile(user_id: int):
     if request.method == "OPTIONS":
         return ("", 204)
 
-    viewer = get_authenticated_user(session)
+    viewer = get_authenticated_user()
     viewer_user_id = viewer["user_id"] if viewer else None
 
     try:
@@ -79,7 +79,7 @@ def update_profile_settings():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 

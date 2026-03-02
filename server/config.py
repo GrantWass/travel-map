@@ -4,7 +4,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CLIENT_APP_URL = os.getenv("CLIENT_APP_URL", "http://localhost:3000")
+_CLIENT_APP_URLS = os.getenv("CLIENT_APP_URLS", "http://localhost:3000,https://travel-map-nine.vercel.app")
+CLIENT_APP_URLS = [
+    origin.strip()
+    for origin in _CLIENT_APP_URLS.split(",")
+    if origin.strip()
+]
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
 PORT = int(os.getenv("PORT", "5001"))
 

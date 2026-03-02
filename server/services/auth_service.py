@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -122,14 +121,7 @@ def extract_bearer_token(value: str | None) -> str | None:
     return token or None
 
 
-def get_authenticated_user(session: MutableMapping[str, Any]) -> dict[str, Any] | None:
-    session_user_id = session.get("user_id")
-    if isinstance(session_user_id, int):
-        user = get_user_by_id(session_user_id)
-        if user:
-            return user
-        session.clear()
-
+def get_authenticated_user() -> dict[str, Any] | None:
     if not has_request_context():
         return None
 
@@ -147,8 +139,6 @@ def get_authenticated_user(session: MutableMapping[str, Any]) -> dict[str, Any] 
     user = get_user_by_id(token_user_id)
     if not user:
         return None
-
-    session["user_id"] = token_user_id
 
     return user
 

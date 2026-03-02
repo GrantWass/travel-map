@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import get_authenticated_user
 from services.storage_service import StorageConfigError, StorageValidationError, upload_image_file
@@ -13,7 +13,7 @@ def upload_image_route():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 

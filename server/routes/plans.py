@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, session
+from flask import Blueprint, current_app, jsonify
 
 from services.auth_service import get_authenticated_user
 from services.plans_service import get_user_plans, toggle_saved_activity, toggle_saved_lodging
@@ -10,7 +10,7 @@ plans_bp = Blueprint("plans", __name__)
 
 @plans_bp.route("/users/me/plans", methods=["GET"])
 def get_plans():
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -24,7 +24,7 @@ def get_plans():
 
 @plans_bp.route("/users/me/plans/activities/<int:activity_id>", methods=["POST"])
 def toggle_activity(activity_id: int):
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -38,7 +38,7 @@ def toggle_activity(activity_id: int):
 
 @plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>", methods=["POST"])
 def toggle_lodging(lodge_id: int):
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 

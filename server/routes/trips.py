@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import get_authenticated_user
 from services.trip_service import (
@@ -22,7 +22,7 @@ def get_trips():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    viewer = get_authenticated_user(session)
+    viewer = get_authenticated_user()
     viewer_user_id = viewer["user_id"] if viewer else None
 
     try:
@@ -38,7 +38,7 @@ def get_trip_by_id(trip_id: int):
     if request.method == "OPTIONS":
         return ("", 204)
 
-    viewer = get_authenticated_user(session)
+    viewer = get_authenticated_user()
     viewer_user_id = viewer["user_id"] if viewer else None
 
     try:
@@ -54,7 +54,7 @@ def get_trip_by_id(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>", methods=["DELETE"])
 def delete_trip_by_id(trip_id: int):
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -75,7 +75,7 @@ def create_trip_route():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -95,7 +95,7 @@ def add_lodging_route(trip_id: int):
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 
@@ -119,7 +119,7 @@ def add_activity_route(trip_id: int):
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
 

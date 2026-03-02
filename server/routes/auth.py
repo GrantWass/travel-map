@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import bcrypt
-from flask import Blueprint, Response, current_app, jsonify, request, session
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from db import get_cursor
 from services.auth_service import (
@@ -65,7 +65,6 @@ def create_user():
             return jsonify({"error": "failed to create user"}), 500
 
         user_id = int(created["user_id"])
-        session["user_id"] = user_id
         auth_token = create_auth_token(user_id)
 
         response = jsonify({"message": "user created", "user_id": user_id, "email": email, "auth_token": auth_token})
@@ -102,7 +101,6 @@ def login_user():
         if not password_valid:
             return jsonify({"error": "invalid email or password"}), 401
 
-        session["user_id"] = user["user_id"]
         auth_token = create_auth_token(user["user_id"])
 
         response = jsonify(
@@ -133,7 +131,7 @@ def me():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    user = get_authenticated_user(session)
+    user = get_authenticated_user()
     if not user:
         return jsonify({"authenticated": False}), 401
 
@@ -145,7 +143,6 @@ def logout():
     if request.method == "OPTIONS":
         return ("", 204)
 
-    session.clear()
     response = jsonify({"message": "logged out"})
     response.status_code = 200
     response.delete_cookie(AUTH_TOKEN_COOKIE_NAME, path="/")
