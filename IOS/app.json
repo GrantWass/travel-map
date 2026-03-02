@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Travel Map",
+    "slug": "travel-map-ios",
+    "scheme": "travelmap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5efe4"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.travelmap.ios"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f5efe4"
+      },
+      "package": "com.travelmap.ios"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}

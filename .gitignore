@@ -1,10 +1,16 @@
 # Folders
 node_modules
+IOS/.expo
+IOS/.expo-shared
+IOS/dist
+IOS/android
+IOS/ios
 
 # Environment
 .env
 .env.local
 .env*.local
+expo-env.d.ts
 
 # Next.js
 .next

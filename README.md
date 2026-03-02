@@ -153,4 +153,11 @@ Travel Map already includes end-to-end core flows for:
 - save-to-plans behavior,
 - media upload and optimization.
 
+---
+
+## iOS app
+
+A new Expo Router iOS client lives in [IOS/README.md](IOS/README.md).
+It reuses the same Flask endpoints and database-backed workflows.
+
 If you want, this README can be extended next with screenshots/GIFs and a short “Product Walkthrough” section tailored for recruiters or demo day.
