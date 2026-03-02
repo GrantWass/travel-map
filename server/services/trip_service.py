@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import re
+from threading import Lock
+from time import monotonic
 from typing import Any
 
 from db import get_cursor
@@ -11,6 +14,12 @@ from services.auth_service import to_nullable_string
 
 VALID_VISIBILITY = {"public", "private", "friends"}
 VALID_DURATION = {"multiday trip", "day trip", "overnight trip"}
+TRIP_LIST_CACHE_TTL_SECONDS = 30
+
+
+_trip_list_cache_lock = Lock()
+_trip_list_cache_version = 0
+_trip_list_cache: dict[int | None, tuple[float, int, list[dict[str, Any]]]] = {}
 
 
 class TripValidationError(ValueError):
@@ -23,6 +32,14 @@ class TripNotFoundError(LookupError):
 
 class TripForbiddenError(PermissionError):
     pass
+
+
+def invalidate_trip_list_cache() -> None:
+    global _trip_list_cache_version
+
+    with _trip_list_cache_lock:
+        _trip_list_cache_version += 1
+        _trip_list_cache.clear()
 
 
 def _as_float(value: Any) -> float | None:
@@ -218,11 +235,31 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
 
 
 def list_trips(viewer_user_id: int | None) -> list[dict[str, Any]]:
+    now = monotonic()
+
+    with _trip_list_cache_lock:
+        cache_entry = _trip_list_cache.get(viewer_user_id)
+        if cache_entry is not None:
+            cached_at, cache_version, cached_value = cache_entry
+            is_fresh = (now - cached_at) <= TRIP_LIST_CACHE_TTL_SECONDS
+            if is_fresh and cache_version == _trip_list_cache_version:
+                return deepcopy(cached_value)
+
     if viewer_user_id is None:
         trips = _fetch_trip_rows("t.visibility = 'public'", tuple())
     else:
         trips = _fetch_trip_rows("(t.visibility = 'public' OR t.owner_user_id = %s)", (viewer_user_id,))
-    return _hydrate_trip_children(trips)
+
+    hydrated = _hydrate_trip_children(trips)
+
+    with _trip_list_cache_lock:
+        _trip_list_cache[viewer_user_id] = (
+            now,
+            _trip_list_cache_version,
+            deepcopy(hydrated),
+        )
+
+    return hydrated
 
 
 def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dict[str, Any]]:
@@ -530,6 +567,8 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
     if not created_trip:
         raise TripValidationError("failed to load created trip")
 
+    invalidate_trip_list_cache()
+
     return created_trip
 
 
@@ -585,6 +624,8 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
     if not row:
         raise TripValidationError("failed to create lodging")
 
+    invalidate_trip_list_cache()
+
     return {
         "lodge_id": int(row["lodge_id"]),
         "trip_id": trip_id,
@@ -632,6 +673,8 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
     if not row:
         raise TripValidationError("failed to create activity")
 
+    invalidate_trip_list_cache()
+
     return {
         "activity_id": int(row["activity_id"]),
         "trip_id": trip_id,
@@ -645,6 +688,8 @@ def delete_trip(*, trip_id: int, owner_user_id: int):
         cur.execute("DELETE FROM trips WHERE trip_id = %s", (trip_id,))
         if cur.rowcount < 1:
             raise TripNotFoundError("trip not found")
+
+    invalidate_trip_list_cache()
 
 
 def get_user_profile(*, user_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:

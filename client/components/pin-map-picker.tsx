@@ -66,11 +66,6 @@ export default function PinMapPicker({
       attributionControl: false,
     });
 
-    // L.tileLayer("https://tile.jawg.io/jawg-sunny/{z}/{x}/{y}{r}.png?access-token={accessToken}", {
-    //   maxZoom: 22,
-    //   minZoom: 4,
-    //   accessToken: process.env.NEXT_PUBLIC_JAWG_API_KEY ?? "",
-    // } as L.TileLayerOptions & { accessToken: string }).addTo(map);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
       minZoom: 4,

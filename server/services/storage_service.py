@@ -18,8 +18,9 @@ ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/gif",
 }
 
-MAX_IMAGE_LONG_EDGE_PX = 2560
-WEBP_QUALITY = 88
+MAX_IMAGE_LONG_EDGE_PX = 2048
+WEBP_QUALITY = 80
+JPEG_QUALITY = 84
 
 
 class StorageConfigError(RuntimeError):
@@ -34,17 +35,16 @@ def _build_object_url(key: str) -> str:
     return f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{key}"
 
 
-def _optimize_image_for_web(*, file: FileStorage, content_type: str) -> tuple[BytesIO, str, str]:
+def optimize_image_for_web_bytes(*, source_bytes: bytes, content_type: str) -> tuple[BytesIO, str, str]:
     if content_type == "image/gif":
-        file.stream.seek(0)
-        raw_bytes = BytesIO(file.stream.read())
+        raw_bytes = BytesIO(source_bytes)
         raw_bytes.seek(0)
         return raw_bytes, "image/gif", ".gif"
 
-    file.stream.seek(0)
+    source_stream = BytesIO(source_bytes)
 
     try:
-        with Image.open(file.stream) as source:
+        with Image.open(source_stream) as source:
             image = ImageOps.exif_transpose(source)
 
             if image.mode not in ("RGB", "RGBA"):
@@ -73,11 +73,17 @@ def _optimize_image_for_web(*, file: FileStorage, content_type: str) -> tuple[By
                     output.seek(0)
                     return output, "image/png", ".png"
 
-                image.save(output, format="JPEG", quality=90, optimize=True, progressive=True)
+                image.save(output, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
                 output.seek(0)
                 return output, "image/jpeg", ".jpg"
     except UnidentifiedImageError as error:
         raise StorageValidationError("file is not a valid image") from error
+
+
+def _optimize_image_for_web(*, file: FileStorage, content_type: str) -> tuple[BytesIO, str, str]:
+    file.stream.seek(0)
+    source_bytes = file.stream.read()
+    return optimize_image_for_web_bytes(source_bytes=source_bytes, content_type=content_type)
 
 
 def upload_image_file(*, file: FileStorage, folder: str, owner_user_id: int) -> str:
@@ -97,7 +103,10 @@ def upload_image_file(*, file: FileStorage, folder: str, owner_user_id: int) -> 
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     key = f"{safe_folder}/{owner_user_id}/{timestamp}-{uuid.uuid4().hex}{optimized_extension}"
 
-    extra_args = {"ContentType": optimized_content_type}
+    extra_args = {
+        "ContentType": optimized_content_type,
+        "CacheControl": "public, max-age=31536000, immutable",
+    }
 
     s3_client = boto3.client("s3", region_name=AWS_REGION)
     optimized_stream.seek(0)
