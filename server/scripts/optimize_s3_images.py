@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
+import sys
 
 import boto3
 
-from config import AWS_REGION, S3_BUCKET_NAME
+SERVER_ROOT = Path(__file__).resolve().parents[1]
+if str(SERVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(SERVER_ROOT))
+
+from config import AWS_REGION, S3_BUCKET_NAME, S3_PUBLIC_BASE_URL
 from services.storage_service import (
     ALLOWED_IMAGE_CONTENT_TYPES,
     StorageValidationError,
@@ -22,6 +28,13 @@ class OptimizeStats:
     skipped_failed: int = 0
     bytes_before: int = 0
     bytes_after: int = 0
+    optimized_urls: list[str] = field(default_factory=list)
+
+
+def build_object_url(key: str) -> str:
+    if S3_PUBLIC_BASE_URL:
+        return f"{S3_PUBLIC_BASE_URL.rstrip('/')}/{key}"
+    return f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{key}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,6 +127,7 @@ def optimize_bucket_images(*, prefix: str, limit: int, dry_run: bool, overwrite_
                     )
 
                 stats.optimized += 1
+                stats.optimized_urls.append(build_object_url(key))
             except StorageValidationError:
                 stats.skipped_failed += 1
             except Exception:
@@ -144,6 +158,11 @@ def main() -> None:
     print(f"- bytes_before: {stats.bytes_before}")
     print(f"- bytes_after: {stats.bytes_after}")
     print(f"- estimated_saved_mb: {saved_mb:.2f}")
+
+    # if stats.optimized_urls:
+    #     print("- optimized_urls:")
+    #     for url in stats.optimized_urls:
+    #         print(f"  - {url}")
 
 
 if __name__ == "__main__":

@@ -13,10 +13,10 @@ interface MapViewProps {
 }
 
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
-const DETAIL_ZOOM = 16;
+const DETAIL_ZOOM = 15;
 const INITIAL_USER_ZOOM = 12;
 const CITY_LEVEL_ZOOM = 12;
-const TRIP_MAX_ZOOM = 16;
+const TRIP_MAX_ZOOM = 15;
 
 let hasAutoCenteredOnUser = false;
 
