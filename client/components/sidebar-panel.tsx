@@ -203,8 +203,9 @@ export default function SidebarPanel({
                             </h3>
                             {review.lodgings.length > 0 ? (
                                 review.lodgings.map((lodging) => {
-                                    const isExpanded = selectedLodgingId === lodging.lodge_id;
-                                    return (
+                                    const hasImage = Boolean(lodging.thumbnail_url);
+                                    const isExpanded = hasImage && selectedLodgingId === lodging.lodge_id;
+                                    return hasImage ? (
                                         <div
                                             key={lodging.lodge_id}
                                             role="button"
@@ -232,7 +233,7 @@ export default function SidebarPanel({
                                                     <div className="group relative overflow-hidden rounded-lg">
                                                         <AspectRatio ratio={4 / 3} className="bg-muted">
                                                             <Image
-                                                                src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
+                                                                src={lodging.thumbnail_url!}
                                                                 alt={lodging.title || "Lodging"}
                                                                 fill
                                                                 sizes="350px"
@@ -243,7 +244,7 @@ export default function SidebarPanel({
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                onExpandImage({ src: lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE, alt: lodging.title || "Lodging" });
+                                                                onExpandImage({ src: lodging.thumbnail_url!, alt: lodging.title || "Lodging" });
                                                             }}
                                                             className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                                                             aria-label={`Expand ${lodging.title} image`}
@@ -268,7 +269,7 @@ export default function SidebarPanel({
                                             ) : (
                                                 <div className="flex items-center gap-3 p-3">
                                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                        <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill sizes="48px" className="object-cover" />
+                                                        <Image src={lodging.thumbnail_url!} alt={lodging.title || "Lodging"} fill sizes="48px" className="object-cover" />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <p className="text-sm font-medium text-foreground break-words">{lodging.title}</p>
@@ -277,6 +278,21 @@ export default function SidebarPanel({
                                                     <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                                 </div>
                                             )}
+                                        </div>
+                                    ) : (
+                                        <div
+                                            key={lodging.lodge_id}
+                                            className="w-full rounded-xl border border-border bg-secondary/30 text-left"
+                                        >
+                                            <div className="flex items-center gap-3 p-3">
+                                                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-muted">
+                                                    <BedDouble className="h-5 w-5 text-muted-foreground/60" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-medium text-foreground break-words">{lodging.title}</p>
+                                                    <p className="text-xs text-muted-foreground break-words whitespace-normal">{formatAddress(lodging.address)}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -294,8 +310,9 @@ export default function SidebarPanel({
                             </h3>
                             {review.activities.length > 0 ? (
                                 review.activities.map((activity) => {
-                                    const isExpanded = selectedActivityId === activity.activity_id;
-                                    return (
+                                    const hasImage = Boolean(activity.thumbnail_url);
+                                    const isExpanded = hasImage && selectedActivityId === activity.activity_id;
+                                    return hasImage ? (
                                         <div
                                             key={activity.activity_id}
                                             role="button"
@@ -323,7 +340,7 @@ export default function SidebarPanel({
                                                     <div className="group relative overflow-hidden rounded-lg">
                                                         <AspectRatio ratio={16 / 9} className="bg-muted">
                                                             <Image
-                                                                src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
+                                                                src={activity.thumbnail_url!}
                                                                 alt={activity.title || "Activity"}
                                                                 fill
                                                                 sizes="350px"
@@ -334,7 +351,7 @@ export default function SidebarPanel({
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                onExpandImage({ src: activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE, alt: activity.title || "Activity" });
+                                                                onExpandImage({ src: activity.thumbnail_url!, alt: activity.title || "Activity" });
                                                             }}
                                                             className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                                                             aria-label={`Expand ${activity.title || "Activity"} image`}
@@ -366,20 +383,37 @@ export default function SidebarPanel({
                                             ) : (
                                                 <div className="flex items-center gap-3 p-3">
                                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                        <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill className="object-cover" />
+                                                        <Image src={activity.thumbnail_url!} alt={activity.title || "Activity"} fill className="object-cover" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-foreground break-words">{activity.title}</p>
                                                         {formatAddress(activity.address) && (
-                                                            <span className="inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground break-words whitespace-normal">
+                                                            <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                                                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                                                <span className="min-w-0 break-words whitespace-normal">{formatAddress(activity.address)}</span>
+                                                                <span className="min-w-0 break-words">{formatAddress(activity.address)}</span>
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                    <ChevronDown className="h-4 w-4 flex-shrink-0 self-center text-muted-foreground" />
                                                 </div>
                                             )}
+                                        </div>
+                                    ) : (
+                                        <div
+                                            key={activity.activity_id}
+                                            className="w-full rounded-xl border border-border bg-secondary/40 text-left"
+                                        >
+                                            <div className="flex items-center gap-3 p-3">
+                                                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-muted">
+                                                    <MapPin className="h-5 w-5 text-muted-foreground/60" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-foreground break-words">{activity.title}</p>
+                                                    {formatAddress(activity.address) && (
+                                                        <p className="text-xs text-muted-foreground break-words whitespace-normal">{formatAddress(activity.address)}</p>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })
