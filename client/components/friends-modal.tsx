@@ -3,19 +3,18 @@
 import { useEffect, useState } from "react";
 import { X, UserPlus, Phone, Check, Slash } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createSmsInvite, createFriendRequest, getFriendships, respondFriendRequest } from "@/lib/api-client";
+import { createSmsInvite, createFriendRequest, respondFriendRequest } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
+import { useFriendsStore } from "@/stores/friends-store";
 
 interface FriendsModalProps {
   onClose: () => void;
 }
 
 export default function FriendsModal({ onClose }: FriendsModalProps) {
-  const [loading, setLoading] = useState(true);
+  const { incoming, outgoing, accepted, loaded, refresh } = useFriendsStore();
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [incoming, setIncoming] = useState<any[]>([]);
-  const [outgoing, setOutgoing] = useState<any[]>([]);
-  const [accepted, setAccepted] = useState<any[]>([]);
 
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -27,22 +26,23 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
   const [requestBusy, setRequestBusy] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     setError(null);
     try {
-      const data = await getFriendships();
-      setIncoming(data.incoming || []);
-      setOutgoing(data.outgoing || []);
-      setAccepted(data.accepted || []);
+      await refresh();
     } catch (err: any) {
       setError(err?.message || "Could not load friends");
-    } finally {
-      setLoading(false);
     }
   };
 
+  // On open: if no cache yet, show loading; otherwise show cached data and
+  // silently re-fetch in the background to pick up new requests.
   useEffect(() => {
-    void load();
+    if (!loaded) {
+      setRefreshing(true);
+      void load().finally(() => setRefreshing(false));
+    } else {
+      void load();
+    }
   }, []);
 
   async function handleSendInvite() {
@@ -67,8 +67,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
       setPhoneInput("");
       await load();
     } catch (err: any) {
-
-        setError(err?.message || "Could not send invite");
+      setError(err?.message || "Could not send invite");
     } finally {
       setInviteBusy(false);
     }
@@ -180,8 +179,8 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
             <section>
               <h3 className="text-sm font-medium">Incoming requests</h3>
               <div className="mt-2 grid gap-2">
-                {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
-                {incoming.length === 0 && !loading ? <p className="text-sm text-muted-foreground">No incoming requests.</p> : null}
+                {refreshing && !loaded ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+                {incoming.length === 0 && !(refreshing && !loaded) ? <p className="text-sm text-muted-foreground">No incoming requests.</p> : null}
                 {incoming.map((req) => (
                   <div key={req.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
                     <div className="text-sm">From {req.requester_name ?? `user ${req.requester_id}`}</div>
