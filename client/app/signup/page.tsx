@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
 import BrandNameButton from "@/components/brand-name-button";
-import { API_BASE_URL, setAuthToken } from "@/lib/api-client";
+import { API_BASE_URL, setAuthToken, claimSmsInvite } from "@/lib/api-client";
 import type { User } from "@/lib/api-types";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -60,6 +60,8 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
+            const inviteToken = useSearchParams()?.get("invite");
+
             if (isSignup) {
                 const response = await fetch(`${API_BASE_URL}/create-user`, {
                     method: "POST",
@@ -81,6 +83,13 @@ export default function SignUpPage() {
                 // via refreshSession once it mounts.
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
+                if (inviteToken) {
+                    try {
+                        await claimSmsInvite(inviteToken);
+                    } catch {
+                        // Ignore claim failures — user created successfully regardless.
+                    }
+                }
                 // Set to "loading" so AuthBootstrap doesn't redirect while /setup
                 // initializes its own refreshSession call.
                 setStatus("loading");
@@ -89,6 +98,14 @@ export default function SignUpPage() {
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
+                const inviteToken = useSearchParams()?.get("invite");
+                if (inviteToken) {
+                    try {
+                        await claimSmsInvite(inviteToken);
+                    } catch {
+                        // ignore
+                    }
+                }
                 setAuthenticatedUser(loggedInUser);
                 await refreshMyProfile(loggedInUser.user_id);
             }

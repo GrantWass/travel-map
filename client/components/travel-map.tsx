@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { CircleUser, MapPin, Notebook, Search, X } from "lucide-react";
+import { CircleUser, MapPin, Notebook, Search, X, Users } from "lucide-react";
 
 import PlansSidebarPanel from "@/components/plans-sidebar-panel";
 import SearchSidebarPanel from "@/components/search-sidebar-panel";
 import SidebarPanel from "@/components/sidebar-panel";
 import StudentAddMenu from "@/components/student-add-menu";
 import UserProfileModal from "@/components/user-profile-modal";
+import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
@@ -69,6 +70,7 @@ export default function TravelMap() {
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
+    const [friendsOpen, setFriendsOpen] = useState(false);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const activeTripRequestIdRef = useRef(0);
@@ -416,18 +418,29 @@ export default function TravelMap() {
                         popupClassName="w-56"
                     />
                 </div>
-                <button
-                    data-spotlight="profile"
-                    onClick={() => {
-                        if (userId !== null) {
-                            void openProfile(userId, "top-right");
-                        }
-                    }}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
-                    aria-label="Open profile"
-                >
-                    <CircleUser className="h-6 w-6 text-foreground" />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        aria-label="Open friends"
+                        onClick={() => setFriendsOpen(true)}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                    >
+                        <Users className="h-6 w-6 text-foreground" />
+                    </button>
+
+                    <button
+                        data-spotlight="profile"
+                        onClick={() => {
+                            if (userId !== null) {
+                                void openProfile(userId, "top-right");
+                            }
+                        }}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                        aria-label="Open profile"
+                    >
+                        <CircleUser className="h-6 w-6 text-foreground" />
+                    </button>
+                </div>
             </div>
 
             <div className="flex h-full w-full">
@@ -579,6 +592,8 @@ export default function TravelMap() {
                     onClose={() => setProfileState(null)}
                 />
             )}
+
+            {friendsOpen && <FriendsModal onClose={() => setFriendsOpen(false)} />}
 
             <StudentAddMenu
                 visible={isStudent && !showAnyLeftSidebar}

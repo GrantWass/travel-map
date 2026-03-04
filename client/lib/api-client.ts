@@ -234,6 +234,44 @@ export async function getUserProfile(userId: number): Promise<UserProfileRespons
   return requestJson<UserProfileResponse>(`/users/${userId}/profile`, { method: "GET" });
 }
 
+export async function createSmsInvite(phoneNumber: string) {
+  return requestJson<{ message: string; invite: any }>("/sms-invites", {
+    method: "POST",
+    body: JSON.stringify({ phone_number: phoneNumber }),
+  });
+}
+
+export async function claimSmsInvite(inviteToken: string) {
+  return requestJson<{ message: string; invite: any }>("/sms-invites/claim", {
+    method: "POST",
+    body: JSON.stringify({ invite_token: inviteToken }),
+  });
+}
+
+export async function createFriendRequest(addresseeId: number) {
+  return requestJson<{ message: string; friendship: any }>("/friendships", {
+    method: "POST",
+    body: JSON.stringify({ addressee_id: addresseeId }),
+  });
+}
+
+export async function respondFriendRequest(friendshipId: number, status: "accepted" | "blocked" | "pending") {
+  return requestJson<{ message: string; friendship: any }>(`/friendships/${friendshipId}/respond`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function getFriendships() {
+  return requestJson<{ incoming: any[]; outgoing: any[]; accepted: any[] }>("/friendships", { method: "GET" });
+}
+
+export async function searchUsers(q: string) {
+  const params = new URLSearchParams();
+  params.set("q", q);
+  return requestJson<{ users: { user_id: number; name: string; profile_image_url?: string; bio?: string }[] }>(`/users/search?${params.toString()}`, { method: "GET" });
+}
+
 export function toUserProfileFromApi(profileResponse: UserProfileResponse): User {
   const initials = profileResponse.user.name || ""
       .split(" ")

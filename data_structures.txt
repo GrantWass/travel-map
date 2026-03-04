@@ -21,6 +21,7 @@ Traveler
 - planned_trip_ids: List[trip_id]
 - saved_activity_ids: List[activity_id]
 - saved_lodging_ids: List[lodge_id]
+- phone: str
 
 
 CREATE TABLE travelers (
@@ -32,10 +33,44 @@ CREATE TABLE travelers (
     verified BOOLEAN DEFAULT FALSE,
     college VARCHAR(255),
     profile_image_url TEXT,
+	phone VARCHAR(32),
     saved_activity_ids INT[] DEFAULT '{}',
     saved_lodging_ids INT[] DEFAULT '{}'
 );
 
+SMS Invites
+- id: int
+- inviter_id: int (FK -> travelers.user_id)
+- phone_number: str
+- invite_token: str
+- status: enum('sent','claimed','expired')
+- claimed_user_id: int (nullable FK -> travelers.user_id)
+
+SQL
+CREATE TABLE sms_invites (
+	id SERIAL PRIMARY KEY,
+	inviter_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+	phone_number VARCHAR(32) NOT NULL,
+	invite_token TEXT NOT NULL UNIQUE,
+	status VARCHAR(20) NOT NULL DEFAULT 'sent',
+	claimed_user_id INT REFERENCES travelers(user_id)
+);
+
+
+Friendships
+- id: int
+- requester_id: int (FK -> travelers.user_id)
+- addressee_id: int (FK -> travelers.user_id)
+- status: enum('pending','accepted')
+
+SQL
+CREATE TABLE friendships (
+	id SERIAL PRIMARY KEY,
+	requester_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+	addressee_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+	status VARCHAR(20) NOT NULL DEFAULT 'pending',
+	UNIQUE (requester_id, addressee_id)
+);
 
 Trip
 - trip_id: int

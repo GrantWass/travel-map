@@ -4,6 +4,10 @@ from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_profile, update_user_settings
 from services.trip_service import get_user_profile, list_user_trips
+from services.auth_service import search_users as svc_search_users
+from services.sms_service import create_sms_invite as svc_create_sms_invite, claim_sms_invite as svc_claim_sms_invite
+from services.friendship_service import create_friend_request as svc_create_friend_request, respond_friend_request as svc_respond_friend_request
+from services.friendship_service import list_friendships as svc_list_friendships
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -156,3 +160,133 @@ def update_profile_settings():
     except Exception as error:
         current_app.logger.exception("Profile update failed")
         return jsonify({"error": f"profile update failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/sms-invites", methods=["POST", "OPTIONS"])
+def create_sms_invite():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        phone_number = to_nullable_string(payload.get("phone_number"))
+        if not phone_number:
+            return jsonify({"error": "phone_number is required"}), 400
+
+        invite = svc_create_sms_invite(inviter_id=user["user_id"], phone_number=phone_number)
+        return jsonify({"message": "invite created", "invite": invite}), 201
+    except Exception as error:
+        current_app.logger.exception("Create sms invite failed")
+        return jsonify({"error": f"create sms invite failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/sms-invites/claim", methods=["POST", "OPTIONS"])
+def claim_sms_invite():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        invite_token = to_nullable_string(payload.get("invite_token"))
+        if not invite_token:
+            return jsonify({"error": "invite_token is required"}), 400
+
+        claimed = svc_claim_sms_invite(invite_token=invite_token, claimed_user_id=user["user_id"])
+        if not claimed:
+            return jsonify({"error": "invite not found or already claimed"}), 404
+
+        return jsonify({"message": "invite claimed", "invite": claimed}), 200
+    except Exception as error:
+        current_app.logger.exception("Claim sms invite failed")
+        return jsonify({"error": f"claim sms invite failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/friendships", methods=["POST", "OPTIONS"])
+def create_friendship():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        addressee_id = payload.get("addressee_id")
+        try:
+            addressee_id = int(addressee_id)
+        except Exception:
+            return jsonify({"error": "addressee_id must be an integer"}), 400
+
+        friendship = svc_create_friend_request(requester_id=user["user_id"], addressee_id=addressee_id)
+        if not friendship:
+            return jsonify({"error": "invalid friend request"}), 400
+
+        return jsonify({"message": "friend request created", "friendship": friendship}), 201
+    except Exception as error:
+        current_app.logger.exception("Create friendship failed")
+        return jsonify({"error": f"create friendship failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/friendships", methods=["GET", "OPTIONS"])
+def list_friendships():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        data = svc_list_friendships(user_id=user["user_id"])
+        return jsonify(data), 200
+    except Exception as error:
+        current_app.logger.exception("List friendships failed")
+        return jsonify({"error": f"list friendships failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/users/search", methods=["GET", "OPTIONS"])
+def search_users():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    q = (request.args.get("q") or "").strip()
+    try:
+        users = svc_search_users(q)
+        return jsonify({"users": users}), 200
+    except Exception as error:
+        current_app.logger.exception("User search failed")
+        return jsonify({"error": f"user search failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/friendships/<int:friendship_id>/respond", methods=["POST", "OPTIONS"])
+def respond_friendship(friendship_id: int):
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        status = to_nullable_string(payload.get("status"))
+        if status not in {"accepted", "pending"}:
+            return jsonify({"error": "status must be 'accepted' or 'pending'"}), 400
+
+        updated = svc_respond_friend_request(friendship_id=friendship_id, responder_id=user["user_id"], status=status)
+        if not updated:
+            return jsonify({"error": "friendship not found or unauthorized"}), 404
+
+        return jsonify({"message": "friendship updated", "friendship": updated}), 200
+    except Exception as error:
+        current_app.logger.exception("Respond to friendship failed")
+        return jsonify({"error": f"respond failed: {str(error)}"}), 500

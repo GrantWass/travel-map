@@ -244,3 +244,37 @@ def update_user_settings(
         )
 
     return get_user_by_id(user_id)
+
+
+def search_users(q: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Search users by name (case-insensitive). Returns list of dicts with user_id, name, email, profile_image_url."""
+    if not q or not str(q).strip():
+        return []
+
+    pattern = f"%{str(q).strip()}%"
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT user_id, name, email, profile_image_url, bio
+            FROM travelers
+            WHERE name ILIKE %s
+            ORDER BY name ASC
+            LIMIT %s
+            """,
+            (pattern, limit),
+        )
+        rows = cur.fetchall()
+
+    results: list[dict[str, Any]] = []
+    for r in rows:
+        results.append(
+            {
+                "user_id": int(r["user_id"]),
+                "name": r.get("name"),
+                "email": r.get("email"),
+                "profile_image_url": r.get("profile_image_url"),
+                "bio": r.get("bio"),
+            }
+        )
+
+    return results
