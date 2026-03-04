@@ -42,7 +42,7 @@ def respond_friend_request(*, friendship_id: int, responder_id: int, status: str
         if row.get("addressee_id") != responder_id:
             return None
 
-        cur.execute("UPDATE friendships SET status = %s WHERE id = %s RETURNING id, requester_id, addressee_id, status, created_at", (status, friendship_id))
+        cur.execute("UPDATE friendships SET status = %s WHERE id = %s RETURNING id, requester_id, addressee_id, status", (status, friendship_id))
         updated = cur.fetchone()
         return dict(updated) if updated else None
 
