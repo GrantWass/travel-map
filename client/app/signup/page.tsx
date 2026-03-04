@@ -14,6 +14,7 @@ type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const setAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const setStatus = useAuthStore((state) => state.setStatus);
@@ -60,7 +61,7 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            const inviteToken = useSearchParams()?.get("invite");
+            const inviteToken = searchParams?.get("invite");
 
             if (isSignup) {
                 const response = await fetch(`${API_BASE_URL}/create-user`, {
@@ -98,7 +99,7 @@ export default function SignUpPage() {
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
-                const inviteToken = useSearchParams()?.get("invite");
+                const inviteToken = searchParams?.get("invite");
                 if (inviteToken) {
                     try {
                         await claimSmsInvite(inviteToken);
