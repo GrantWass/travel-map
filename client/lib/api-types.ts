@@ -1,4 +1,19 @@
 export type TripVisibility = "public" | "private" | "friends";
+
+export interface FriendshipRecord {
+  id: number;
+  requester_id: number;
+  addressee_id: number;
+  status: string;
+  requester_name?: string | null;
+  addressee_name?: string | null;
+}
+
+export interface FriendshipsResponse {
+  incoming: FriendshipRecord[];
+  outgoing: FriendshipRecord[];
+  accepted: FriendshipRecord[];
+}
 export type TripDuration = "multiday trip" | "day trip" | "overnight trip";
 
 export interface User {

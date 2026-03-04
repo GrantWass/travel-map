@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { ApiError, getSession, getUserProfile, logoutSession, setAuthToken } from "@/lib/api-client";
 import type { User, UserProfileResponse } from "@/lib/api-types";
+import { useFriendsStore } from "@/stores/friends-store";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -99,6 +100,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         setAuthToken(null);
         writeCachedJson(SESSION_CACHE_KEY, null);
         writeCachedJson(PROFILE_CACHE_KEY, null);
+        useFriendsStore.getState().clear();
     },
     refreshSession: async () => {
         try {
