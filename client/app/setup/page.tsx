@@ -1,77 +1,79 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { Suspense } from "react";
+import { ChangeEvent, useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Camera, GraduationCap, UserRound, Globe, ArrowRight } from "lucide-react";
+import { Camera, GraduationCap, UserRound, Globe, ArrowRight, ArrowLeft } from "lucide-react";
+
 import { createProfileSetup, uploadImage } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 
 type AccountType = "student" | "traveler";
-type StepId = "photo" | "bio" | "college" | "finish";
-type StepPhase = "in" | "out";
-
-interface ProfileSetupPayload {
-    bio: string;
-    college: string;
-    accountType: AccountType;
-    profileImageUrl: string | null;
-}
-
-async function updateUserProfileInDatabase(payload: ProfileSetupPayload): Promise<void> {
-    await createProfileSetup({
-        account_type: payload.accountType,
-        bio: payload.bio,
-        college: payload.college,
-        profile_image_url: payload.profileImageUrl || undefined,
-    });
-}
+type WizardStep = { type: "photo" } | { type: "bio" } | { type: "college" };
 
 const TRANSITION_MS = 260;
 
-export default function ProfileSetupPage() {
+export default function SetupPage() {
     return (
         <Suspense fallback={<div className="min-h-screen bg-[#fdf8f0]" />}>
-            <ProfileSetupContent />
+            <SetupContent />
         </Suspense>
     );
 }
 
-function ProfileSetupContent() {
+function SetupContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const userId = useAuthStore((state) => state.user?.user_id ?? null);
-    const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
+    const status = useAuthStore((state) => state.status);
+    const user = useAuthStore((state) => state.user);
+    const refreshSession = useAuthStore((state) => state.refreshSession);
+
     const accountTypeParam = searchParams.get("accountType");
     const accountType: AccountType = accountTypeParam === "student" ? "student" : "traveler";
 
+    // Profile data
     const [bio, setBio] = useState("");
     const [college, setCollege] = useState("");
     const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
     const [profileImagePreviewUrl, setProfileImagePreviewUrl] = useState<string | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveError, setSaveError] = useState("");
-    const [stepIndex, setStepIndex] = useState(0);
-    const [stepPhase, setStepPhase] = useState<StepPhase>("in");
-    const [isTransitioning, setIsTransitioning] = useState(false);
+
+    // College autocomplete
     const [isCollegeMenuOpen, setIsCollegeMenuOpen] = useState(false);
     const [filteredUniversities, setFilteredUniversities] = useState<string[]>([]);
     const [collegeSearchError, setCollegeSearchError] = useState("");
     const [isSearchingColleges, setIsSearchingColleges] = useState(false);
 
-    const headingText = useMemo(
-        () => (accountType === "student" ? "Set up your student profile" : "Set up your traveler profile"),
+    // Wizard state
+    const [stepIndex, setStepIndex] = useState(0);
+    const [stepPhase, setStepPhase] = useState<"in" | "out">("in");
+    const [isTransitioning, setIsTransitioning] = useState(false);
+
+    // Save state
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState("");
+
+    const steps = useMemo<WizardStep[]>(
+        () =>
+            accountType === "student"
+                ? [{ type: "photo" }, { type: "bio" }, { type: "college" }]
+                : [{ type: "photo" }, { type: "bio" }],
         [accountType],
     );
-    const steps = useMemo<StepId[]>(
-        () => (accountType === "student" ? ["photo", "bio", "college", "finish"] : ["photo", "bio", "finish"]),
-        [accountType],
-    );
+
     const activeStep = steps[stepIndex];
     const isLastStep = stepIndex === steps.length - 1;
 
+    // Populate auth state from the server token set during signup.
     useEffect(() => {
-        // Only search if the user has typed at least 2 characters
+        void refreshSession();
+    }, [refreshSession]);
+
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            router.replace("/signup");
+        }
+    }, [router, status]);
+
+    useEffect(() => {
         if (college.trim().length < 2) {
             setFilteredUniversities([]);
             setCollegeSearchError("");
@@ -83,17 +85,11 @@ function ProfileSetupContent() {
             try {
                 setIsSearchingColleges(true);
                 setCollegeSearchError("");
-
                 const response = await fetch(`/api/universities?name=${encodeURIComponent(college)}`);
                 const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data?.error || "Could not fetch universities");
-                }
-
+                if (!response.ok) throw new Error(data?.error || "Could not fetch universities");
                 setFilteredUniversities(Array.isArray(data.universities) ? data.universities : []);
-            } catch (error) {
-                console.error("Error fetching universities:", error);
+            } catch {
                 setFilteredUniversities([]);
                 setCollegeSearchError("Could not fetch universities right now.");
             } finally {
@@ -101,54 +97,27 @@ function ProfileSetupContent() {
             }
         };
 
-        // Debounce: Wait 300ms after the user stops typing before calling the API
-        const timeoutId = setTimeout(fetchColleges, 300);
-
-        return () => clearTimeout(timeoutId);
+        const id = setTimeout(fetchColleges, 300);
+        return () => clearTimeout(id);
     }, [college]);
 
     useEffect(() => {
         return () => {
-            if (profileImagePreviewUrl) {
-                URL.revokeObjectURL(profileImagePreviewUrl);
-            }
+            if (profileImagePreviewUrl) URL.revokeObjectURL(profileImagePreviewUrl);
         };
     }, [profileImagePreviewUrl]);
 
     function handleProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0] ?? null;
         setProfileImageFile(file);
-
-        if (profileImagePreviewUrl) {
-            URL.revokeObjectURL(profileImagePreviewUrl);
-        }
+        if (profileImagePreviewUrl) URL.revokeObjectURL(profileImagePreviewUrl);
         setProfileImagePreviewUrl(file ? URL.createObjectURL(file) : null);
-    }
-
-    async function handleFinishSetup() {
-        setSaveError("");
-        setIsSaving(true);
-
-        try {
-            const profileImageUrl = profileImageFile ? await uploadImage(profileImageFile, "profiles") : null;
-            await updateUserProfileInDatabase({ bio, college, accountType, profileImageUrl });
-            if (userId) {
-                await refreshMyProfile(userId);
-            }
-            router.push("/");
-        } catch {
-            setSaveError("Could not save profile setup right now. Please try again.");
-        } finally {
-            setIsSaving(false);
-        }
     }
 
     function transitionToStep(nextIndex: number) {
         if (isTransitioning || nextIndex < 0 || nextIndex >= steps.length || nextIndex === stepIndex) return;
-
         setIsTransitioning(true);
         setStepPhase("out");
-
         window.setTimeout(() => {
             setStepIndex(nextIndex);
             setStepPhase("in");
@@ -156,37 +125,42 @@ function ProfileSetupContent() {
         }, TRANSITION_MS);
     }
 
-    function handleNext() {
-        if (isLastStep) {
-            void handleFinishSetup();
-            return;
+    async function handleFinish() {
+        if (!user) return;
+        setSaveError("");
+        setIsSaving(true);
+        try {
+            const profileImageUrl = profileImageFile ? await uploadImage(profileImageFile, "profiles") : null;
+            await createProfileSetup({
+                account_type: accountType,
+                bio: bio.trim() || undefined,
+                college: college.trim() || undefined,
+                profile_image_url: profileImageUrl ?? undefined,
+            });
+            await refreshSession();
+            router.push("/");
+        } catch {
+            setSaveError("Could not save your setup. Please try again.");
+        } finally {
+            setIsSaving(false);
         }
-        transitionToStep(stepIndex + 1);
     }
 
-    function handleBack() {
-        transitionToStep(stepIndex - 1);
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#fdf8f0]">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+            </div>
+        );
     }
 
-    function handleSkipStep() {
-        if (isLastStep) return;
-        transitionToStep(stepIndex + 1);
-    }
-
-    const isActiveStepComplete =
-        activeStep === "photo"
-            ? Boolean(profileImageFile)
-            : activeStep === "bio"
-              ? Boolean(bio.trim())
-              : activeStep === "college"
-                ? Boolean(college.trim())
-                : true;
-
-    const disableNext = isSaving || isTransitioning || !isActiveStepComplete;
+    const headingText =
+        accountType === "student" ? "Set up your student profile" : "Set up your traveler profile";
 
     return (
         <div className="min-h-screen bg-[#fdf8f0] px-6 py-12 text-stone-800">
             <div className="mx-auto flex w-full max-w-xl flex-col rounded-2xl border border-stone-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm md:p-8">
+                {/* Header */}
                 <div className="mb-7">
                     <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
                         {accountType === "student" ? (
@@ -201,27 +175,30 @@ function ProfileSetupContent() {
                             </>
                         )}
                     </div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-stone-900 md:text-3xl">{headingText}</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-stone-900 md:text-3xl">
+                        {headingText}
+                    </h1>
                     <p className="mt-2 text-sm text-stone-500">
                         Add a few details so your profile is ready before you jump in.
                     </p>
                     <div className="mt-4 flex items-center gap-2">
-                        {steps.map((step, index) => (
+                        {steps.map((_, i) => (
                             <div
-                                key={step}
+                                key={i}
                                 className={`h-1.5 rounded-full transition-all duration-200 ${
-                                    index === stepIndex ? "w-8 bg-amber-500" : "w-3 bg-stone-200"
+                                    i === stepIndex ? "w-8 bg-amber-500" : "w-3 bg-stone-200"
                                 }`}
                             />
                         ))}
                     </div>
                 </div>
 
+                {/* Step content */}
                 <div
                     className={`transition-all ease-out ${stepPhase === "in" ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"}`}
                     style={{ transitionDuration: `${TRANSITION_MS}ms` }}
                 >
-                    {activeStep === "photo" && (
+                    {activeStep.type === "photo" && (
                         <div className="flex flex-col gap-5">
                             <div>
                                 <p className="text-lg font-medium text-stone-900">Add a profile picture</p>
@@ -256,7 +233,7 @@ function ProfileSetupContent() {
                         </div>
                     )}
 
-                    {activeStep === "bio" && (
+                    {activeStep.type === "bio" && (
                         <div className="flex flex-col gap-5">
                             <div>
                                 <p className="text-lg font-medium text-stone-900">Write a short bio</p>
@@ -268,7 +245,7 @@ function ProfileSetupContent() {
                             </div>
                             <textarea
                                 value={bio}
-                                onChange={(event) => setBio(event.target.value)}
+                                onChange={(e) => setBio(e.target.value)}
                                 rows={5}
                                 placeholder={
                                     accountType === "student"
@@ -280,7 +257,7 @@ function ProfileSetupContent() {
                         </div>
                     )}
 
-                    {activeStep === "college" && (
+                    {activeStep.type === "college" && (
                         <div className="flex flex-col gap-5">
                             <div>
                                 <p className="text-lg font-medium text-stone-900">Where do you attend college?</p>
@@ -291,14 +268,12 @@ function ProfileSetupContent() {
                             <input
                                 type="text"
                                 value={college}
-                                onChange={(event) => {
-                                    setCollege(event.target.value);
+                                onChange={(e) => {
+                                    setCollege(e.target.value);
                                     setIsCollegeMenuOpen(true);
                                 }}
                                 onFocus={() => setIsCollegeMenuOpen(true)}
-                                onBlur={() => {
-                                    window.setTimeout(() => setIsCollegeMenuOpen(false), 120);
-                                }}
+                                onBlur={() => window.setTimeout(() => setIsCollegeMenuOpen(false), 120)}
                                 placeholder="e.g. University of California, Berkeley"
                                 className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-800 outline-none transition-colors placeholder:text-stone-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300"
                             />
@@ -329,22 +304,14 @@ function ProfileSetupContent() {
                             )}
                         </div>
                     )}
-
-                    {activeStep === "finish" && (
-                        <div className="flex flex-col gap-4">
-                            <p className="text-lg font-medium text-stone-900">You are all set</p>
-                            <p className="text-sm text-stone-500">
-                                Save your setup and head to the map. You can edit your profile later anytime.
-                            </p>
-                        </div>
-                    )}
                 </div>
 
+                {/* Navigation — all fields optional; Skip available on non-last steps */}
                 <div className="mt-8 flex items-center gap-3">
                     {!isLastStep && (
                         <button
                             type="button"
-                            onClick={handleSkipStep}
+                            onClick={() => transitionToStep(stepIndex + 1)}
                             disabled={isSaving || isTransitioning}
                             className="rounded-full px-4 py-2 text-sm font-medium text-stone-500 transition-colors hover:text-stone-700 disabled:opacity-60"
                         >
@@ -355,26 +322,27 @@ function ProfileSetupContent() {
                     {stepIndex > 0 && (
                         <button
                             type="button"
-                            onClick={handleBack}
+                            onClick={() => transitionToStep(stepIndex - 1)}
                             disabled={isSaving || isTransitioning}
-                            className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-60"
                         >
+                            <ArrowLeft className="h-3.5 w-3.5" />
                             Back
                         </button>
                     )}
 
                     <button
                         type="button"
-                        onClick={handleNext}
-                        disabled={disableNext}
-                        className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                        onClick={isLastStep ? () => void handleFinish() : () => transitionToStep(stepIndex + 1)}
+                        disabled={isSaving || isTransitioning}
+                        className="ml-auto inline-flex items-center gap-2 rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                     >
-                        {isLastStep ? (isSaving ? "Saving..." : "Save and continue") : "Next"}
+                        {isLastStep ? (isSaving ? "Setting up..." : "Go to map") : "Next"}
                         <ArrowRight className="h-4 w-4" />
                     </button>
                 </div>
 
-                {saveError ? <p className="mt-3 text-sm text-red-500">{saveError}</p> : null}
+                {saveError && <p className="mt-3 text-sm text-red-500">{saveError}</p>}
             </div>
         </div>
     );

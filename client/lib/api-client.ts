@@ -223,6 +223,13 @@ export async function deleteTrip(tripId: number) {
   });
 }
 
+export async function markOnboardingComplete(stepIds: string[]): Promise<void> {
+  await requestJson<{ message: string }>("/users/me/onboarding", {
+    method: "PATCH",
+    body: JSON.stringify({ completed_step_ids: stepIds }),
+  });
+}
+
 export async function getUserProfile(userId: number): Promise<UserProfileResponse> {
   return requestJson<UserProfileResponse>(`/users/${userId}/profile`, { method: "GET" });
 }

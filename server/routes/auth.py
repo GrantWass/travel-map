@@ -115,6 +115,7 @@ def login_user():
                     "verified": bool(user.get("verified")),
                     "college": user.get("college"),
                     "profile_image_url": user.get("profile_image_url"),
+                    "completed_onboarding_tours": user.get("completed_onboarding_tours") or [],
                 },
             }
         )

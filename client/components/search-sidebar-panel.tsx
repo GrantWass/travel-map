@@ -183,7 +183,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                             <div className="flex items-center justify-between">
                                 <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                                     <DollarSign className="h-3 w-3" />
-                                    Max Cost
+                                    Max Cost / Person
                                 </p>
                                 <span className="text-xs font-semibold text-foreground">
                                     {maxCost >= MAX_COST ? "No limit" : `$${maxCost}`}
@@ -239,7 +239,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                 {(trip.cost !== null || trip.tags.length > 0) && (
                                                     <div className="mt-0.5 flex items-center gap-2">
                                                         {trip.cost !== null && (
-                                                            <span className="text-xs text-muted-foreground">${trip.cost}</span>
+                                                            <span className="text-xs text-muted-foreground">${trip.cost}/person</span>
                                                         )}
                                                         {trip.tags.length > 0 && (
                                                             <span className="truncate text-xs capitalize text-muted-foreground">

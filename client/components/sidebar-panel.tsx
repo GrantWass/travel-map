@@ -28,7 +28,7 @@ interface SidebarPanelProps {
 
 function formatCost(cost: number | null | undefined): string | null {
     if (cost == null) return null;
-    return cost % 1 === 0 ? `$${cost}` : `$${cost.toFixed(2)}`;
+    return cost % 1 === 0 ? `$${cost}/person` : `$${cost.toFixed(2)}/person`;
 }
 
 function formatAddress(address: string | null | undefined): string | null {

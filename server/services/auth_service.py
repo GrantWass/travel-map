@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -23,6 +24,12 @@ def to_nullable_string(value: Any) -> str | None:
 
 
 def normalize_user(row: dict[str, Any]) -> dict[str, Any]:
+    completed = row.get("completed_onboarding_tours")
+    if isinstance(completed, str):
+        try:
+            completed = json.loads(completed)
+        except (ValueError, TypeError):
+            completed = []
     return {
         "user_id": int(row["user_id"]),
         "name": row.get("name"),
@@ -31,6 +38,7 @@ def normalize_user(row: dict[str, Any]) -> dict[str, Any]:
         "verified": bool(row.get("verified")),
         "college": row.get("college"),
         "profile_image_url": row.get("profile_image_url"),
+        "completed_onboarding_tours": completed if isinstance(completed, list) else [],
     }
 
 
@@ -38,7 +46,7 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT user_id, name, email, password_hash, bio, verified, college, profile_image_url
+            SELECT user_id, name, email, password_hash, bio, verified, college, profile_image_url, completed_onboarding_tours
             FROM travelers
             WHERE email = %s
             LIMIT 1
@@ -50,6 +58,12 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
     if not row:
         return None
 
+    completed = row.get("completed_onboarding_tours")
+    if isinstance(completed, str):
+        try:
+            completed = json.loads(completed)
+        except (ValueError, TypeError):
+            completed = []
     return {
         "user_id": int(row["user_id"]),
         "name": row.get("name"),
@@ -59,6 +73,7 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
         "verified": bool(row.get("verified")),
         "college": row.get("college"),
         "profile_image_url": row.get("profile_image_url"),
+        "completed_onboarding_tours": completed if isinstance(completed, list) else [],
     }
 
 
@@ -66,7 +81,7 @@ def get_user_by_id(user_id: int) -> dict[str, Any] | None:
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT user_id, name, email, bio, verified, college, profile_image_url
+            SELECT user_id, name, email, bio, verified, college, profile_image_url, completed_onboarding_tours
             FROM travelers
             WHERE user_id = %s
             LIMIT 1
@@ -155,6 +170,33 @@ def update_profile(*, user_id: int, bio: str | None, college: str | None, profil
             WHERE user_id = %s
             """,
             (bio, college, profile_image_url, verified, user_id),
+        )
+
+    return get_user_by_id(user_id)
+
+
+def mark_onboarding_steps_complete(*, user_id: int, step_ids: list[str]) -> dict[str, Any] | None:
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            "SELECT completed_onboarding_tours FROM travelers WHERE user_id = %s",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        existing = row["completed_onboarding_tours"]
+        if isinstance(existing, str):
+            try:
+                existing = json.loads(existing)
+            except (ValueError, TypeError):
+                existing = []
+        current: list[str] = list(existing) if isinstance(existing, list) else []
+        merged = list(dict.fromkeys([*current, *step_ids]))
+
+        cur.execute(
+            "UPDATE travelers SET completed_onboarding_tours = %s::jsonb WHERE user_id = %s",
+            (json.dumps(merged), user_id),
         )
 
     return get_user_by_id(user_id)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request
 
-from services.auth_service import UNSET, get_authenticated_user, to_nullable_string, update_profile, update_user_settings
+from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_profile, update_user_settings
 from services.trip_service import get_user_profile, list_user_trips
 
 profile_bp = Blueprint("profile", __name__)
@@ -72,6 +72,29 @@ def user_profile(user_id: int):
     except Exception as error:
         current_app.logger.exception("User profile lookup failed")
         return jsonify({"error": f"user profile lookup failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/users/me/onboarding", methods=["PATCH", "OPTIONS"])
+def mark_onboarding():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        step_ids = payload.get("completed_step_ids")
+        if not isinstance(step_ids, list):
+            return jsonify({"error": "completed_step_ids must be a list"}), 400
+
+        valid_ids = [s for s in step_ids if isinstance(s, str) and s.strip()]
+        updated_user = mark_onboarding_steps_complete(user_id=user["user_id"], step_ids=valid_ids)
+        return jsonify({"message": "onboarding updated", "user": updated_user}), 200
+    except Exception as error:
+        current_app.logger.exception("Onboarding update failed")
+        return jsonify({"error": f"onboarding update failed: {str(error)}"}), 500
 
 
 @profile_bp.route("/profile/update", methods=["POST", "OPTIONS"])

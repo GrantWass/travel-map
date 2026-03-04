@@ -16,6 +16,7 @@ export default function SignUpPage() {
     const router = useRouter();
     const setAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
+    const setStatus = useAuthStore((state) => state.setStatus);
     const [mode, setMode] = useState<Mode>("signup");
     const [accountType, setAccountType] = useState<AccountType>("traveler");
     const [displayedType, setDisplayedType] = useState<AccountType>("traveler");
@@ -74,11 +75,16 @@ export default function SignUpPage() {
                 if (typeof data?.auth_token === "string" && data.auth_token.trim()) {
                     setAuthToken(data.auth_token);
                 }
+                // Login to obtain and store the auth token, but do NOT hydrate
+                // the Zustand store yet — that would race with AuthBootstrap and
+                // briefly flash the map. The /setup page will populate the store
+                // via refreshSession once it mounts.
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
-                setAuthenticatedUser(loggedInUser);
-                await refreshMyProfile(loggedInUser.user_id);
-                router.push(`/profile-setup?accountType=${accountType}`);
+                // Set to "loading" so AuthBootstrap doesn't redirect while /setup
+                // initializes its own refreshSession call.
+                setStatus("loading");
+                router.push(`/setup?accountType=${accountType}`);
                 return;
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);

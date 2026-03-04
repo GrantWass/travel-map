@@ -612,7 +612,7 @@ function TripsPageContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost (per person)</label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -726,7 +726,7 @@ function TripsPageContent() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost (per person)</label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -889,7 +889,7 @@ function TripsPageContent() {
                               step="0.01"
                               value={stop.cost}
                               onChange={(event) => updateStop("lodging", stop.id, { cost: event.target.value })}
-                              placeholder="Cost (optional)"
+                              placeholder="Cost per person (optional)"
                               className={READABLE_INPUT_CLASS}
                             />
                             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
@@ -1015,7 +1015,7 @@ function TripsPageContent() {
                               step="0.01"
                               value={stop.cost}
                               onChange={(event) => updateStop("activity", stop.id, { cost: event.target.value })}
-                              placeholder="Cost (optional)"
+                              placeholder="Cost per person (optional)"
                               className={READABLE_INPUT_CLASS}
                             />
                             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
@@ -1179,7 +1179,7 @@ function TripsPageContent() {
                                   <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
                                     {stop.notes || "No stay notes yet."}
                                   </p>
-                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost: ${stop.cost}` : "No cost added"}</p>
+                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost/person: $${stop.cost}` : "No cost added"}</p>
                                 </div>
                               </div>
                             </article>
@@ -1212,7 +1212,7 @@ function TripsPageContent() {
                                   <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
                                     {stop.notes || "No activity notes yet."}
                                   </p>
-                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost: ${stop.cost}` : "No cost added"}</p>
+                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost/person: $${stop.cost}` : "No cost added"}</p>
                                 </div>
                               </div>
                             </article>

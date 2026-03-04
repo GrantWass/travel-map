@@ -11,6 +11,7 @@ export interface User {
   profile_image_url: string | null;
   trips: Trip[] | null;
   initials: string;
+  completed_onboarding_tours?: string[];
 }
 export interface SessionResponse {
   authenticated: boolean;

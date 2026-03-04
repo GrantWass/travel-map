@@ -354,7 +354,7 @@ export default function TravelMap() {
                 <>
                     <div className={`absolute left-4 top-3 z-[1000] hidden sm:block ${topLeftControlsWidthClass}`}>
                         <div className="flex items-center gap-2">
-                            <div className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border bg-card/95 px-5 shadow-sm backdrop-blur-sm">
+                            <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border bg-card/95 px-5 shadow-sm backdrop-blur-sm">
                                 <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                                 <input
                                     value={searchQuery}
@@ -366,6 +366,7 @@ export default function TravelMap() {
                                 />
                             </div>
                             <button
+                                data-spotlight="plans"
                                 type="button"
                                 onClick={togglePlansPanel}
                                 className={`flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors ${
@@ -416,6 +417,7 @@ export default function TravelMap() {
                     />
                 </div>
                 <button
+                    data-spotlight="profile"
                     onClick={() => {
                         if (userId !== null) {
                             void openProfile(userId, "top-right");
@@ -507,7 +509,7 @@ export default function TravelMap() {
                     )}
                 </div>
 
-                <div className="relative h-full min-w-0 flex-1">
+                <div data-spotlight="map" className="relative h-full min-w-0 flex-1">
                     <MapView
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);

@@ -30,7 +30,7 @@ export default function StudentAddMenu({ visible, onAddTrip, onAddPopUp }: Stude
     if (!visible) return null;
 
     return (
-        <div ref={containerRef} className="absolute bottom-4 left-4 z-[1000] flex flex-col items-start">
+        <div ref={containerRef} data-spotlight="add-trip" className="absolute bottom-4 left-4 z-[1000] flex flex-col items-start">
             <div className="mb-3 flex flex-col items-start gap-2">
                 <button
                     onClick={() => {
