@@ -110,7 +110,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
     return () => window.clearTimeout(id);
   }, [searchQuery]);
 
-  async function handleRespond(friendshipId: number, status: "accepted" | "blocked") {
+  async function handleRespond(friendshipId: number, status: "accepted" | "declined") {
     try {
       await respondFriendRequest(friendshipId, status);
       await load();
@@ -189,8 +189,8 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                       <Button onClick={() => void handleRespond(req.id, "accepted")}>
                         <Check className="mr-2 h-3.5 w-3.5" />Accept
                       </Button>
-                      <Button variant="outline" onClick={() => void handleRespond(req.id, "blocked")}>
-                        <Slash className="mr-2 h-3.5 w-3.5" />Block
+                      <Button variant="outline" onClick={() => void handleRespond(req.id, "declined")}>
+                        <Slash className="mr-2 h-3.5 w-3.5" />Decline
                       </Button>
                     </div>
                   </div>

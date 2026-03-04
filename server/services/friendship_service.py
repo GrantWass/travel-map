@@ -31,7 +31,7 @@ def create_friend_request(*, requester_id: int, addressee_id: int) -> dict[str, 
 
 
 def respond_friend_request(*, friendship_id: int, responder_id: int, status: str) -> Optional[dict[str, Any]]:
-    if status not in {"accepted", "pending"}:
+    if status not in {"accepted", "declined", "pending"}:
         return None
 
     with get_cursor(commit=True) as cur:

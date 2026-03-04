@@ -279,8 +279,8 @@ def respond_friendship(friendship_id: int):
     try:
         payload = request.get_json(silent=True) or {}
         status = to_nullable_string(payload.get("status"))
-        if status not in {"accepted", "pending"}:
-            return jsonify({"error": "status must be 'accepted' or 'pending'"}), 400
+        if status not in {"accepted", "declined", "pending"}:
+            return jsonify({"error": "status must be 'accepted', 'declined', or 'pending'"}), 400
 
         updated = svc_respond_friend_request(friendship_id=friendship_id, responder_id=user["user_id"], status=status)
         if not updated:

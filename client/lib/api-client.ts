@@ -255,7 +255,7 @@ export async function createFriendRequest(addresseeId: number) {
   });
 }
 
-export async function respondFriendRequest(friendshipId: number, status: "accepted" | "blocked" | "pending") {
+export async function respondFriendRequest(friendshipId: number, status: "accepted" | "declined" | "pending") {
   return requestJson<{ message: string; friendship: any }>(`/friendships/${friendshipId}/respond`, {
     method: "POST",
     body: JSON.stringify({ status }),
