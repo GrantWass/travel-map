@@ -69,7 +69,7 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            const inviteToken = inviteTokenRef ?? inviteToken;
+            const token = inviteToken;
 
             if (isSignup) {
                 const response = await fetch(`${API_BASE_URL}/create-user`, {
@@ -92,9 +92,9 @@ export default function SignUpPage() {
                 // via refreshSession once it mounts.
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
-                if (inviteToken) {
+                if (token) {
                     try {
-                        await claimSmsInvite(inviteToken);
+                        await claimSmsInvite(token);
                     } catch {
                         // Ignore claim failures — user created successfully regardless.
                     }
@@ -107,9 +107,9 @@ export default function SignUpPage() {
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
-                if (inviteToken) {
+                if (token) {
                     try {
-                        await claimSmsInvite(inviteToken);
+                        await claimSmsInvite(token);
                     } catch {
                         // ignore
                     }
