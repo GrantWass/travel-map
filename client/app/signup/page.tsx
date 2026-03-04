@@ -3,8 +3,8 @@
 //TODO: fix
 export const dynamic = 'force-dynamic';
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
 import BrandNameButton from "@/components/brand-name-button";
 import { API_BASE_URL, setAuthToken, claimSmsInvite } from "@/lib/api-client";
@@ -17,7 +17,12 @@ type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const [inviteToken, setInviteToken] = useState<string | null>(null);
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setInviteToken(new URLSearchParams(window.location.search).get("invite"));
+        }
+    }, []);
     const setAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const setStatus = useAuthStore((state) => state.setStatus);
@@ -64,7 +69,7 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            const inviteToken = searchParams?.get("invite");
+            const inviteToken = inviteTokenRef ?? inviteToken;
 
             if (isSignup) {
                 const response = await fetch(`${API_BASE_URL}/create-user`, {
@@ -102,7 +107,6 @@ export default function SignUpPage() {
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
-                const inviteToken = searchParams?.get("invite");
                 if (inviteToken) {
                     try {
                         await claimSmsInvite(inviteToken);
