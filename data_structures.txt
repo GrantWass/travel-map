@@ -1,237 +1,309 @@
-TRAVEL DATA STRUCTURES (POSTGRESQL)
+# TRAVEL APP DATABASE STRUCTURE
 
-Notes
-- Lists in app models are represented with either join tables (many-to-many) or foreign keys (one-to-many).
-- coords are stored as geo_location (geography(Point,4326)); latitude/longitude are legacy compatibility fields during migration.
-- user_trip_ids is derived from trips.owner_user_id.
-- activity_ids and lodging_ids are derived from activities.trip_id and lodgings.trip_id.
+## Core Idea
 
+The database revolves around USERS (travelers) and TRIPS.
 
-Traveler
-- user_id: int
-- name: str
-- email: str
-- password_hash: str
-- bio: str
-- verified: bool
-- college: str
-- profile_image: Image
-- favorited_trip_ids: List[trip_id]
-- favorited_traveler_ids: List[user_id]
-- planned_trip_ids: List[trip_id]
-- saved_activity_ids: List[activity_id]
-- saved_lodging_ids: List[lodge_id]
-- phone: str
+Users can:
 
+* create trips
+* comment on trips
+* friend other users
+* favorite users or trips
+* plan trips
+* save activities and lodgings
 
-CREATE TABLE travelers (
-    user_id SERIAL PRIMARY KEY,
-    password_hash TEXT NOT NULL,
-    name VARCHAR(255),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    bio TEXT,
-    verified BOOLEAN DEFAULT FALSE,
-    college VARCHAR(255),
-    profile_image_url TEXT,
-	phone VARCHAR(32),
-    saved_activity_ids INT[] DEFAULT '{}',
-    saved_lodging_ids INT[] DEFAULT '{}'
-);
+Trips contain:
 
-SMS Invites
-- id: int
-- inviter_id: int (FK -> travelers.user_id)
-- phone_number: str
-- invite_token: str
-- status: enum('sent','claimed','expired')
-- claimed_user_id: int (nullable FK -> travelers.user_id)
+* activities
+* lodgings
+* tags
+* comments
 
-SQL
-CREATE TABLE sms_invites (
-	id SERIAL PRIMARY KEY,
-	inviter_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
-	phone_number VARCHAR(32) NOT NULL,
-	invite_token TEXT NOT NULL UNIQUE,
-	status VARCHAR(20) NOT NULL DEFAULT 'sent',
-	claimed_user_id INT REFERENCES travelers(user_id)
-);
+---
 
+## TABLE: travelers
 
-Friendships
-- id: int
-- requester_id: int (FK -> travelers.user_id)
-- addressee_id: int (FK -> travelers.user_id)
-- status: enum('pending','accepted')
+Primary user table.
 
-SQL
-CREATE TABLE friendships (
-	id SERIAL PRIMARY KEY,
-	requester_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
-	addressee_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
-	status VARCHAR(20) NOT NULL DEFAULT 'pending',
-	UNIQUE (requester_id, addressee_id)
-);
+Columns:
 
-Trip
-- trip_id: int
-- thumbnail: Image
-- title: str
-- description: str
-- geo_location: geography(Point,4326)
-- coords: [decimal, decimal]  # [latitude, longitude]
-- cost: decimal
-- duration: enum
-- date: MM-YY
-- activity_ids: List[activity_id]
-- lodging_ids: List[lodge_id]
-- visibility: enum(public, private, friends)
-- owner_user_id: int
-- tags: List[str]  # beach, city, adventure, budget-friendly, luxury, foodie, nightlife, nature, cultural
+* user_id (PK)
+* cognito_sub (UUID from auth system)
+* name
+* email
+* bio
+* verified (boolean)
+* college
+* profile_image_url
+* password_hash
+* saved_activity_ids (array of activity ids)
+* saved_lodging_ids (array of lodging ids)
+* completed_onboarding_tours (json)
+* phone
 
-SQL
-CREATE TABLE trips (
-	trip_id SERIAL PRIMARY KEY,
-	thumbnail_url TEXT,
-	title VARCHAR(255) NOT NULL,
-	description TEXT,
-	geo_location geography(Point,4326),
-	latitude DECIMAL(9,6),
-	longitude DECIMAL(9,6),
-	cost DECIMAL(10,2),
-	duration VARCHAR(50),
-	date VARCHAR(7),
-	visibility VARCHAR(20),
-	owner_user_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
-	event_start TIMESTAMPTZ,
-	event_end TIMESTAMPTZ
-);
+Relationships:
 
--- Rows with event_start/event_end are "pop-up events"; rows without are regular trips.
--- Migration: ALTER TABLE trips ADD COLUMN event_start TIMESTAMPTZ, ADD COLUMN event_end TIMESTAMPTZ;
--- PostGIS requirement (run once per database): CREATE EXTENSION IF NOT EXISTS postgis;
--- Spatial migration (RDS/Postgres + PostGIS)
--- ALTER TABLE trips ADD COLUMN location geography(Point,4326);
--- UPDATE trips
--- SET location = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
--- WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
--- CREATE INDEX CONCURRENTLY idx_trips_geo_location_gist ON trips USING GIST (location);
+* owns trips
+* writes comments
+* sends SMS invites
+* friends other users
+* favorites users
+* favorites trips
+* plans trips
 
+---
 
-Lodging
-- lodge_id: int
-- trip_id: int
-- address: str
-- thumbnail: Image
-- title: str
-- description: str
-- location: geography(Point,4326)
-- coords: [decimal, decimal]  # [latitude, longitude]
-- cost: decimal
+## TABLE: trips
 
-SQL
-CREATE TABLE lodgings (
-	lodge_id SERIAL PRIMARY KEY,
-	trip_id INT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
-	address TEXT,
-	thumbnail_url TEXT,
-	title VARCHAR(255),
-	description TEXT,
-	location geography(Point,4326),
-	latitude DECIMAL(9,6),
-	longitude DECIMAL(9,6),
-	cost DECIMAL(10,2)
-);
+Trips created by users.
 
--- Spatial migration (RDS/Postgres + PostGIS)
--- ALTER TABLE lodgings ADD COLUMN location geography(Point,4326);
--- UPDATE lodgings
--- SET location = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
--- WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
--- CREATE INDEX CONCURRENTLY idx_lodgings_geo_location_gist ON lodgings USING GIST (location);
+Columns:
 
+* trip_id (PK)
+* thumbnail_url
+* title
+* description
+* latitude
+* longitude
+* cost
+* duration
+* date
+* visibility
+* owner_user_id (FK → travelers.user_id)
+* event_start
+* event_end
+* geo_location (PostGIS geographic object)
 
-Activity
-- activity_id: int
-- trip_id: int
-- address: str
-- thumbnail: Image
-- title: str
-- location: str
-- description: str
-- geo_location: geography(Point,4326)
-- coords: [decimal, decimal]  # [latitude, longitude]
-- cost: decimal
+Relationships:
 
-SQL
-CREATE TABLE activities (
-	activity_id SERIAL PRIMARY KEY,
-	trip_id INT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
-	address TEXT,
-	thumbnail_url TEXT,
-	title VARCHAR(255),
-	location TEXT,
-	description TEXT,
-	geo_location geography(Point,4326),
-	latitude DECIMAL(9,6),
-	longitude DECIMAL(9,6),
-	cost DECIMAL(10,2)
-);
+* belongs to traveler (owner_user_id)
+* contains activities
+* contains lodgings
+* contains comments
+* contains tags
+* can be favorited by users
+* can be planned by users
 
--- Spatial migration (RDS/Postgres + PostGIS)
--- ALTER TABLE activities ADD COLUMN geo_location geography(Point,4326);
--- UPDATE activities
--- SET geo_location = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
--- WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
--- CREATE INDEX CONCURRENTLY idx_activities_geo_location_gist ON activities USING GIST (geo_location);
+---
 
+## TABLE: activities
 
-Comment
-- comment_id: int
-- user_id: int
-- trip_id: int
-- body: str
-- created_at: datetime
+Things to do during a trip.
 
-SQL
-CREATE TABLE comments (
-	comment_id SERIAL PRIMARY KEY,
-	user_id INT NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
-	trip_id INT NOT NULL REFERENCES trips(trip_id) ON DELETE CASCADE,
-	body TEXT NOT NULL,
-	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+Columns:
 
+* activity_id (PK)
+* trip_id (FK → trips.trip_id)
+* address
+* thumbnail_url
+* title
+* location
+* description
+* latitude
+* longitude
+* cost
+* geo_location (PostGIS)
 
-RELATIONSHIP TABLES (MANY-TO-MANY)
+Relationships:
 
-Traveler <-> Favorited Trips
-SQL
-CREATE TABLE user_favorite_trips (
-	user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
-	trip_id INT REFERENCES trips(trip_id) ON DELETE CASCADE,
-	PRIMARY KEY (user_id, trip_id)
-);
+* many activities belong to one trip
+* activities may be saved by users
 
-Traveler <-> Planned Trips
-SQL
-CREATE TABLE user_planned_trips (
-	user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
-	trip_id INT REFERENCES trips(trip_id) ON DELETE CASCADE,
-	PRIMARY KEY (user_id, trip_id)
-);
+---
 
-Traveler <-> Favorited Travelers
-SQL
-CREATE TABLE user_favorite_travelers (
-	user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
-	favorited_user_id INT REFERENCES travelers(user_id) ON DELETE CASCADE,
-	PRIMARY KEY (user_id, favorited_user_id)
-);
+## TABLE: lodgings
 
-Trip <-> Tags
-SQL
-CREATE TABLE trip_tags (
-	trip_id INT REFERENCES trips(trip_id) ON DELETE CASCADE,
-	tag VARCHAR(50) NOT NULL,
-	PRIMARY KEY (trip_id, tag)
-);
+Places to stay during a trip.
+
+Columns:
+
+* lodge_id (PK)
+* trip_id (FK → trips.trip_id)
+* address
+* thumbnail_url
+* title
+* description
+* latitude
+* longitude
+* cost
+* geo_location (PostGIS)
+
+Relationships:
+
+* many lodgings belong to one trip
+* lodgings may be saved by users
+
+---
+
+## TABLE: comments
+
+User comments on trips.
+
+Columns:
+
+* comment_id (PK)
+* user_id (FK → travelers.user_id)
+* trip_id (FK → trips.trip_id)
+* body
+* created_at
+
+Relationships:
+
+* comment belongs to a user
+* comment belongs to a trip
+
+---
+
+## TABLE: friendships
+
+Stores friend relationships between users.
+
+Columns:
+
+* id (PK)
+* requester_id (FK → travelers.user_id)
+* addressee_id (FK → travelers.user_id)
+* status (pending / accepted / declined)
+
+Relationships:
+
+* user ↔ user
+
+---
+
+## TABLE: sms_invites
+
+Tracks SMS invites sent by users.
+
+Columns:
+
+* id (PK)
+* inviter_id (FK → travelers.user_id)
+* phone_number
+* invite_token
+* status
+* claimed_user_id (FK → travelers.user_id)
+* created_at
+
+Relationships:
+
+* user sends invite
+* invite may become a user
+
+---
+
+## TABLE: trip_tags
+
+Tags attached to trips.
+
+Columns:
+
+* trip_id (FK → trips.trip_id)
+* tag
+
+Relationships:
+
+* many tags per trip
+
+---
+
+## TABLE: user_favorite_travelers
+
+Tracks users favoriting other users.
+
+Columns:
+
+* user_id
+* favorited_user_id
+
+Relationships:
+
+* many-to-many users
+
+---
+
+## TABLE: user_favorite_trips
+
+Tracks users favoriting trips.
+
+Columns:
+
+* user_id
+* trip_id
+
+Relationships:
+
+* many-to-many users ↔ trips
+
+---
+
+## TABLE: user_planned_trips
+
+Trips a user plans to take.
+
+Columns:
+
+* user_id
+* trip_id
+
+Relationships:
+
+* many-to-many users ↔ trips
+
+---
+
+## SPATIAL / POSTGIS TABLES
+
+These are system tables used by PostGIS.
+
+geometry_columns
+geography_columns
+spatial_ref_sys
+
+---
+
+## QUICK RELATIONSHIP SUMMARY
+
+travelers
+├── owns → trips
+│       ├── activities
+│       ├── lodgings
+│       ├── comments
+│       └── trip_tags
+│
+├── friendships (user ↔ user)
+│
+├── favorites
+│       ├── user_favorite_trips
+│       └── user_favorite_travelers
+│
+├── planning
+│       └── user_planned_trips
+│
+└── sms_invites
+
+---
+
+## MENTAL MODEL
+
+Users create trips.
+
+Trips contain:
+
+* activities
+* lodgings
+* comments
+* tags
+
+Users interact with trips by:
+
+* commenting
+* favoriting
+* planning
+
+Users interact with other users by:
+
+* friendships
+* favorites
+* SMS invites
