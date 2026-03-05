@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import get_authenticated_user
@@ -18,6 +20,44 @@ from services.trip_service import (
 
 trips_bp = Blueprint("trips", __name__)
 
+
+def _parse_optional_bounding_box(args: dict[str, Any]) -> tuple[float, float, float, float] | None:
+    min_lat_raw = args.get("min_lat")
+    max_lat_raw = args.get("max_lat")
+    min_lng_raw = args.get("min_lng")
+    max_lng_raw = args.get("max_lng")
+
+    provided_values = [min_lat_raw, max_lat_raw, min_lng_raw, max_lng_raw]
+    if all(value is None for value in provided_values):
+        return None
+
+    if any(value is None for value in provided_values):
+        raise TripValidationError("min_lat, max_lat, min_lng, and max_lng must all be provided together")
+
+    min_lat_text = str(min_lat_raw)
+    max_lat_text = str(max_lat_raw)
+    min_lng_text = str(min_lng_raw)
+    max_lng_text = str(max_lng_raw)
+
+    try:
+        min_lat = float(min_lat_text)
+        max_lat = float(max_lat_text)
+        min_lng = float(min_lng_text)
+        max_lng = float(max_lng_text)
+    except (TypeError, ValueError):
+        raise TripValidationError("bounding box coordinates must be valid numbers")
+
+    if min_lat < -90 or max_lat > 90:
+        raise TripValidationError("latitude bounds must be within [-90, 90]")
+    if min_lng < -180 or max_lng > 180:
+        raise TripValidationError("longitude bounds must be within [-180, 180]")
+    if min_lat > max_lat:
+        raise TripValidationError("min_lat must be less than or equal to max_lat")
+    if min_lng > max_lng:
+        raise TripValidationError("min_lng must be less than or equal to max_lng")
+
+    return (min_lat, max_lat, min_lng, max_lng)
+
 @trips_bp.route("/trips", methods=["GET", "OPTIONS"])
 def get_trips():
     if request.method == "OPTIONS":
@@ -27,8 +67,11 @@ def get_trips():
     viewer_user_id = viewer["user_id"] if viewer else None
 
     try:
-        trips = list_trips(viewer_user_id=viewer_user_id)
+        bounding_box = _parse_optional_bounding_box(request.args)
+        trips = list_trips(viewer_user_id=viewer_user_id, bounding_box=bounding_box)
         return jsonify({"trips": trips}), 200
+    except TripValidationError as error:
+        return jsonify({"error": str(error)}), 400
     except Exception as error:
         current_app.logger.exception("List trips failed")
         return jsonify({"error": f"list trips failed: {str(error)}"}), 500

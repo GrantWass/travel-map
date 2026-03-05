@@ -22,6 +22,9 @@ _trip_list_cache_version = 0
 _trip_list_cache: dict[int | None, tuple[float, int, list[dict[str, Any]]]] = {}
 
 
+BoundingBox = tuple[float, float, float, float]
+
+
 class TripValidationError(ValueError):
     pass
 
@@ -234,30 +237,58 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
     return [_serialize_trip_base(row) for row in rows]
 
 
-def list_trips(viewer_user_id: int | None) -> list[dict[str, Any]]:
+#TODO: only implemented on trips rn since that's the main entity, but may want to extend to activities/lodgings later
+#TODO: update activities to have current columns geo_location be location and location be address
+def _append_bounding_box_filter(
+    where_sql: str,
+    params: tuple[Any, ...],
+    bounding_box: BoundingBox | None,
+) -> tuple[str, tuple[Any, ...]]:
+    if bounding_box is None:
+        return where_sql, params
+
+    min_lat, max_lat, min_lng, max_lng = bounding_box
+    where_with_bbox = (
+        f"({where_sql})"
+        " AND t.location IS NOT NULL"
+        " AND t.location::geometry && ST_MakeEnvelope(%s, %s, %s, %s, 4326)"
+    )
+    return where_with_bbox, params + (min_lng, min_lat, max_lng, max_lat)
+
+
+def list_trips(viewer_user_id: int | None, bounding_box: BoundingBox | None = None) -> list[dict[str, Any]]:
     now = monotonic()
 
-    with _trip_list_cache_lock:
-        cache_entry = _trip_list_cache.get(viewer_user_id)
-        if cache_entry is not None:
-            cached_at, cache_version, cached_value = cache_entry
-            is_fresh = (now - cached_at) <= TRIP_LIST_CACHE_TTL_SECONDS
-            if is_fresh and cache_version == _trip_list_cache_version:
-                return deepcopy(cached_value)
+    # TODO: why only cache when no bounding box?
+    if bounding_box is None:
+        with _trip_list_cache_lock:
+            cache_entry = _trip_list_cache.get(viewer_user_id)
+            if cache_entry is not None:
+                cached_at, cache_version, cached_value = cache_entry
+                is_fresh = (now - cached_at) <= TRIP_LIST_CACHE_TTL_SECONDS
+                if is_fresh and cache_version == _trip_list_cache_version:
+                    return deepcopy(cached_value)
 
     if viewer_user_id is None:
-        trips = _fetch_trip_rows("t.visibility = 'public'", tuple())
+        where_sql, params = _append_bounding_box_filter("t.visibility = 'public'", tuple(), bounding_box)
+        trips = _fetch_trip_rows(where_sql, params)
     else:
-        trips = _fetch_trip_rows("(t.visibility = 'public' OR t.owner_user_id = %s)", (viewer_user_id,))
+        where_sql, params = _append_bounding_box_filter(
+            "(t.visibility = 'public' OR t.owner_user_id = %s)",
+            (viewer_user_id,),
+            bounding_box,
+        )
+        trips = _fetch_trip_rows(where_sql, params)
 
     hydrated = _hydrate_trip_children(trips)
 
-    with _trip_list_cache_lock:
-        _trip_list_cache[viewer_user_id] = (
-            now,
-            _trip_list_cache_version,
-            deepcopy(hydrated),
-        )
+    if bounding_box is None:
+        with _trip_list_cache_lock:
+            _trip_list_cache[viewer_user_id] = (
+                now,
+                _trip_list_cache_version,
+                deepcopy(hydrated),
+            )
 
     return hydrated
 
@@ -394,6 +425,12 @@ def _parse_cost(value: Any, *, field_name: str = "cost") -> Decimal | None:
     )
 
 
+def _to_geo_wkt(latitude: Decimal | None, longitude: Decimal | None) -> str | None:
+    if latitude is None or longitude is None:
+        return None
+    return f"SRID=4326;POINT({longitude} {latitude})"
+
+
 def _insert_tags(cur, *, trip_id: int, tags: list[Any]):
     for tag in tags:
         clean_tag = to_nullable_string(tag)
@@ -418,6 +455,7 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
         field_prefix = f"lodgings[{index + 1}]"
         latitude = _parse_latitude(lodging.get("latitude"), field_name=f"{field_prefix}.latitude")
         longitude = _parse_longitude(lodging.get("longitude"), field_name=f"{field_prefix}.longitude")
+        geo_location = _to_geo_wkt(latitude, longitude)
         cost = _parse_cost(lodging.get("cost"), field_name=f"{field_prefix}.cost")
 
         cur.execute(
@@ -428,11 +466,12 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
                 thumbnail_url,
                 title,
                 description,
+                location,
                 latitude,
                 longitude,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
             """,
             (
                 trip_id,
@@ -440,6 +479,7 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
                 _parse_thumbnail_url(lodging.get("thumbnail_url")),
                 to_nullable_string(lodging.get("title")),
                 to_nullable_string(lodging.get("description")),
+                geo_location,
                 latitude,
                 longitude,
                 cost,
@@ -455,6 +495,7 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
         field_prefix = f"activities[{index + 1}]"
         latitude = _parse_latitude(activity.get("latitude"), field_name=f"{field_prefix}.latitude")
         longitude = _parse_longitude(activity.get("longitude"), field_name=f"{field_prefix}.longitude")
+        geo_location = _to_geo_wkt(latitude, longitude)
         cost = _parse_cost(activity.get("cost"), field_name=f"{field_prefix}.cost")
 
         cur.execute(
@@ -466,11 +507,12 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
                 title,
                 location,
                 description,
+                geo_location,
                 latitude,
                 longitude,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
             """,
             (
                 trip_id,
@@ -479,6 +521,7 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
                 to_nullable_string(activity.get("title")),
                 to_nullable_string(activity.get("location")),
                 to_nullable_string(activity.get("description")),
+                geo_location,
                 latitude,
                 longitude,
                 cost,
@@ -516,6 +559,9 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
 
     duration = None if is_popup_event else _parse_duration(payload.get("duration"))
     date = None if is_popup_event else _parse_trip_date(payload.get("date"))
+    latitude = _parse_latitude(payload.get("latitude"))
+    longitude = _parse_longitude(payload.get("longitude"))
+    geo_location = _to_geo_wkt(latitude, longitude)
 
     with get_cursor(commit=True) as cur:
         cur.execute(
@@ -524,6 +570,7 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 thumbnail_url,
                 title,
                 description,
+                location,
                 latitude,
                 longitude,
                 cost,
@@ -534,15 +581,16 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 event_start,
                 event_end
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, ST_GeogFromText(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING trip_id
             """,
             (
                 _parse_thumbnail_url(payload.get("thumbnail_url")),
                 title,
                 to_nullable_string(payload.get("description")),
-                _parse_latitude(payload.get("latitude")),
-                _parse_longitude(payload.get("longitude")),
+                geo_location,
+                latitude,
+                longitude,
                 _parse_cost(payload.get("cost")),
                 duration,
                 date,
@@ -592,6 +640,10 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
     if not title:
         raise TripValidationError("title is required")
 
+    latitude = _parse_latitude(payload.get("latitude"))
+    longitude = _parse_longitude(payload.get("longitude"))
+    geo_location = _to_geo_wkt(latitude, longitude)
+
     with get_cursor(commit=True) as cur:
         cur.execute(
             """
@@ -601,11 +653,12 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 thumbnail_url,
                 title,
                 description,
+                location,
                 latitude,
                 longitude,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
             RETURNING lodge_id
             """,
             (
@@ -614,8 +667,9 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 _parse_thumbnail_url(payload.get("thumbnail_url")),
                 title,
                 to_nullable_string(payload.get("description")),
-                _parse_latitude(payload.get("latitude")),
-                _parse_longitude(payload.get("longitude")),
+                geo_location,
+                latitude,
+                longitude,
                 _parse_cost(payload.get("cost")),
             ),
         )
@@ -639,6 +693,10 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
     if not title:
         raise TripValidationError("title is required")
 
+    latitude = _parse_latitude(payload.get("latitude"))
+    longitude = _parse_longitude(payload.get("longitude"))
+    geo_location = _to_geo_wkt(latitude, longitude)
+
     with get_cursor(commit=True) as cur:
         cur.execute(
             """
@@ -649,11 +707,12 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
                 title,
                 location,
                 description,
+                geo_location,
                 latitude,
                 longitude,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
             RETURNING activity_id
             """,
             (
@@ -663,8 +722,9 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
                 title,
                 to_nullable_string(payload.get("location")),
                 to_nullable_string(payload.get("description")),
-                _parse_latitude(payload.get("latitude")),
-                _parse_longitude(payload.get("longitude")),
+                geo_location,
+                latitude,
+                longitude,
                 _parse_cost(payload.get("cost")),
             ),
         )
@@ -713,6 +773,9 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
 
     duration = None if is_popup_event else _parse_duration(payload.get("duration"))
     date = None if is_popup_event else _parse_trip_date(payload.get("date"))
+    latitude = _parse_latitude(payload.get("latitude"))
+    longitude = _parse_longitude(payload.get("longitude"))
+    geo_location = _to_geo_wkt(latitude, longitude)
 
     with get_cursor(commit=True) as cur:
         cur.execute(
@@ -721,6 +784,7 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 thumbnail_url = %s,
                 title = %s,
                 description = %s,
+                location = ST_GeogFromText(%s),
                 latitude = %s,
                 longitude = %s,
                 cost = %s,
@@ -735,8 +799,9 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 _parse_thumbnail_url(payload.get("thumbnail_url")),
                 title,
                 to_nullable_string(payload.get("description")),
-                _parse_latitude(payload.get("latitude")),
-                _parse_longitude(payload.get("longitude")),
+                geo_location,
+                latitude,
+                longitude,
                 _parse_cost(payload.get("cost")),
                 duration,
                 date,
