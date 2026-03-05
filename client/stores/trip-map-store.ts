@@ -1,9 +1,9 @@
 import { create } from "zustand";
 
-import { getTrips } from "@/lib/api-client";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { getLocationKey, getTripTimestamp } from "@/lib/utils";
+import { fetchActiveTrips } from "@/stores/trip-search-store";
 
 interface TripMapStoreState {
     trips: Trip[];
@@ -48,7 +48,7 @@ interface TripMapStoreState {
     getSavedLodgings: () => SavedLodgingEntry[];
     getTripsAtSelectedLocation: () => Trip[];
     getSelectedTripLocationIndex: () => number;
-    getMapPanels: () => TripMapPanels;
+    getSelectedLocationContext: () => SelectedLocationContext;
 }
 
 export interface TripMapPanels {
@@ -58,6 +58,70 @@ export interface TripMapPanels {
     showPlansPanel: boolean;
     showTopLeftControls: boolean;
     showAnyLeftSidebar: boolean;
+}
+
+export interface SelectedLocationContext {
+    trips: Trip[];
+    selectedIndex: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+}
+
+export interface TripMapPanelInputs {
+    selectedTrip: Trip | null;
+    fullScreenTrip: Trip | null;
+    searchPanelOpen: boolean;
+    plansPanelOpen: boolean;
+}
+
+export function deriveTripMapPanels(inputs: TripMapPanelInputs): TripMapPanels {
+    const showSidebar = !!inputs.selectedTrip && !inputs.fullScreenTrip;
+    const showFullScreen = !!inputs.fullScreenTrip;
+    const showSearchPanel = inputs.searchPanelOpen && !showSidebar && !showFullScreen;
+    const showPlansPanel = inputs.plansPanelOpen && !showSidebar && !showFullScreen && !showSearchPanel;
+    const showTopLeftControls = !showSidebar && !showFullScreen && !showSearchPanel && !showPlansPanel;
+    const showAnyLeftSidebar = showSidebar || showFullScreen || showSearchPanel || showPlansPanel;
+
+    return {
+        showSidebar,
+        showFullScreen,
+        showSearchPanel,
+        showPlansPanel,
+        showTopLeftControls,
+        showAnyLeftSidebar,
+    };
+}
+
+function getTripsAtLocation(trips: Trip[], selectedTrip: Trip | null): Trip[] {
+    if (!selectedTrip) {
+        return [];
+    }
+
+    const selectedLocationKey = getLocationKey(selectedTrip.latitude, selectedTrip.longitude);
+
+    return trips
+        .filter((trip) => getLocationKey(trip.latitude, trip.longitude) === selectedLocationKey)
+        .sort((left, right) => {
+            if (!left.date || !right.date) {
+                return 0;
+            }
+
+            return getTripTimestamp(right.date) - getTripTimestamp(left.date);
+        });
+}
+
+export function deriveSelectedLocationContext(trips: Trip[], selectedTrip: Trip | null): SelectedLocationContext {
+    const tripsAtSelectedLocation = getTripsAtLocation(trips, selectedTrip);
+    const selectedIndex = selectedTrip
+        ? tripsAtSelectedLocation.findIndex((trip) => trip.trip_id === selectedTrip.trip_id)
+        : -1;
+
+    return {
+        trips: tripsAtSelectedLocation,
+        selectedIndex,
+        hasPrevious: selectedIndex > 0,
+        hasNext: selectedIndex >= 0 && selectedIndex < tripsAtSelectedLocation.length - 1,
+    };
 }
 
 export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
@@ -77,14 +141,8 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         set({ isLoadingTrips: true });
 
         try {
-            const apiTrips = await getTrips();
-            const now = new Date();
-
-            set({
-                trips: apiTrips
-                    .filter((trip): trip is Trip => Boolean(trip))
-                    .filter((trip) => !(trip.event_end && trip.event_start) || (trip.event_end !== null && new Date(trip.event_end) > now)),
-            });
+            const trips = await fetchActiveTrips();
+            set({ trips });
         } catch {
             set({ trips: [] });
         } finally {
@@ -253,21 +311,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     },
     getTripsAtSelectedLocation: () => {
         const state = get();
-        if (!state.selectedTrip) {
-            return [];
-        }
-
-        const selectedLocationKey = getLocationKey(state.selectedTrip.latitude, state.selectedTrip.longitude);
-
-        return state.trips
-            .filter((trip) => getLocationKey(trip.latitude, trip.longitude) === selectedLocationKey)
-            .sort((left, right) => {
-                if (!left.date || !right.date) {
-                    return 0;
-                }
-
-                return getTripTimestamp(right.date) - getTripTimestamp(left.date);
-            });
+        return getTripsAtLocation(state.trips, state.selectedTrip);
     },
     getSelectedTripLocationIndex: () => {
         const state = get();
@@ -275,36 +319,12 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
             return -1;
         }
 
-        const selectedLocationKey = getLocationKey(state.selectedTrip.latitude, state.selectedTrip.longitude);
-        const tripsAtSelectedLocation = state.trips
-            .filter((trip) => getLocationKey(trip.latitude, trip.longitude) === selectedLocationKey)
-            .sort((left, right) => {
-                if (!left.date || !right.date) {
-                    return 0;
-                }
-
-                return getTripTimestamp(right.date) - getTripTimestamp(left.date);
-            });
+        const tripsAtSelectedLocation = getTripsAtLocation(state.trips, state.selectedTrip);
 
         return tripsAtSelectedLocation.findIndex((trip) => trip.trip_id === state.selectedTrip?.trip_id);
     },
-    getMapPanels: () => {
+    getSelectedLocationContext: () => {
         const state = get();
-
-        const showSidebar = !!state.selectedTrip && !state.fullScreenTrip;
-        const showFullScreen = !!state.fullScreenTrip;
-        const showSearchPanel = state.searchPanelOpen && !showSidebar && !showFullScreen;
-        const showPlansPanel = state.plansPanelOpen && !showSidebar && !showFullScreen && !showSearchPanel;
-        const showTopLeftControls = !showSidebar && !showFullScreen && !showSearchPanel && !showPlansPanel;
-        const showAnyLeftSidebar = showSidebar || showFullScreen || showSearchPanel || showPlansPanel;
-
-        return {
-            showSidebar,
-            showFullScreen,
-            showSearchPanel,
-            showPlansPanel,
-            showTopLeftControls,
-            showAnyLeftSidebar,
-        };
-    },
+        return deriveSelectedLocationContext(state.trips, state.selectedTrip);
+    }
 }));

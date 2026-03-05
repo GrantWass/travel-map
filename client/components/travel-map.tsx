@@ -15,9 +15,10 @@ import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
-import { useTripMapStore } from "@/stores/trip-map-store";
+import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
+import { filterTripsByOwner, getFriendIds, useTripSearchStore } from "@/stores/trip-search-store";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -47,7 +48,12 @@ export default function TravelMap() {
 
     const trips = useTripMapStore((state) => state.trips);
     const acceptedFriendships = useFriendsStore((s) => s.accepted);
+    const friendsLoaded = useFriendsStore((s) => s.loaded);
+    const refreshFriends = useFriendsStore((s) => s.refresh);
     const selectedTrip = useTripMapStore((state) => state.selectedTrip);
+    const fullScreenTrip = useTripMapStore((state) => state.fullScreenTrip);
+    const searchPanelOpen = useTripMapStore((state) => state.searchPanelOpen);
+    const plansPanelOpen = useTripMapStore((state) => state.plansPanelOpen);
     const searchQuery = useTripMapStore((state) => state.searchQuery);
     const isLoadingTrips = useTripMapStore((state) => state.isLoadingTrips);
     const isLoadingTripById = useTripMapStore((state) => state.isLoadingTripById);
@@ -73,7 +79,8 @@ export default function TravelMap() {
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
-    const [ownerFilter, setOwnerFilter] = useState<"all" | "friends" | "you">("all");
+    const ownerFilter = useTripSearchStore((state) => state.ownerFilter);
+    const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const activeTripRequestIdRef = useRef(0);
@@ -93,17 +100,21 @@ export default function TravelMap() {
     const getSavedLodgings = useTripMapStore((state) => state.getSavedLodgings);
     const savedLodgings = getSavedLodgings();
 
-    const getTripsAtSelectedLocation = useTripMapStore((state) => state.getTripsAtSelectedLocation);
-    const tripsAtSelectedLocation = getTripsAtSelectedLocation();
+    const selectedLocationContext = useMemo(
+        () => deriveSelectedLocationContext(trips, selectedTrip),
+        [trips, selectedTrip],
+    );
 
-    const getSelectedTripLocationIndex = useTripMapStore((state) => state.getSelectedTripLocationIndex);
-    const selectedTripLocationIndex = getSelectedTripLocationIndex();
-
-    const showSidebar = useTripMapStore((state) => state.getMapPanels().showSidebar);
-    const showSearchPanel = useTripMapStore((state) => state.getMapPanels().showSearchPanel);
-    const showPlansPanel = useTripMapStore((state) => state.getMapPanels().showPlansPanel);
-    const showTopLeftControls = useTripMapStore((state) => state.getMapPanels().showTopLeftControls);
-    const showAnyLeftSidebar = useTripMapStore((state) => state.getMapPanels().showAnyLeftSidebar);
+    const mapPanels = useMemo(
+        () =>
+            deriveTripMapPanels({
+                selectedTrip,
+                fullScreenTrip,
+                searchPanelOpen,
+                plansPanelOpen,
+            }),
+        [selectedTrip, fullScreenTrip, searchPanelOpen, plansPanelOpen],
+    );
 
     const handleToggleSavedActivity = useCallback((_tripId: number, activity: TripActivity) => {
         toggleSavedActivityId(activity.activity_id);
@@ -134,6 +145,26 @@ export default function TravelMap() {
                 // Not authenticated or fetch failed — leave state empty.
             });
     }, [applySavedPlans, userId]);
+
+    useEffect(() => {
+        if (userId === null || friendsLoaded) {
+            return;
+        }
+
+        void refreshFriends().catch(() => {
+            // Ignore friendship preload failures; friends modal and retries can recover.
+        });
+    }, [userId, friendsLoaded, refreshFriends]);
+
+    useEffect(() => {
+        if (userId === null || ownerFilter !== "friends") {
+            return;
+        }
+
+        void refreshFriends().catch(() => {
+            // Ignore refresh failures and keep existing friend state.
+        });
+    }, [userId, ownerFilter, refreshFriends]);
 
     useEffect(() => {
         if (!myProfile?.user?.user_id) {
@@ -215,32 +246,32 @@ export default function TravelMap() {
 
 
     const handleShowPreviousTripAtLocation = useCallback(() => {
-        if (selectedTripLocationIndex <= 0) {
+        if (!selectedLocationContext.hasPrevious) {
             return;
         }
 
-        const previousTrip = tripsAtSelectedLocation[selectedTripLocationIndex - 1];
+        const previousTrip = selectedLocationContext.trips[selectedLocationContext.selectedIndex - 1];
         if (!previousTrip) {
             return;
         }
 
         activeTripRequestIdRef.current += 1;
         previewTripAtLocation(previousTrip);
-    }, [previewTripAtLocation, selectedTripLocationIndex, tripsAtSelectedLocation]);
+    }, [previewTripAtLocation, selectedLocationContext]);
 
     const handleShowNextTripAtLocation = useCallback(() => {
-        if (selectedTripLocationIndex < 0 || selectedTripLocationIndex >= tripsAtSelectedLocation.length - 1) {
+        if (!selectedLocationContext.hasNext) {
             return;
         }
 
-        const nextTrip = tripsAtSelectedLocation[selectedTripLocationIndex + 1];
+        const nextTrip = selectedLocationContext.trips[selectedLocationContext.selectedIndex + 1];
         if (!nextTrip) {
             return;
         }
 
         activeTripRequestIdRef.current += 1;
         previewTripAtLocation(nextTrip);
-    }, [previewTripAtLocation, selectedTripLocationIndex, tripsAtSelectedLocation]);
+    }, [previewTripAtLocation, selectedLocationContext]);
 
     const openProfile = useCallback(
         async (targetUserId: number, expandFrom: "top-right" | "left") => {
@@ -353,22 +384,16 @@ export default function TravelMap() {
 
     const topLeftControlsWidthClass = "w-[min(506px,calc(100vw-2rem))]";
 
-    const friendIds = acceptedFriendships.map((f) => (f.requester_id === userId ? f.addressee_id : f.requester_id));
+    const friendIds = useMemo(() => getFriendIds(acceptedFriendships, userId), [acceptedFriendships, userId]);
 
-    const filteredTrips = trips.filter((t) => {
-        const ownerId = t.owner_user_id ?? t.owner?.user_id ?? null;
-        if (ownerFilter === "you") {
-            return userId !== null && ownerId === userId;
-        }
-        if (ownerFilter === "friends") {
-            return ownerId !== null && friendIds.includes(ownerId);
-        }
-        return true;
-    });
+    const filteredTrips = useMemo(
+        () => filterTripsByOwner(trips, ownerFilter, userId, friendIds),
+        [trips, ownerFilter, userId, friendIds],
+    );
 
     return (
         <div className="relative h-screen w-screen overflow-hidden">
-            {showTopLeftControls && (
+            {mapPanels.showTopLeftControls && (
                 <>
                     <div className={`absolute left-4 top-3 z-[1000] hidden sm:block ${topLeftControlsWidthClass}`}>
                         <div className="flex items-center gap-2">
@@ -389,7 +414,7 @@ export default function TravelMap() {
                                 type="button"
                                 onClick={togglePlansPanel}
                                 className={`flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors ${
-                                    showPlansPanel
+                                    mapPanels.showPlansPanel
                                         ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
                                         : "border-border bg-card/95 text-foreground hover:bg-card"
                                 }`}
@@ -414,7 +439,7 @@ export default function TravelMap() {
                             type="button"
                             onClick={togglePlansPanel}
                             className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-colors ${
-                                showPlansPanel
+                                mapPanels.showPlansPanel
                                     ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
                                     : "border-border bg-card/90 text-foreground hover:bg-card"
                             }`}
@@ -427,7 +452,7 @@ export default function TravelMap() {
                 </>
             )}
 
-            <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
+            <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${mapPanels.showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
                 <div className="hidden items-center gap-2 rounded-full border border-border bg-card/90 px-5 py-2.5 shadow-sm backdrop-blur-sm sm:flex">
                     <MapPin className="h-5 w-5 text-primary" />
                     <BrandNameButton
@@ -465,10 +490,10 @@ export default function TravelMap() {
                     className="h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                     style={{
                         width:
-                            showSidebar || showSearchPanel || showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
+                                mapPanels.showSidebar || mapPanels.showSearchPanel || mapPanels.showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
                     }}
                 >
-                    {showSidebar && selectedTrip && (
+                            {mapPanels.showSidebar && selectedTrip && (
                         <SidebarPanel
                             review={selectedTrip}
                             onClose={() => void openTripById(null)}
@@ -487,25 +512,22 @@ export default function TravelMap() {
                                       }
                                     : undefined
                             }
-                            locationTripCount={tripsAtSelectedLocation.length}
-                            locationTripPosition={selectedTripLocationIndex >= 0 ? selectedTripLocationIndex + 1 : 1}
+                            locationTripCount={selectedLocationContext.trips.length}
+                            locationTripPosition={selectedLocationContext.selectedIndex >= 0 ? selectedLocationContext.selectedIndex + 1 : 1}
                             onShowPreviousTripAtLocation={handleShowPreviousTripAtLocation}
                             onShowNextTripAtLocation={handleShowNextTripAtLocation}
-                            canShowPreviousTripAtLocation={selectedTripLocationIndex > 0}
-                            canShowNextTripAtLocation={
-                                selectedTripLocationIndex >= 0 &&
-                                selectedTripLocationIndex < tripsAtSelectedLocation.length - 1
-                            }
+                            canShowPreviousTripAtLocation={selectedLocationContext.hasPrevious}
+                            canShowNextTripAtLocation={selectedLocationContext.hasNext}
                         />
                     )}
-                    {showSearchPanel && (
+                    {mapPanels.showSearchPanel && (
                         <SearchSidebarPanel
                             query={searchQuery}
                             trips={trips}
                             ownerFilter={ownerFilter}
                             onOwnerFilterChange={setOwnerFilter}
                             currentUserId={userId}
-                            friendIds={acceptedFriendships.map((f) => (f.requester_id === userId ? f.addressee_id : f.requester_id))}
+                            friendIds={friendIds}
                             onQueryChange={setSearchQuery}
                             onClose={() => {
                                 closeSearchPanel();
@@ -516,7 +538,7 @@ export default function TravelMap() {
                             }}
                         />
                     )}
-                    {showPlansPanel && (
+                    {mapPanels.showPlansPanel && (
                         <PlansSidebarPanel
                             savedActivities={savedActivities}
                             savedLodgings={savedLodgings}
@@ -644,7 +666,7 @@ export default function TravelMap() {
             {friendsOpen && <FriendsModal onClose={() => setFriendsOpen(false)} />}
 
             <StudentAddMenu
-                visible={isStudent && !showAnyLeftSidebar}
+                visible={isStudent && !mapPanels.showAnyLeftSidebar}
                 onAddTrip={() => {
                     const returnTo = pathname || "/";
                     router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);

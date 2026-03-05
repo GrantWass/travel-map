@@ -1,21 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
-import type { TripActivity, TripLodging, Trip} from "@/lib/api-types";
+import type { Trip } from "@/lib/api-types";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
-
-const MAX_COST = 500;
-const MAX_VISIBLE_TAGS = 15;
-
-interface SearchResult {
-    trip: Trip;
-    matchedActivities: TripActivity[];
-    matchedLodgings: TripLodging[];
-}
+import { buildSearchResults, getAvailableTags, MAX_COST, useTripSearchStore } from "@/stores/trip-search-store";
 
 interface SearchSidebarPanelProps {
     query: string;
@@ -30,84 +22,32 @@ interface SearchSidebarPanelProps {
 }
 
 export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", onOwnerFilterChange, currentUserId = null, friendIds = [] }: SearchSidebarPanelProps) {
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [maxCost, setMaxCost] = useState(MAX_COST);
+    const selectedTags = useTripSearchStore((state) => state.selectedTags);
+    const maxCost = useTripSearchStore((state) => state.maxCost);
+    const toggleTag = useTripSearchStore((state) => state.toggleTag);
+    const setMaxCost = useTripSearchStore((state) => state.setMaxCost);
+    const clearFilters = useTripSearchStore((state) => state.clearFilters);
+    const syncTagsWithAvailability = useTripSearchStore((state) => state.syncTagsWithAvailability);
 
-    const availableTags = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const trip of trips) {
-            for (const rawTag of trip.tags) {
-                const tag = rawTag.trim().toLowerCase();
-                if (!tag) {
-                    continue;
-                }
-                counts.set(tag, (counts.get(tag) ?? 0) + 1);
-            }
-        }
-        return Array.from(counts.entries())
-            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-            .slice(0, MAX_VISIBLE_TAGS)
-            .map(([tag]) => tag);
-    }, [trips]);
+    const availableTags = useMemo(() => getAvailableTags(trips), [trips]);
 
     useEffect(() => {
-        setSelectedTags((current) => current.filter((tag) => availableTags.includes(tag)));
-    }, [availableTags]);
+        syncTagsWithAvailability(availableTags);
+    }, [availableTags, syncTagsWithAvailability]);
 
-    const searchResults = useMemo<SearchResult[]>(() => {
-        const q = query.trim().toLowerCase();
-        const results: SearchResult[] = [];
-
-        for (const trip of trips) {
-                const ownerId = trip.owner?.user_id ?? null;
-                if (ownerFilter === "you") {
-                    if (!currentUserId || ownerId !== currentUserId) continue;
-                } else if (ownerFilter === "friends") {
-                    const friends = new Set(friendIds || []);
-                    if (!ownerId || !friends.has(ownerId)) continue;
-                }
-            const normalizedTripTags = new Set(trip.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean));
-            // Tag filter (always applied)
-            if (selectedTags.length > 0 && !selectedTags.every((tag) => normalizedTripTags.has(tag))) continue;
-            // Cost filter (always applied)
-            if (maxCost < MAX_COST && trip.cost !== null && trip.cost > maxCost) continue;
-
-            // No text query — include all passing-filter trips with no sub-items highlighted
-            if (!q) {
-                results.push({ trip, matchedActivities: [], matchedLodgings: [] });
-                continue;
-            }
-
-            const tripMatches =
-                trip.title.toLowerCase().includes(q) || trip.owner?.name?.toLowerCase().includes(q);
-
-            const matchedActivities = trip.activities.filter(
-                (a) =>
-                    a?.title?.toLowerCase().includes(q) ||
-                    a?.address?.toLowerCase().includes(q) ||
-                    a?.description?.toLowerCase().includes(q),
-            );
-
-            const matchedLodgings = trip.lodgings.filter(
-                (l) =>
-                    l?.title?.toLowerCase().includes(q) ||
-                    l?.address?.toLowerCase().includes(q) ||
-                    l?.description?.toLowerCase().includes(q),
-            );
-
-            if (tripMatches || matchedActivities.length > 0 || matchedLodgings.length > 0) {
-                results.push({ trip, matchedActivities, matchedLodgings });
-            }
-        }
-
-        return results;
-    }, [trips, query, selectedTags, maxCost, ownerFilter, currentUserId, friendIds]);
-
-    function toggleTag(tag: string) {
-        setSelectedTags((current) =>
-            current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
-        );
-    }
+    const searchResults = useMemo(
+        () =>
+            buildSearchResults({
+                trips,
+                query,
+                ownerFilter,
+                currentUserId,
+                friendIds,
+                selectedTags,
+                maxCost,
+            }),
+        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost],
+    );
 
     const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST;
     const noFiltersOrQuery = query.trim() === "" && !hasActiveFilters;
@@ -178,8 +118,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                             {hasActiveFilters && (
                                 <button
                                     onClick={() => {
-                                        setSelectedTags([]);
-                                        setMaxCost(MAX_COST);
+                                        clearFilters();
                                     }}
                                     className="text-xs text-primary hover:underline"
                                 >

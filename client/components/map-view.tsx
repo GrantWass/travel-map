@@ -95,6 +95,37 @@ function getMostRecentTripsByLocation(trips: Trip[]): Trip[] {
     return Array.from(mostRecentByLocation.values());
 }
 
+function clearMarkers(markers: L.Marker[]) {
+    markers.forEach((marker) => marker.remove());
+}
+
+function getTripPoints(trip: Trip): [number, number][] {
+    const points: [number, number][] = [[trip.latitude, trip.longitude]];
+
+    for (const activity of trip.activities) {
+        if (hasCoordinates(activity)) {
+            points.push([activity.latitude, activity.longitude]);
+        }
+    }
+
+    for (const lodging of trip.lodgings) {
+        if (hasCoordinates(lodging)) {
+            points.push([lodging.latitude, lodging.longitude]);
+        }
+    }
+
+    return points;
+}
+
+function focusMapOnTrip(map: L.Map, trip: Trip) {
+    const bounds = L.latLngBounds(getTripPoints(trip));
+    if (!bounds.isValid()) {
+        return;
+    }
+
+    map.flyToBounds(bounds, { padding: [56, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+}
+
 export default function MapView({
     onSelectTripById,
     visibleTrips,
@@ -234,7 +265,7 @@ export default function MapView({
             return;
         }
 
-        tripMarkersRef.current.forEach((marker) => marker.remove());
+        clearMarkers(tripMarkersRef.current);
         tripMarkersRef.current = [];
 
         const mostRecentTrips = getMostRecentTripsByLocation(trips);
@@ -267,24 +298,14 @@ export default function MapView({
                         setSelectedLodging(null);
                         lastFocusedDetailKeyRef.current = null;
                         lastFocusedLocationKeyRef.current = null;
-                        const points: [number, number][] = [[currentTrip.latitude, currentTrip.longitude]];
-                        for (const a of currentTrip.activities) {
-                            if (hasCoordinates(a)) points.push([a.latitude, a.longitude]);
-                        }
-                        for (const l of currentTrip.lodgings) {
-                            if (hasCoordinates(l)) points.push([l.latitude, l.longitude]);
-                        }
-                        const bounds = L.latLngBounds(points);
-                        if (bounds.isValid()) {
-                            currentMap.flyToBounds(bounds, { padding: [56, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
-                        }
+                        focusMapOnTrip(currentMap, currentTrip);
                     } else {
                         onSelectTripById(trip.trip_id);
                     }
                 });
             tripMarkersRef.current.push(marker);
         }
-    }, [trips, selectedTrip, fullScreenTrip, createTripIcon, onSelectTripById, setSelectedActivity, setSelectedLodging]);
+    }, [trips, selectedTrip, fullScreenTrip, onSelectTripById, setSelectedActivity, setSelectedLodging]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -292,7 +313,7 @@ export default function MapView({
             return;
         }
 
-        detailMarkersRef.current.forEach((marker) => marker.remove());
+        clearMarkers(detailMarkersRef.current);
         detailMarkersRef.current = [];
 
         const focusTrip = fullScreenTrip ?? selectedTrip;
@@ -336,8 +357,6 @@ export default function MapView({
         selectedTrip,
         selectedActivity,
         selectedLodging,
-        createActivityIcon,
-        createLodgingIcon,
         setSelectedActivity,
         setSelectedLodging,
     ]);
@@ -367,27 +386,7 @@ export default function MapView({
         lastFocusedLocationKeyRef.current = focusKey;
         lastFocusedTripCoordsRef.current = [selectedTrip.latitude, selectedTrip.longitude];
 
-        // Collect all activity/lodging coordinates (same logic the full-screen view used).
-        const points: [number, number][] = [[selectedTrip.latitude, selectedTrip.longitude]];
-        for (const activity of selectedTrip.activities) {
-            if (hasCoordinates(activity)) {
-                points.push([activity.latitude, activity.longitude]);
-            }
-        }
-        for (const lodging of selectedTrip.lodgings) {
-            if (hasCoordinates(lodging)) {
-                points.push([lodging.latitude, lodging.longitude]);
-            }
-        }
-
-        const bounds = L.latLngBounds(points);
-        if (!bounds.isValid()) {
-            return;
-        }
-
-        // Always use flyToBounds — Leaflet picks the zoom from the bounding box.
-        // TRIP_MAX_ZOOM caps the zoom for single-location trips (degenerate bounds → max cap).
-        map.flyToBounds(bounds, { padding: [56, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+        focusMapOnTrip(map, selectedTrip);
     }, [selectedTrip, fullScreenTrip]);
 
     useEffect(() => {
