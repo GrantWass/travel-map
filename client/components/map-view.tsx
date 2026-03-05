@@ -11,6 +11,7 @@ import { createTripIcon, createActivityIcon, createLodgingIcon } from "@/compone
 interface MapViewProps {
     onSelectTripById: (tripId: number | null) => void;
     visibleTrips?: Trip[];
+    onRightClick?: (lat: number, lng: number, clientX: number, clientY: number) => void;
 }
 
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
@@ -129,6 +130,7 @@ function focusMapOnTrip(map: L.Map, trip: Trip) {
 export default function MapView({
     onSelectTripById,
     visibleTrips,
+    onRightClick,
 }: MapViewProps) {
     const storeTrips = useTripMapStore((state) => state.trips);
     const trips = visibleTrips ?? storeTrips;
@@ -141,6 +143,8 @@ export default function MapView({
 
     const mapRef = useRef<L.Map | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const onRightClickRef = useRef(onRightClick);
+    useEffect(() => { onRightClickRef.current = onRightClick; }, [onRightClick]);
     const tripMarkersRef = useRef<L.Marker[]>([]);
     const detailMarkersRef = useRef<L.Marker[]>([]);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
@@ -222,6 +226,14 @@ export default function MapView({
 
         mapRef.current = map;
         map.on("moveend", () => persistMapView(map));
+        map.on("contextmenu", (e: L.LeafletMouseEvent) => {
+            onRightClickRef.current?.(
+                e.latlng.lat,
+                e.latlng.lng,
+                e.originalEvent.clientX,
+                e.originalEvent.clientY,
+            );
+        });
 
         let cancelled = false;
         if (!hasAutoCenteredOnUser && navigator.geolocation) {

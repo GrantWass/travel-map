@@ -537,7 +537,7 @@ export default function UserProfileModal({
                                     >
                                         <div className="relative aspect-video overflow-hidden">
                                             <Image
-                                                src={trip.thumbnail_url}
+                                                src={trip.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
                                                 alt={trip.title}
                                                 fill
                                                 className="object-cover transition-transform duration-300 group-hover:scale-105"

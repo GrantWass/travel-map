@@ -77,6 +77,7 @@ export default function TravelMap() {
     const removeSavedLodgingId = useTripMapStore((state) => state.removeSavedLodgingId);
     const setIsLoadingTripById = useTripMapStore((state) => state.setIsLoadingTripById);
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
+    const [mapContextMenu, setMapContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
@@ -573,6 +574,9 @@ export default function TravelMap() {
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);
                         }}
+                        onRightClick={isStudent ? (lat, lng, x, y) => {
+                            setMapContextMenu({ lat, lng, x, y });
+                        } : undefined}
                     />
                     {/* Floating owner filter control (bottom-center) */}
                     <div data-spotlight="owner-filter" className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] hidden md:flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
@@ -614,6 +618,43 @@ export default function TravelMap() {
                     )}
                 </div>
             </div>
+
+            {mapContextMenu && (
+                <>
+                    <div
+                        className="fixed inset-0 z-[1500]"
+                        onClick={() => setMapContextMenu(null)}
+                        onContextMenu={(e) => { e.preventDefault(); setMapContextMenu(null); }}
+                    />
+                    <div
+                        className="fixed z-[1501] min-w-[200px] overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+                        style={{ left: mapContextMenu.x, top: mapContextMenu.y }}
+                    >
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                            onClick={() => {
+                                setMapContextMenu(null);
+                                router.push(`/trips?lat=${mapContextMenu.lat}&lng=${mapContextMenu.lng}&returnTo=${encodeURIComponent(pathname || "/")}`);
+                            }}
+                        >
+                            <MapPin className="h-4 w-4 text-primary" />
+                            Create trip at this location
+                        </button>
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                            onClick={() => {
+                                setMapContextMenu(null);
+                                router.push(`/trips?mode=popup&lat=${mapContextMenu.lat}&lng=${mapContextMenu.lng}&returnTo=${encodeURIComponent(pathname || "/")}`);
+                            }}
+                        >
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            Create popup at this location
+                        </button>
+                    </div>
+                </>
+            )}
 
             {profileState && (
                 <UserProfileModal

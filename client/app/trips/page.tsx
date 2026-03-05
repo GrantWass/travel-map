@@ -155,6 +155,8 @@ function TripsPageContent() {
   const [coverImage, setCoverImage] = useState("");
   const [coverImageName, setCoverImageName] = useState("");
   const [coverImageError, setCoverImageError] = useState("");
+  const prefillLat = !isEditMode ? searchParams.get("lat") : null;
+  const prefillLng = !isEditMode ? searchParams.get("lng") : null;
   const [tripLocation, setTripLocation] = useState<PlaceOption | null>(null);
   const [cost, setCost] = useState("");
   const [duration, setDuration] = useState<TripDuration>("multiday trip");
@@ -190,6 +192,32 @@ function TripsPageContent() {
       router.replace("/");
     }
   }, [isStudent, router, status]);
+
+  useEffect(() => {
+    if (!prefillLat || !prefillLng) return;
+    const lat = Number(prefillLat);
+    const lng = Number(prefillLng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    fetch(`/api/places/reverse?lat=${lat}&lon=${lng}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((payload) => {
+        if (payload?.place) {
+          setTripLocation(payload.place as PlaceOption);
+        } else {
+          throw new Error("no place");
+        }
+      })
+      .catch(() => {
+        setTripLocation({
+          label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          latitude: lat,
+          longitude: lng,
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // When editing, fetch the existing trip and pre-populate the form.
   useEffect(() => {
