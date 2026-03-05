@@ -3,16 +3,166 @@
 import { useEffect, useState } from "react";
 import { X, UserPlus, Phone, Check, Slash } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createSmsInvite, createFriendRequest, respondFriendRequest } from "@/lib/api-client";
+import {
+  createSmsInvite,
+  createFriendRequest,
+  respondFriendRequest,
+  getUserProfile,
+} from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
+import UserProfileModal from "./user-profile-modal";
 
 interface FriendsModalProps {
   onClose: () => void;
 }
 
+/* ----------------------------- Avatar ----------------------------- */
+
+function UserAvatar({
+  name,
+  image,
+  size = 32,
+}: {
+  name?: string | null;
+  image?: string | null;
+  size?: number;
+}) {
+  const initials =
+    (name || "")
+      .split(" ")
+      .filter(Boolean)
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2) || "?";
+
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt={`${name} avatar`}
+        style={{ width: size, height: size }}
+        className="rounded-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{ width: size, height: size }}
+      className="rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold"
+    >
+      {initials}
+    </div>
+  );
+}
+
+/* -------------------------- Search Result Row -------------------------- */
+
+function SearchUserRow({
+  user,
+  isCurrentUser,
+  requestBusy,
+  onRequest,
+  onClick,
+}: any) {
+  return (
+    <div className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
+      <div className="flex items-start gap-3">
+        <UserAvatar name={user.name} image={user.profile_image_url} size={40} />
+
+        <div className="flex flex-col">
+          <button
+            className="text-sm font-medium text-left hover:underline"
+            onClick={onClick}
+          >
+            {user.name}
+          </button>
+
+          {user.bio && (
+            <div className="text-xs text-muted-foreground mt-1 max-w-lg">
+              {user.bio}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isCurrentUser ? (
+        <Button size="sm" disabled>
+          You
+        </Button>
+      ) : (
+        <Button size="sm" onClick={onRequest} disabled={requestBusy}>
+          <UserPlus className="mr-2 h-3.5 w-3.5" />
+          Request
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------- Request Row -------------------------- */
+
+function RequestRow({
+  name,
+  image,
+  status,
+  onClick,
+  onAccept,
+  onDecline,
+}: any) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+      <div className="flex items-center gap-3">
+        <UserAvatar name={name} image={image} />
+
+        <button className="text-sm hover:underline" onClick={onClick}>
+          {name ?? "Unknown"}
+        </button>
+      </div>
+
+      {onAccept ? (
+        <div className="flex gap-2">
+          <Button onClick={onAccept}>
+            <Check className="mr-2 h-3.5 w-3.5" />
+            Accept
+          </Button>
+
+          <Button variant="outline" onClick={onDecline}>
+            <Slash className="mr-2 h-3.5 w-3.5" />
+            Decline
+          </Button>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground">{status}</div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------- Friend Row ----------------------------- */
+
+function FriendRow({ name, image, onClick }: any) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+      <div className="flex items-center gap-3">
+        <UserAvatar name={name} image={image} />
+
+        <button className="text-sm hover:underline" onClick={onClick}>
+          {name ?? "Unknown"}
+        </button>
+      </div>
+
+      <div className="text-xs text-muted-foreground">Friends</div>
+    </div>
+  );
+}
+
+/* ============================= MAIN MODAL ============================= */
+
 export default function FriendsModal({ onClose }: FriendsModalProps) {
   const { incoming, outgoing, accepted, loaded, refresh } = useFriendsStore();
+
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +175,10 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
 
+  const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
+
+  const currentUserId = useAuthStore((s) => s.user?.user_id ?? null);
+
   const load = async () => {
     setError(null);
     try {
@@ -34,8 +188,6 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
     }
   };
 
-  // On open: if no cache yet, show loading; otherwise show cached data and
-  // silently re-fetch in the background to pick up new requests.
   useEffect(() => {
     if (!loaded) {
       setRefreshing(true);
@@ -48,22 +200,27 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
   async function handleSendInvite() {
     setPhoneError(null);
     const raw = phoneInput.trim();
+
     if (!raw) {
       setPhoneError("Phone number is required");
       return;
     }
 
     setInviteBusy(true);
+
     try {
       const { parsePhoneNumberFromString } = await import("libphonenumber-js");
       const parsed = parsePhoneNumberFromString(raw, "US");
+
       if (!parsed || !parsed.isValid()) {
         setPhoneError("Invalid phone number");
         return;
       }
+
       const normalized = parsed.format("E.164");
 
       await createSmsInvite(normalized);
+
       setPhoneInput("");
       await load();
     } catch (err: any) {
@@ -75,10 +232,13 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
 
   async function handleSendRequestToId(id: number) {
     setRequestBusy(true);
+
     try {
       await createFriendRequest(id);
+
       setSearchQuery("");
       setSearchResults([]);
+
       await load();
     } catch (err: any) {
       setError(err?.message || "Could not send friend request");
@@ -87,7 +247,6 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
     }
   }
 
-  // simple debounce
   useEffect(() => {
     if (!searchQuery || searchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -96,8 +255,12 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
 
     const id = window.setTimeout(async () => {
       setSearchLoading(true);
+
       try {
-        const res = await (await import("@/lib/api-client")).searchUsers(searchQuery.trim());
+        const res = await (await import("@/lib/api-client")).searchUsers(
+          searchQuery.trim()
+        );
+
         setSearchResults(res.users || []);
       } catch (err: any) {
         setError(err?.message || "Search failed");
@@ -119,118 +282,199 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
   }
 
   return (
-    <div className="backdrop-fade fixed inset-0 z-[1500] bg-foreground/10 backdrop-blur-sm" onClick={onClose}>
-      <div className="modal-expand fixed left-1/2 top-1/2 z-[1600] w-[min(720px,96vw)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card border border-border shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <h2 className="text-lg font-semibold">Friends</h2>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-border">
+    <>
+      <div
+        className="backdrop-fade fixed inset-0 z-[1500] bg-foreground/10 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div
+          className="modal-expand fixed left-1/2 top-1/2 z-[1600] w-[min(720px,96vw)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card border border-border shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <h2 className="text-lg font-semibold">Friends</h2>
+
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-border"
+            >
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
-        </div>
 
-        <div className="p-4">
-          <div className="grid gap-4">
+          <div className="p-4 grid gap-6">
+            {/* SMS Invite */}
+
             <section>
               <h3 className="text-sm font-medium">Invite via SMS</h3>
+
               <div className="mt-2 flex gap-2">
-                <input value={phoneInput} onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(null); }} placeholder="+15551234567" className="h-10 flex-1 rounded-md border border-input px-3" />
+                <input
+                  value={phoneInput}
+                  onChange={(e) => {
+                    setPhoneInput(e.target.value);
+                    setPhoneError(null);
+                  }}
+                  placeholder="+15551234567"
+                  className="h-10 flex-1 rounded-md border border-input px-3"
+                />
+
                 <Button onClick={handleSendInvite} disabled={inviteBusy}>
                   <Phone className="mr-2 h-4 w-4" />
                   Send
                 </Button>
               </div>
-              {phoneError ? <div className="text-sm text-red-600 mt-2">{phoneError}</div> : null}
+
+              {phoneError && (
+                <div className="text-sm text-red-600 mt-2">{phoneError}</div>
+              )}
             </section>
+
+            {/* Search */}
 
             <section>
               <h3 className="text-sm font-medium">Find by name</h3>
-              <div className="mt-2">
-                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search users by name" className="h-10 w-full rounded-md border border-input px-3" />
-                {searchLoading ? <p className="text-sm text-muted-foreground">Searching…</p> : null}
-                <div className="mt-2 grid gap-2">
-                  {searchResults.map((u) => (
-                      <div key={u.user_id} className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
-                        <div className="flex items-start gap-3">
-                          {u.profile_image_url ? (
-                            <img src={u.profile_image_url} alt={`${u.name} avatar`} className="h-10 w-10 rounded-full object-cover" />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
-                              {((u.name || "").split(" ").filter(Boolean).map((p: string) => p[0]).join("").slice(0,2) || "?")}
-                            </div>
-                          )}
-                          <div className="flex flex-col">
-                            <div className="text-sm font-medium">{u.name}</div>
-                            {u.bio ? <div className="text-xs text-muted-foreground mt-1 max-w-lg truncate">{u.bio}</div> : null}
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <Button size="sm" onClick={() => void handleSendRequestToId(u.user_id)} disabled={requestBusy}>
-                            <UserPlus className="mr-2 h-3.5 w-3.5" />Request
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search users by name"
+                className="mt-2 h-10 w-full rounded-md border border-input px-3"
+              />
+
+              {searchLoading && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Searching…
+                </p>
+              )}
+
+              <div className="mt-2 grid gap-2">
+                {searchResults.map((u) => (
+                  <SearchUserRow
+                    key={u.user_id}
+                    user={u}
+                    isCurrentUser={u.user_id === currentUserId}
+                    requestBusy={requestBusy}
+                    onRequest={() => handleSendRequestToId(u.user_id)}
+                    onClick={async () => {
+                      const p = await getUserProfile(u.user_id);
+                      setSelectedProfile(p.user);
+                    }}
+                  />
+                ))}
               </div>
             </section>
+
+            {/* Incoming */}
 
             <section>
               <h3 className="text-sm font-medium">Incoming requests</h3>
+
               <div className="mt-2 grid gap-2">
-                {refreshing && !loaded ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
-                {incoming.length === 0 && !(refreshing && !loaded) ? <p className="text-sm text-muted-foreground">No incoming requests.</p> : null}
+                {incoming.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No incoming requests.
+                  </p>
+                )}
+
                 {incoming.map((req) => (
-                  <div key={req.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
-                    <div className="text-sm">From {req.requester_name ?? `user ${req.requester_id}`}</div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => void handleRespond(req.id, "accepted")}>
-                        <Check className="mr-2 h-3.5 w-3.5" />Accept
-                      </Button>
-                      <Button variant="outline" onClick={() => void handleRespond(req.id, "declined")}>
-                        <Slash className="mr-2 h-3.5 w-3.5" />Decline
-                      </Button>
-                    </div>
-                  </div>
+                  <RequestRow
+                    key={req.id}
+                    name={req.requester_name}
+                    image={(req as any).requester_profile_image_url}
+                    onClick={async () => {
+                      const p = await getUserProfile(req.requester_id);
+                      setSelectedProfile(p.user);
+                    }}
+                    onAccept={() => handleRespond(req.id, "accepted")}
+                    onDecline={() => handleRespond(req.id, "declined")}
+                  />
                 ))}
               </div>
             </section>
+
+            {/* Pending */}
 
             <section>
               <h3 className="text-sm font-medium">Pending requests</h3>
+
               <div className="mt-2 grid gap-2">
-                {outgoing.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : null}
+                {outgoing.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No pending requests.
+                  </p>
+                )}
+
                 {outgoing.map((req) => (
-                  <div key={req.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
-                    <div className="text-sm">To {req.addressee_name ?? `user ${req.addressee_id}`}</div>
-                    <div className="text-xs text-muted-foreground">{req.status}</div>
-                  </div>
+                  <RequestRow
+                    key={req.id}
+                    name={req.addressee_name}
+                    image={(req as any).addressee_profile_image_url}
+                    status={req.status}
+                    onClick={async () => {
+                      const p = await getUserProfile(req.addressee_id);
+                      setSelectedProfile(p.user);
+                    }}
+                  />
                 ))}
               </div>
             </section>
 
+            {/* Friends */}
+
             <section>
               <h3 className="text-sm font-medium">Friends</h3>
+
               <div className="mt-2 grid gap-2">
-                {accepted.length === 0 ? <p className="text-sm text-muted-foreground">No friends yet.</p> : null}
+                {accepted.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No friends yet.
+                  </p>
+                )}
+
                 {accepted.map((f) => {
                   const me = useAuthStore.getState().user?.user_id ?? null;
-                  const otherName = me === f.requester_id ? f.addressee_name : f.requester_name;
+
+                  const otherId =
+                    me === f.requester_id ? f.addressee_id : f.requester_id;
+
+                  const otherName =
+                    me === f.requester_id
+                      ? f.addressee_name
+                      : f.requester_name;
+
+                  const otherImage =
+                    me === f.requester_id
+                      ? (f as any).addressee_profile_image_url
+                      : (f as any).requester_profile_image_url;
+
                   return (
-                    <div key={f.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
-                      <div className="text-sm">{otherName ?? `user ${me === f.requester_id ? f.addressee_id : f.requester_id}`}</div>
-                      <div className="text-xs text-muted-foreground">Friends</div>
-                    </div>
+                    <FriendRow
+                      key={f.id}
+                      name={otherName}
+                      image={otherImage}
+                      onClick={async () => {
+                        const p = await getUserProfile(otherId);
+                        setSelectedProfile(p.user);
+                      }}
+                    />
                   );
                 })}
               </div>
             </section>
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
         </div>
       </div>
-    </div>
+
+      {selectedProfile && (
+        <UserProfileModal
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+          canEditProfile={false}
+        />
+      )}
+    </>
   );
 }

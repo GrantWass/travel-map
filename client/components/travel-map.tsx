@@ -17,6 +17,7 @@ import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfil
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useFriendsStore } from "@/stores/friends-store";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -45,6 +46,7 @@ export default function TravelMap() {
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
 
     const trips = useTripMapStore((state) => state.trips);
+    const acceptedFriendships = useFriendsStore((s) => s.accepted);
     const selectedTrip = useTripMapStore((state) => state.selectedTrip);
     const searchQuery = useTripMapStore((state) => state.searchQuery);
     const isLoadingTrips = useTripMapStore((state) => state.isLoadingTrips);
@@ -71,6 +73,7 @@ export default function TravelMap() {
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
+    const [ownerFilter, setOwnerFilter] = useState<"all" | "friends" | "you">("all");
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const activeTripRequestIdRef = useRef(0);
@@ -350,6 +353,19 @@ export default function TravelMap() {
 
     const topLeftControlsWidthClass = "w-[min(506px,calc(100vw-2rem))]";
 
+    const friendIds = acceptedFriendships.map((f) => (f.requester_id === userId ? f.addressee_id : f.requester_id));
+
+    const filteredTrips = trips.filter((t) => {
+        const ownerId = t.owner_user_id ?? t.owner?.user_id ?? null;
+        if (ownerFilter === "you") {
+            return userId !== null && ownerId === userId;
+        }
+        if (ownerFilter === "friends") {
+            return ownerId !== null && friendIds.includes(ownerId);
+        }
+        return true;
+    });
+
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {showTopLeftControls && (
@@ -358,6 +374,7 @@ export default function TravelMap() {
                         <div className="flex items-center gap-2">
                             <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border bg-card/95 px-5 shadow-sm backdrop-blur-sm">
                                 <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                                
                                 <input
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -485,6 +502,10 @@ export default function TravelMap() {
                         <SearchSidebarPanel
                             query={searchQuery}
                             trips={trips}
+                            ownerFilter={ownerFilter}
+                            onOwnerFilterChange={setOwnerFilter}
+                            currentUserId={userId}
+                            friendIds={acceptedFriendships.map((f) => (f.requester_id === userId ? f.addressee_id : f.requester_id))}
                             onQueryChange={setSearchQuery}
                             onClose={() => {
                                 closeSearchPanel();
@@ -524,10 +545,37 @@ export default function TravelMap() {
 
                 <div data-spotlight="map" className="relative h-full min-w-0 flex-1">
                     <MapView
+                        visibleTrips={filteredTrips}
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);
                         }}
                     />
+                    {/* Floating owner filter control (bottom-right) */}
+                    <div className="absolute right-4 bottom-20 z-[1000] hidden md:flex items-center gap-2">
+                        <div className="flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-1 shadow-sm backdrop-blur-sm">
+                            <button
+                                type="button"
+                                onClick={() => setOwnerFilter("all")}
+                                className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "all" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-secondary/40 text-foreground"}`}
+                            >
+                                All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setOwnerFilter("friends")}
+                                className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "friends" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-secondary/40 text-foreground"}`}
+                            >
+                                Friends
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setOwnerFilter("you")}
+                                className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "you" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-secondary/40 text-foreground"}`}
+                            >
+                                You
+                            </button>
+                        </div>
+                    </div>
                     {expandedImage && (
                         <div
                             className="absolute inset-0 z-[2000] flex items-center justify-center bg-black/60 p-10 backdrop-blur-sm"

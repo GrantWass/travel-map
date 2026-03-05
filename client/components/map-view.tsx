@@ -10,6 +10,7 @@ import { createTripIcon, createActivityIcon, createLodgingIcon } from "@/compone
 
 interface MapViewProps {
     onSelectTripById: (tripId: number | null) => void;
+    visibleTrips?: Trip[];
 }
 
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
@@ -96,8 +97,10 @@ function getMostRecentTripsByLocation(trips: Trip[]): Trip[] {
 
 export default function MapView({
     onSelectTripById,
+    visibleTrips,
 }: MapViewProps) {
-    const trips = useTripMapStore((state) => state.trips);
+    const storeTrips = useTripMapStore((state) => state.trips);
+    const trips = visibleTrips ?? storeTrips;
     const selectedTrip = useTripMapStore((state) => state.selectedTrip);
     const fullScreenTrip = useTripMapStore((state) => state.fullScreenTrip);
     const selectedActivity = useTripMapStore((state) => state.selectedActivity);

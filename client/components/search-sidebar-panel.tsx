@@ -23,9 +23,13 @@ interface SearchSidebarPanelProps {
     onQueryChange: (value: string) => void;
     onClose: () => void;
     onSelectTrip: (tripId: number) => void;
+    ownerFilter?: "all" | "friends" | "you";
+    onOwnerFilterChange?: (value: "all" | "friends" | "you") => void;
+    currentUserId?: number | null;
+    friendIds?: number[];
 }
 
-export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip }: SearchSidebarPanelProps) {
+export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", onOwnerFilterChange, currentUserId = null, friendIds = [] }: SearchSidebarPanelProps) {
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [maxCost, setMaxCost] = useState(MAX_COST);
 
@@ -55,6 +59,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
         const results: SearchResult[] = [];
 
         for (const trip of trips) {
+                const ownerId = trip.owner?.user_id ?? null;
+                if (ownerFilter === "you") {
+                    if (!currentUserId || ownerId !== currentUserId) continue;
+                } else if (ownerFilter === "friends") {
+                    const friends = new Set(friendIds || []);
+                    if (!ownerId || !friends.has(ownerId)) continue;
+                }
             const normalizedTripTags = new Set(trip.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean));
             // Tag filter (always applied)
             if (selectedTags.length > 0 && !selectedTags.every((tag) => normalizedTripTags.has(tag))) continue;
@@ -90,7 +101,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
         }
 
         return results;
-    }, [trips, query, selectedTags, maxCost]);
+    }, [trips, query, selectedTags, maxCost, ownerFilter, currentUserId, friendIds]);
 
     function toggleTag(tag: string) {
         setSelectedTags((current) =>
@@ -127,6 +138,32 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                 >
                     <X className="h-4 w-4" />
                 </button>
+            </div>
+            {/* Owner filter — prominent in the search panel */}
+            <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+                <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-2 py-1">
+                    <button
+                        type="button"
+                        onClick={() => onOwnerFilterChange?.("all")}
+                        className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "all" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-transparent text-foreground"}`}
+                    >
+                        All
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onOwnerFilterChange?.("friends")}
+                        className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "friends" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-transparent text-foreground"}`}
+                    >
+                        Friends
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onOwnerFilterChange?.("you")}
+                        className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "you" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-transparent text-foreground"}`}
+                    >
+                        You
+                    </button>
+                </div>
             </div>
 
             <ScrollArea className="flex-1 min-h-0">

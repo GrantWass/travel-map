@@ -63,8 +63,12 @@ def list_friendships(*, user_id: int) -> dict[str, list[dict[str, Any]]]:
                 f.id,
                 f.requester_id,
                 r.name AS requester_name,
+                r.profile_image_url AS requester_profile_image_url,
+                r.bio AS requester_bio,
                 f.addressee_id,
                 a.name AS addressee_name,
+                a.profile_image_url AS addressee_profile_image_url,
+                a.bio AS addressee_bio,
                 f.status
             FROM friendships f
             JOIN travelers r ON r.user_id = f.requester_id
