@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import type { ReactNode } from "react";
-import { MapPin, Plus, UserRound, Compass, Sparkles, Notebook, type LucideIcon } from "lucide-react";
+import { MapPin, Plus, UserRound, Compass, Sparkles, Notebook, Eye, Users, type LucideIcon } from "lucide-react";
 
 export interface OnboardingStep {
   id: string;
@@ -59,6 +59,14 @@ export const SHARED_STEPS: OnboardingStep[] = [
     Icon: Compass,
   },
   {
+    id: "owner-filter",
+    title: "Filter whose trips you see",
+    description:
+      "Use the filter at the bottom of the map to switch between all trips, just your friends' trips, or only your own.",
+    targetSelector: '[data-spotlight="owner-filter"]',
+    Icon: Eye,
+  },
+  {
     id: "plans",
     title: "Your plans",
     description:
@@ -73,6 +81,14 @@ export const SHARED_STEPS: OnboardingStep[] = [
       "Your profile shows all your trips and stats. Update your bio, photo, and account settings anytime.",
     targetSelector: '[data-spotlight="profile"]',
     Icon: UserRound,
+  },
+  {
+    id: "friends",
+    title: "Connect with friends",
+    description:
+      "Add friends to follow their trips and filter the map to see only their adventures.",
+    targetSelector: '[data-spotlight="friends"]',
+    Icon: Users,
   },
 ];
 

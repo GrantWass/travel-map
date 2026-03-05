@@ -614,12 +614,10 @@ function TripsPageContent() {
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost (per person)</label>
                   <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="numeric"
                     value={cost}
-                    onChange={(event) => setCost(event.target.value)}
+                    onChange={(event) => setCost(event.target.value.replace(/\D/g, ""))}
                     placeholder="Free, or enter amount"
                     className={READABLE_INPUT_CLASS}
                   />
@@ -728,12 +726,10 @@ function TripsPageContent() {
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost (per person)</label>
                   <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="numeric"
                     value={cost}
-                    onChange={(event) => setCost(event.target.value)}
+                    onChange={(event) => setCost(event.target.value.replace(/\D/g, ""))}
                     placeholder="1450"
                     className={READABLE_INPUT_CLASS}
                   />
@@ -883,12 +879,10 @@ function TripsPageContent() {
 
                           <div className="grid gap-3 sm:grid-cols-2">
                             <Input
-                              type="number"
-                              inputMode="decimal"
-                              min="0"
-                              step="0.01"
+                              type="text"
+                              inputMode="numeric"
                               value={stop.cost}
-                              onChange={(event) => updateStop("lodging", stop.id, { cost: event.target.value })}
+                              onChange={(event) => updateStop("lodging", stop.id, { cost: event.target.value.replace(/\D/g, "") })}
                               placeholder="Cost per person (optional)"
                               className={READABLE_INPUT_CLASS}
                             />
@@ -1009,12 +1003,10 @@ function TripsPageContent() {
 
                           <div className="grid gap-3 sm:grid-cols-2">
                             <Input
-                              type="number"
-                              inputMode="decimal"
-                              min="0"
-                              step="0.01"
+                              type="text"
+                              inputMode="numeric"
                               value={stop.cost}
-                              onChange={(event) => updateStop("activity", stop.id, { cost: event.target.value })}
+                              onChange={(event) => updateStop("activity", stop.id, { cost: event.target.value.replace(/\D/g, "") })}
                               placeholder="Cost per person (optional)"
                               className={READABLE_INPUT_CLASS}
                             />

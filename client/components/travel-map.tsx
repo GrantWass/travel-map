@@ -463,6 +463,7 @@ export default function TravelMap() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button
+                        data-spotlight="friends"
                         type="button"
                         aria-label="Open friends"
                         onClick={() => setFriendsOpen(true)}
@@ -574,7 +575,7 @@ export default function TravelMap() {
                         }}
                     />
                     {/* Floating owner filter control (bottom-center) */}
-                    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] hidden md:flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+                    <div data-spotlight="owner-filter" className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] hidden md:flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                         <div className="shadow-md backdrop-blur-sm rounded-full">
                             <OwnerFilterSlider value={ownerFilter} onChange={setOwnerFilter} />
                         </div>

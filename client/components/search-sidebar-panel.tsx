@@ -3,6 +3,23 @@
 import Image from "next/image";
 import { useEffect, useMemo } from "react";
 import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye } from "lucide-react";
+
+function formatCityState(address: string | null | undefined): string | null {
+    if (!address) return null;
+    const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+    const cleaned = parts
+        .map((part) => {
+            const stateZip = part.match(/^([A-Z]{2})\s+\d{5}(-\d{4})?$/i);
+            if (stateZip) return stateZip[1].toUpperCase();
+            return part;
+        })
+        .filter((part) => {
+            if (/^(USA|United States(?: of America)?|US)$/i.test(part)) return false;
+            if (/^\d{5}(-\d{4})?$/.test(part)) return false;
+            return true;
+        });
+    return cleaned.slice(-2).join(", ") || null;
+}
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
@@ -229,7 +246,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                             <p className="truncate text-xs font-medium text-foreground">{activity.title}</p>
                                                             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                                                                 <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-                                                                <span className="truncate">{activity.address}</span>
+                                                                <span className="truncate">{formatCityState(activity.address)}</span>
                                                             </p>
                                                         </div>
                                                     </button>
@@ -248,7 +265,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                             <p className="truncate text-xs font-medium text-foreground">{lodging.title}</p>
                                                             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                                                                 <BedDouble className="h-2.5 w-2.5 flex-shrink-0" />
-                                                                <span className="truncate">{lodging.address}</span>
+                                                                <span className="truncate">{formatCityState(lodging.address)}</span>
                                                             </p>
                                                         </div>
                                                     </button>
