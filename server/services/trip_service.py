@@ -123,7 +123,16 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         cur.execute(
             """
-            SELECT lodge_id, trip_id, address, thumbnail_url, title, description, latitude, longitude, cost
+            SELECT
+                lodge_id,
+                trip_id,
+                address,
+                thumbnail_url,
+                title,
+                description,
+                ST_Y(geo_location::geometry) AS latitude,
+                ST_X(geo_location::geometry) AS longitude,
+                cost
             FROM lodgings
             WHERE trip_id = ANY(%s)
             ORDER BY lodge_id ASC
@@ -147,7 +156,17 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         cur.execute(
             """
-            SELECT activity_id, trip_id, address, thumbnail_url, title, location, description, latitude, longitude, cost
+            SELECT
+                activity_id,
+                trip_id,
+                address,
+                thumbnail_url,
+                title,
+                location,
+                description,
+                ST_Y(geo_location::geometry) AS latitude,
+                ST_X(geo_location::geometry) AS longitude,
+                cost
             FROM activities
             WHERE trip_id = ANY(%s)
             ORDER BY activity_id ASC
@@ -211,8 +230,8 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
                 t.thumbnail_url,
                 t.title,
                 t.description,
-                t.latitude,
-                t.longitude,
+                ST_Y(t.geo_location::geometry) AS latitude,
+                ST_X(t.geo_location::geometry) AS longitude,
                 t.cost,
                 t.duration,
                 t.date,
@@ -238,7 +257,6 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
 
 
 #TODO: only implemented on trips rn since that's the main entity, but may want to extend to activities/lodgings later
-#TODO: update activities to have current columns geo_location be location and location be address
 def _append_bounding_box_filter(
     where_sql: str,
     params: tuple[Any, ...],
@@ -250,8 +268,8 @@ def _append_bounding_box_filter(
     min_lat, max_lat, min_lng, max_lng = bounding_box
     where_with_bbox = (
         f"({where_sql})"
-        " AND t.location IS NOT NULL"
-        " AND t.location::geometry && ST_MakeEnvelope(%s, %s, %s, %s, 4326)"
+        " AND t.geo_location IS NOT NULL"
+        " AND t.geo_location::geometry && ST_MakeEnvelope(%s, %s, %s, %s, 4326)"
     )
     return where_with_bbox, params + (min_lng, min_lat, max_lng, max_lat)
 
@@ -466,12 +484,10 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
                 thumbnail_url,
                 title,
                 description,
-                location,
-                latitude,
-                longitude,
+                geo_location,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
             """,
             (
                 trip_id,
@@ -480,8 +496,6 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
                 to_nullable_string(lodging.get("title")),
                 to_nullable_string(lodging.get("description")),
                 geo_location,
-                latitude,
-                longitude,
                 cost,
             ),
         )
@@ -508,11 +522,9 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
                 location,
                 description,
                 geo_location,
-                latitude,
-                longitude,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
             """,
             (
                 trip_id,
@@ -522,8 +534,6 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
                 to_nullable_string(activity.get("location")),
                 to_nullable_string(activity.get("description")),
                 geo_location,
-                latitude,
-                longitude,
                 cost,
             ),
         )
@@ -570,9 +580,7 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 thumbnail_url,
                 title,
                 description,
-                location,
-                latitude,
-                longitude,
+                geo_location,
                 cost,
                 duration,
                 date,
@@ -581,7 +589,7 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 event_start,
                 event_end
             )
-            VALUES (%s, %s, %s, ST_GeogFromText(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, ST_GeogFromText(%s), %s, %s, %s, %s, %s, %s, %s)
             RETURNING trip_id
             """,
             (
@@ -589,8 +597,6 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 title,
                 to_nullable_string(payload.get("description")),
                 geo_location,
-                latitude,
-                longitude,
                 _parse_cost(payload.get("cost")),
                 duration,
                 date,
@@ -653,12 +659,10 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 thumbnail_url,
                 title,
                 description,
-                location,
-                latitude,
-                longitude,
+                geo_location,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
             RETURNING lodge_id
             """,
             (
@@ -668,8 +672,6 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 title,
                 to_nullable_string(payload.get("description")),
                 geo_location,
-                latitude,
-                longitude,
                 _parse_cost(payload.get("cost")),
             ),
         )
@@ -708,11 +710,9 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
                 location,
                 description,
                 geo_location,
-                latitude,
-                longitude,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
             RETURNING activity_id
             """,
             (
@@ -723,8 +723,6 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
                 to_nullable_string(payload.get("location")),
                 to_nullable_string(payload.get("description")),
                 geo_location,
-                latitude,
-                longitude,
                 _parse_cost(payload.get("cost")),
             ),
         )
@@ -784,9 +782,7 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 thumbnail_url = %s,
                 title = %s,
                 description = %s,
-                location = ST_GeogFromText(%s),
-                latitude = %s,
-                longitude = %s,
+                geo_location = ST_GeogFromText(%s),
                 cost = %s,
                 duration = %s,
                 date = %s,
@@ -800,8 +796,6 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 title,
                 to_nullable_string(payload.get("description")),
                 geo_location,
-                latitude,
-                longitude,
                 _parse_cost(payload.get("cost")),
                 duration,
                 date,
