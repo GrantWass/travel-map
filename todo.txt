@@ -1,0 +1,7 @@
+lazy load trip children
+add ability to comment on trips
+invite link
+bounding box search implementation
+trip priority
+map as default, sign in later
+other time optimizations???
