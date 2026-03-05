@@ -180,7 +180,7 @@ export default function MapView({
         const map = L.map(mapContainerRef.current, {
             center: storedMapView ? [storedMapView.lat, storedMapView.lng] : [39.5, -98.35],
             zoom: storedMapView ? storedMapView.zoom : 5,
-            minZoom: 4,
+            minZoom: 5,
             maxBounds: usBounds,
             maxBoundsViscosity: 1.0,
             zoomControl: false,
@@ -189,7 +189,7 @@ export default function MapView({
 
         L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
             maxZoom: 19,
-            minZoom: 4,
+            minZoom: 5,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
         }).addTo(map);
 
