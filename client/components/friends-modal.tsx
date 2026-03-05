@@ -358,7 +358,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                     onRequest={() => handleSendRequestToId(u.user_id)}
                     onClick={async () => {
                       const p = await getUserProfile(u.user_id);
-                      setSelectedProfile(p.user);
+                      setSelectedProfile({ ...p.user, trips: p.trips });
                     }}
                   />
                 ))}
@@ -384,7 +384,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                     image={(req as any).requester_profile_image_url}
                     onClick={async () => {
                       const p = await getUserProfile(req.requester_id);
-                      setSelectedProfile(p.user);
+                      setSelectedProfile({ ...p.user, trips: p.trips });
                     }}
                     onAccept={() => handleRespond(req.id, "accepted")}
                     onDecline={() => handleRespond(req.id, "declined")}
@@ -413,7 +413,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                     status={req.status}
                     onClick={async () => {
                       const p = await getUserProfile(req.addressee_id);
-                      setSelectedProfile(p.user);
+                      setSelectedProfile({ ...p.user, trips: p.trips });
                     }}
                   />
                 ))}
@@ -455,7 +455,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                       image={otherImage}
                       onClick={async () => {
                         const p = await getUserProfile(otherId);
-                        setSelectedProfile(p.user);
+                        setSelectedProfile({ ...p.user, trips: p.trips });
                       }}
                     />
                   );

@@ -274,6 +274,20 @@ def _append_bounding_box_filter(
     return where_with_bbox, params + (min_lng, min_lat, max_lng, max_lat)
 
 
+def _are_friends(user_id_a: int, user_id_b: int) -> bool:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 FROM friendships
+            WHERE status = 'accepted'
+            AND ((requester_id = %s AND addressee_id = %s) OR (requester_id = %s AND addressee_id = %s))
+            LIMIT 1
+            """,
+            (user_id_a, user_id_b, user_id_b, user_id_a),
+        )
+        return cur.fetchone() is not None
+
+
 def list_trips(viewer_user_id: int | None, bounding_box: BoundingBox | None = None) -> list[dict[str, Any]]:
     now = monotonic()
 
@@ -292,8 +306,22 @@ def list_trips(viewer_user_id: int | None, bounding_box: BoundingBox | None = No
         trips = _fetch_trip_rows(where_sql, params)
     else:
         where_sql, params = _append_bounding_box_filter(
-            "(t.visibility = 'public' OR t.owner_user_id = %s)",
-            (viewer_user_id,),
+            """(
+                t.visibility = 'public'
+                OR t.owner_user_id = %s
+                OR (
+                    t.visibility = 'friends'
+                    AND EXISTS (
+                        SELECT 1 FROM friendships f
+                        WHERE f.status = 'accepted'
+                        AND (
+                            (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
+                            OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
+                        )
+                    )
+                )
+            )""",
+            (viewer_user_id, viewer_user_id, viewer_user_id),
             bounding_box,
         )
         trips = _fetch_trip_rows(where_sql, params)
@@ -315,7 +343,26 @@ def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dic
     if viewer_user_id == target_user_id:
         trips = _fetch_trip_rows("t.owner_user_id = %s", (target_user_id,))
     else:
-        trips = _fetch_trip_rows("(t.owner_user_id = %s AND t.visibility = 'public')", (target_user_id,))
+        trips = _fetch_trip_rows(
+            """(
+                t.owner_user_id = %s
+                AND (
+                    t.visibility = 'public'
+                    OR (
+                        t.visibility = 'friends'
+                        AND EXISTS (
+                            SELECT 1 FROM friendships f
+                            WHERE f.status = 'accepted'
+                            AND (
+                                (f.requester_id = %s AND f.addressee_id = %s)
+                                OR (f.requester_id = %s AND f.addressee_id = %s)
+                            )
+                        )
+                    )
+                )
+            )""",
+            (target_user_id, viewer_user_id, target_user_id, target_user_id, viewer_user_id),
+        )
     return _hydrate_trip_children(trips)
 
 
@@ -326,8 +373,13 @@ def get_trip(trip_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
 
     trip = trips[0]
     is_owner = viewer_user_id == trip["owner_user_id"]
-    if trip["visibility"] != "public" and not is_owner:
+
+    if trip["visibility"] == "private" and not is_owner:
         return None
+
+    if trip["visibility"] == "friends" and not is_owner:
+        if viewer_user_id is None or not _are_friends(viewer_user_id, trip["owner_user_id"]):
+            return None
 
     return _hydrate_trip_children([trip])[0]
 
