@@ -13,6 +13,7 @@ import StudentAddMenu from "@/components/student-add-menu";
 import UserProfileModal from "@/components/user-profile-modal";
 import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
+import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
@@ -572,30 +573,10 @@ export default function TravelMap() {
                             void openTripById(tripId);
                         }}
                     />
-                    {/* Floating owner filter control (bottom-right) */}
-                    <div className="absolute right-4 bottom-20 z-[1000] hidden md:flex items-center gap-2">
-                        <div className="flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-1 shadow-sm backdrop-blur-sm">
-                            <button
-                                type="button"
-                                onClick={() => setOwnerFilter("all")}
-                                className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "all" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-secondary/40 text-foreground"}`}
-                            >
-                                All
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setOwnerFilter("friends")}
-                                className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "friends" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-secondary/40 text-foreground"}`}
-                            >
-                                Friends
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setOwnerFilter("you")}
-                                className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "you" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-secondary/40 text-foreground"}`}
-                            >
-                                You
-                            </button>
+                    {/* Floating owner filter control (bottom-center) */}
+                    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] hidden md:flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+                        <div className="shadow-md backdrop-blur-sm rounded-full">
+                            <OwnerFilterSlider value={ownerFilter} onChange={setOwnerFilter} />
                         </div>
                     </div>
                     {expandedImage && (

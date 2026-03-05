@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useMemo } from "react";
-import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble } from "lucide-react";
+import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye } from "lucide-react";
+import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import type { Trip } from "@/lib/api-types";
@@ -79,33 +80,6 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                     <X className="h-4 w-4" />
                 </button>
             </div>
-            {/* Owner filter — prominent in the search panel */}
-            <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-                <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-2 py-1">
-                    <button
-                        type="button"
-                        onClick={() => onOwnerFilterChange?.("all")}
-                        className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "all" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-transparent text-foreground"}`}
-                    >
-                        All
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onOwnerFilterChange?.("friends")}
-                        className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "friends" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-transparent text-foreground"}`}
-                    >
-                        Friends
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onOwnerFilterChange?.("you")}
-                        className={`h-8 rounded-md px-3 text-sm font-medium ${ownerFilter === "you" ? "border border-primary/40 bg-primary/10 text-primary" : "border border-border bg-transparent text-foreground"}`}
-                    >
-                        You
-                    </button>
-                </div>
-            </div>
-
             <ScrollArea className="flex-1 min-h-0">
                 <div className="flex flex-col gap-5 p-4">
                     {/* Filters */}
@@ -168,10 +142,21 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                             <Slider
                                 min={0}
                                 max={MAX_COST}
-                                step={25}
+                                step={5}
                                 value={[maxCost]}
                                 onValueChange={([val]) => setMaxCost(val ?? MAX_COST)}
                             />
+                        </div>
+
+                        {/* Visibility */}
+                        <div className="flex flex-col gap-2">
+                            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                <Eye className="h-3 w-3" />
+                                Visibility
+                            </p>
+                            <div className="flex justify-center">
+                                <OwnerFilterSlider value={ownerFilter} onChange={(v) => onOwnerFilterChange?.(v)} />
+                            </div>
                         </div>
                     </div>
 
