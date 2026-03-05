@@ -1,7 +1,8 @@
 lazy load trip children
 add ability to comment on trips
+show duration on trip panel
 invite link
 bounding box search implementation
-trip priority
+trip priority (text amount, AI check, or other method)
 map as default, sign in later
-other time optimizations???
+other time optimizations??? (streaming results? idk)
