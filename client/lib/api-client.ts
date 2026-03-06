@@ -199,6 +199,27 @@ export async function getTripsBatch(tripIds: number[]): Promise<Trip[]> {
   return data.trips;
 }
 
+export interface TripChildrenBatchEntry {
+  trip_id: number;
+  tags: string[];
+  lodgings: Trip["lodgings"];
+  activities: Trip["activities"];
+  comments: Trip["comments"];
+}
+
+export async function getTripChildrenBatch(tripIds: number[]): Promise<TripChildrenBatchEntry[]> {
+  if (tripIds.length === 0) {
+    return [];
+  }
+  const params = new URLSearchParams();
+  params.set("ids", tripIds.join(","));
+  const data = await requestJson<{ children: TripChildrenBatchEntry[] }>(
+    `/trips/children-batch?${params.toString()}`,
+    { method: "GET" },
+  );
+  return data.children;
+}
+
 export async function uploadImage(file: File, folder = "trips"): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);

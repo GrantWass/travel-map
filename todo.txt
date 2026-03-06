@@ -2,7 +2,6 @@ lazy load trip children
 show duration on trip panel
 bounding box search implementation
 trip priority (text amount, AI check, or other method)
-other time optimizations??? (streaming results? idk)
 include comments in the search??? (maybe idk)
 
 PROFILE OPENS UP TWICE AND IM NOT SURE WHY

@@ -70,7 +70,11 @@ const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; descriptio
 
 const REVIEW_PANEL_WIDTH = "min(483px, 100vw)";
 
-export default function TravelMap() {
+interface TravelMapProps {
+    initialPublicTrips?: Trip[];
+}
+
+export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const router = useRouter();
     const pathname = usePathname();
     const userId = useAuthStore((state) => state.user?.user_id ?? null);
@@ -215,8 +219,8 @@ export default function TravelMap() {
     }, [applySavedPlans, openSignupPrompt, toggleSavedLodgingId, userId]);
 
     useEffect(() => {
-        void loadTrips();
-    }, [loadTrips]);
+        void loadTrips(initialPublicTrips);
+    }, [initialPublicTrips, loadTrips]);
 
     useEffect(() => {
         if (userId === null) return;
@@ -282,6 +286,7 @@ export default function TravelMap() {
 
             setIsLoadingTripById(true);
             try {
+                // TODO: See if trip is already in store with full details to avoid unnecessary fetch.
                 const trip = await getTrip(tripId);
                 if (!trip) {
                     return;

@@ -103,121 +103,7 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     trip_ids = [trip["trip_id"] for trip in trips]
 
-    tags_by_trip: dict[int, list[str]] = defaultdict(list)
-    lodgings_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    activities_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    comments_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
-
-    with get_cursor() as cur:
-        cur.execute(
-            """
-            SELECT trip_id, tag
-            FROM trip_tags
-            WHERE trip_id = ANY(%s)
-            ORDER BY tag ASC
-            """,
-            (trip_ids,),
-        )
-        for row in cur.fetchall():
-            tags_by_trip[int(row["trip_id"])].append(row["tag"])
-
-        cur.execute(
-            """
-            SELECT
-                lodge_id,
-                trip_id,
-                address,
-                thumbnail_url,
-                title,
-                description,
-                ST_Y(geo_location::geometry) AS latitude,
-                ST_X(geo_location::geometry) AS longitude,
-                cost
-            FROM lodgings
-            WHERE trip_id = ANY(%s)
-            ORDER BY lodge_id ASC
-            """,
-            (trip_ids,),
-        )
-        for row in cur.fetchall():
-            lodgings_by_trip[int(row["trip_id"])].append(
-                {
-                    "lodge_id": int(row["lodge_id"]),
-                    "trip_id": int(row["trip_id"]),
-                    "address": row.get("address"),
-                    "thumbnail_url": row.get("thumbnail_url"),
-                    "title": row.get("title"),
-                    "description": row.get("description"),
-                    "latitude": _as_float(row.get("latitude")),
-                    "longitude": _as_float(row.get("longitude")),
-                    "cost": _as_float(row.get("cost")),
-                }
-            )
-
-        cur.execute(
-            """
-            SELECT
-                activity_id,
-                trip_id,
-                address,
-                thumbnail_url,
-                title,
-                location,
-                description,
-                ST_Y(geo_location::geometry) AS latitude,
-                ST_X(geo_location::geometry) AS longitude,
-                cost
-            FROM activities
-            WHERE trip_id = ANY(%s)
-            ORDER BY activity_id ASC
-            """,
-            (trip_ids,),
-        )
-        for row in cur.fetchall():
-            activities_by_trip[int(row["trip_id"])].append(
-                {
-                    "activity_id": int(row["activity_id"]),
-                    "trip_id": int(row["trip_id"]),
-                    "address": row.get("address"),
-                    "thumbnail_url": row.get("thumbnail_url"),
-                    "title": row.get("title"),
-                    "location": row.get("location"),
-                    "description": row.get("description"),
-                    "latitude": _as_float(row.get("latitude")),
-                    "longitude": _as_float(row.get("longitude")),
-                    "cost": _as_float(row.get("cost")),
-                }
-            )
-
-        cur.execute(
-            """
-            SELECT
-                c.comment_id,
-                c.user_id,
-                c.trip_id,
-                c.body,
-                c.created_at,
-                u.name AS user_name,
-                u.profile_image_url AS user_profile_image_url
-            FROM comments c
-            JOIN travelers u ON u.user_id = c.user_id
-            WHERE c.trip_id = ANY(%s)
-            ORDER BY c.created_at DESC
-            """,
-            (trip_ids,),
-        )
-        for row in cur.fetchall():
-            comments_by_trip[int(row["trip_id"])].append(
-                {
-                    "comment_id": int(row["comment_id"]),
-                    "user_id": int(row["user_id"]),
-                    "trip_id": int(row["trip_id"]),
-                    "body": row.get("body") or "",
-                    "created_at": _as_datetime_iso(row.get("created_at")),
-                    "user_name": row.get("user_name"),
-                    "user_profile_image_url": row.get("user_profile_image_url"),
-                }
-            )
+    tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip = _fetch_trip_children_by_ids(trip_ids)
 
     for trip in trips:
         trip_id = trip["trip_id"]
@@ -227,6 +113,155 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
         trip["comments"] = comments_by_trip[trip_id]
 
     return trips
+
+
+def _fetch_trip_children_by_ids(
+    trip_ids: list[int]
+) -> tuple[
+    dict[int, list[str]],
+    dict[int, list[dict[str, Any]]],
+    dict[int, list[dict[str, Any]]],
+    dict[int, list[dict[str, Any]]],
+]:
+    if not trip_ids:
+        return defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
+
+    tags_by_trip: dict[int, list[str]] = defaultdict(list)
+    lodgings_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    activities_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    comments_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            WITH ids AS (
+                SELECT DISTINCT unnest(%s::int[]) AS trip_id
+            )
+            SELECT
+                ids.trip_id,
+                COALESCE(tags.tags, '[]'::jsonb) AS tags,
+                COALESCE(lodgings.lodgings, '[]'::jsonb) AS lodgings,
+                COALESCE(activities.activities, '[]'::jsonb) AS activities,
+                COALESCE(comments.comments, '[]'::jsonb) AS comments
+            FROM ids
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(tt.tag ORDER BY tt.tag) AS tags
+                FROM trip_tags tt
+                WHERE tt.trip_id = ids.trip_id
+            ) tags ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'lodge_id', l.lodge_id,
+                        'trip_id', l.trip_id,
+                        'address', l.address,
+                        'thumbnail_url', l.thumbnail_url,
+                        'title', l.title,
+                        'description', l.description,
+                        'latitude', ST_Y(l.geo_location::geometry),
+                        'longitude', ST_X(l.geo_location::geometry),
+                        'cost', l.cost
+                    )
+                    ORDER BY l.lodge_id
+                ) AS lodgings
+                FROM lodgings l
+                WHERE l.trip_id = ids.trip_id
+            ) lodgings ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'activity_id', a.activity_id,
+                        'trip_id', a.trip_id,
+                        'address', a.address,
+                        'thumbnail_url', a.thumbnail_url,
+                        'title', a.title,
+                        'location', a.location,
+                        'description', a.description,
+                        'latitude', ST_Y(a.geo_location::geometry),
+                        'longitude', ST_X(a.geo_location::geometry),
+                        'cost', a.cost
+                    )
+                    ORDER BY a.activity_id
+                ) AS activities
+                FROM activities a
+                WHERE a.trip_id = ids.trip_id
+            ) activities ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'comment_id', c.comment_id,
+                        'user_id', c.user_id,
+                        'trip_id', c.trip_id,
+                        'body', c.body,
+                        'created_at', c.created_at,
+                        'user_name', u.name,
+                        'user_profile_image_url', u.profile_image_url
+                    )
+                    ORDER BY c.created_at DESC
+                ) AS comments
+                FROM comments c
+                JOIN travelers u ON u.user_id = c.user_id
+                WHERE c.trip_id = ids.trip_id
+            ) comments ON TRUE
+            ORDER BY ids.trip_id DESC
+            """,
+            (trip_ids,),
+        )
+
+        for row in cur.fetchall():
+            trip_id = int(row["trip_id"])
+
+            raw_tags = row.get("tags") or []
+            tags_by_trip[trip_id] = [str(tag) for tag in raw_tags if tag is not None and str(tag).strip()]
+
+            raw_lodgings = row.get("lodgings") or []
+            lodgings_by_trip[trip_id] = [
+                {
+                    "lodge_id": int(lodging["lodge_id"]),
+                    "trip_id": int(lodging["trip_id"]),
+                    "address": lodging.get("address"),
+                    "thumbnail_url": lodging.get("thumbnail_url"),
+                    "title": lodging.get("title"),
+                    "description": lodging.get("description"),
+                    "latitude": _as_float(lodging.get("latitude")),
+                    "longitude": _as_float(lodging.get("longitude")),
+                    "cost": _as_float(lodging.get("cost")),
+                }
+                for lodging in raw_lodgings
+            ]
+
+            raw_activities = row.get("activities") or []
+            activities_by_trip[trip_id] = [
+                {
+                    "activity_id": int(activity["activity_id"]),
+                    "trip_id": int(activity["trip_id"]),
+                    "address": activity.get("address"),
+                    "thumbnail_url": activity.get("thumbnail_url"),
+                    "title": activity.get("title"),
+                    "location": activity.get("location"),
+                    "description": activity.get("description"),
+                    "latitude": _as_float(activity.get("latitude")),
+                    "longitude": _as_float(activity.get("longitude")),
+                    "cost": _as_float(activity.get("cost")),
+                }
+                for activity in raw_activities
+            ]
+
+            raw_comments = row.get("comments") or []
+            comments_by_trip[trip_id] = [
+                {
+                    "comment_id": int(comment["comment_id"]),
+                    "user_id": int(comment["user_id"]),
+                    "trip_id": int(comment["trip_id"]),
+                    "body": comment.get("body") or "",
+                    "created_at": _as_datetime_iso(comment.get("created_at")),
+                    "user_name": comment.get("user_name"),
+                    "user_profile_image_url": comment.get("user_profile_image_url"),
+                }
+                for comment in raw_comments
+            ]
+
+    return tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip
 
 
 def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
@@ -431,17 +466,84 @@ def list_trips(
 
 
 def get_trips_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[dict[str, Any]]:
-    """Fetch specific trips by ID with visibility checks and children hydration."""
+    """Fetch specific trips by ID with SQL visibility checks and children hydration."""
     if not trip_ids:
         return []
 
-    # Fetch trips using the common method with IN clause
-    trips = _fetch_trip_rows("t.trip_id = ANY(%s)", (trip_ids,))
-    
-    # Filter based on visibility permissions
-    visible_trips = _filter_trips_by_visibility(trips, viewer_user_id)
-    
-    return _maybe_hydrate_trips(visible_trips, include_children=True)
+    if viewer_user_id is None:
+        where_sql = "t.trip_id = ANY(%s) AND t.visibility = 'public'"
+        params: tuple[Any, ...] = (trip_ids,)
+    else:
+        where_sql = """(
+            t.trip_id = ANY(%s)
+            AND (
+                t.visibility = 'public'
+                OR t.owner_user_id = %s
+                OR (
+                    t.visibility = 'friends'
+                    AND EXISTS (
+                        SELECT 1 FROM friendships f
+                        WHERE f.status = 'accepted'
+                        AND (
+                            (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
+                            OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
+                        )
+                    )
+                )
+            )
+        )"""
+        params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id)
+
+    trips = _fetch_trip_rows(where_sql, params)
+    return _maybe_hydrate_trips(trips, include_children=True)
+
+
+def get_trip_children_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[dict[str, Any]]:
+    """Fetch children only for visible trips by ID, avoiding re-fetch of trip base fields."""
+    if not trip_ids:
+        return []
+
+    if viewer_user_id is None:
+        where_sql = "t.trip_id = ANY(%s) AND t.visibility = 'public'"
+        params: tuple[Any, ...] = (trip_ids,)
+    else:
+        where_sql = """(
+            t.trip_id = ANY(%s)
+            AND (
+                t.visibility = 'public'
+                OR t.owner_user_id = %s
+                OR (
+                    t.visibility = 'friends'
+                    AND EXISTS (
+                        SELECT 1 FROM friendships f
+                        WHERE f.status = 'accepted'
+                        AND (
+                            (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
+                            OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
+                        )
+                    )
+                )
+            )
+        )"""
+        params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id)
+
+    visible_trip_rows = _fetch_trip_rows(where_sql, params)
+    visible_trip_ids = [trip["trip_id"] for trip in visible_trip_rows]
+    if not visible_trip_ids:
+        return []
+
+    tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip = _fetch_trip_children_by_ids(visible_trip_ids)
+
+    return [
+        {
+            "trip_id": trip_id,
+            "tags": tags_by_trip[trip_id],
+            "lodgings": lodgings_by_trip[trip_id],
+            "activities": activities_by_trip[trip_id],
+            "comments": comments_by_trip[trip_id],
+        }
+        for trip_id in visible_trip_ids
+    ]
 
 
 def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dict[str, Any]]:
@@ -471,7 +573,7 @@ def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dic
     return _maybe_hydrate_trips(trips, include_children=True)
 
 
-def get_trip(trip_id: int, viewer_user_id: int | None, include_children: bool = True) -> dict[str, Any] | None:
+def get_trip(trip_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
     trips = _fetch_trip_rows("t.trip_id = %s", (trip_id,))
     if not trips:
         return None
@@ -481,7 +583,7 @@ def get_trip(trip_id: int, viewer_user_id: int | None, include_children: bool = 
     if not visible_trips:
         return None
     
-    hydrated_trips = _maybe_hydrate_trips(visible_trips, include_children)
+    hydrated_trips = _maybe_hydrate_trips(visible_trips, include_children=True)
     return hydrated_trips[0]
 
 

@@ -15,6 +15,7 @@ from services.trip_service import (
     create_trip,
     delete_trip,
     get_trip,
+    get_trip_children_by_ids,
     get_trips_by_ids,
     list_non_public_visible_trip_ids,
     list_trip_comments,
@@ -141,6 +142,39 @@ def get_trips_batch():
         return jsonify({"error": f"get trips batch failed: {str(error)}"}), 500
 
 
+@trips_bp.route("/trips/children-batch", methods=["GET", "OPTIONS"])
+def get_trip_children_batch():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    viewer = get_authenticated_user()
+    viewer_user_id = viewer["user_id"] if viewer else None
+
+    try:
+        trip_ids_raw = request.args.get("ids", "")
+        if not trip_ids_raw.strip():
+            return jsonify({"error": "ids parameter is required"}), 400
+
+        trip_ids: list[int] = []
+        for id_str in trip_ids_raw.split(","):
+            id_str = id_str.strip()
+            if not id_str:
+                continue
+            try:
+                trip_ids.append(int(id_str))
+            except ValueError:
+                return jsonify({"error": f"invalid trip id: {id_str}"}), 400
+
+        if not trip_ids:
+            return jsonify({"children": []}), 200
+
+        children = get_trip_children_by_ids(trip_ids, viewer_user_id)
+        return jsonify({"children": children}), 200
+    except Exception as error:
+        current_app.logger.exception("Get trip children batch failed")
+        return jsonify({"error": f"get trip children batch failed: {str(error)}"}), 500
+
+
 @trips_bp.route("/trips/<int:trip_id>", methods=["GET", "OPTIONS"])
 def get_trip_by_id(trip_id: int):
     if request.method == "OPTIONS":
@@ -150,8 +184,7 @@ def get_trip_by_id(trip_id: int):
     viewer_user_id = viewer["user_id"] if viewer else None
 
     try:
-        include_children = request.args.get("include_children", "true").lower() in ("true", "1", "yes")
-        trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id, include_children=include_children)
+        trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id)
         if not trip:
             return jsonify({"error": "trip not found"}), 404
 

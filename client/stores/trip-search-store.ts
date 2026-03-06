@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { getPublicTrips, getTripsBatch } from "@/lib/api-client";
+import { getPublicTrips, getTripChildrenBatch, getTripsBatch } from "@/lib/api-client";
 import type { FriendshipRecord, Trip, TripActivity, TripLodging } from "@/lib/api-types";
 
 export const MAX_COST = 500;
@@ -45,6 +45,17 @@ export const useTripSearchStore = create<TripSearchState>((set) => ({
 }));
 
 export async function hydrateTripsWithChildren(tripIds: number[]): Promise<Trip[]> {
+  if (tripIds.length === 0) {
+    return [];
+  }
+  return getTripsBatch(tripIds);
+}
+
+export async function hydrateTripChildrenOnly(tripIds: number[]) {
+  return getTripChildrenBatch(tripIds);
+}
+
+export async function fetchDeferredTripsWithChildren(tripIds: number[]): Promise<Trip[]> {
   if (tripIds.length === 0) {
     return [];
   }

@@ -1,34 +1,28 @@
-"use client";
+import MapPageClient from "@/components/map-page-client";
+import type { Trip } from "@/lib/api-types";
 
-import { useMemo } from "react";
+async function fetchInitialPublicTrips(): Promise<Trip[]> {
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
+  const params = new URLSearchParams();
+  params.set("include_children", "false");
+  params.set("public_only", "true");
 
-import TravelMap from "@/components/travel-map";
-import OnboardingTour from "@/components/onboarding-tour";
-import { getStepsForUser } from "@/lib/onboarding-steps";
-import { useAuthStore } from "@/stores/auth-store";
+  try {
+    const response = await fetch(`${apiBaseUrl}/trips?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return [];
+    }
 
-export default function Page() {
-  const status = useAuthStore((state) => state.status);
-  const user = useAuthStore((state) => state.user);
-  const refreshSession = useAuthStore((state) => state.refreshSession);
-
-  const pendingSteps = useMemo(() => {
-    if (status !== "authenticated" || !user) return [];
-    const completed = new Set(user.completed_onboarding_tours ?? []);
-    const isStudent = Boolean(user.verified);
-    return getStepsForUser(isStudent).filter((s) => !completed.has(s.id));
-  }, [status, user]);
-
-  function handleTourComplete() {
-    void refreshSession();
+    const payload = (await response.json()) as { trips?: Trip[] };
+    return Array.isArray(payload.trips) ? payload.trips : [];
+  } catch {
+    return [];
   }
+}
 
-  return (
-    <>
-      <TravelMap />
-      {pendingSteps.length > 0 && (
-        <OnboardingTour steps={pendingSteps} onComplete={handleTourComplete} />
-      )}
-    </>
-  );
+export default async function Page() {
+  const initialPublicTrips = await fetchInitialPublicTrips();
+  return <MapPageClient initialPublicTrips={initialPublicTrips} />;
 }

@@ -3,7 +3,11 @@ import { create } from "zustand";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { getLocationKey, getTripTimestamp } from "@/lib/utils";
-import { fetchPublicTripsLightweight, hydrateTripsWithChildren } from "@/stores/trip-search-store";
+import {
+    fetchDeferredTripsWithChildren,
+    fetchPublicTripsLightweight,
+    hydrateTripChildrenOnly,
+} from "@/stores/trip-search-store";
 import { getDeferredTripIds } from "@/lib/api-client";
 
 interface TripMapStoreState {
@@ -19,7 +23,7 @@ interface TripMapStoreState {
     savedLodgingIds: number[];
     isLoadingTrips: boolean;
     isLoadingTripById: boolean;
-    loadTrips: () => Promise<void>;
+    loadTrips: (initialPublicTrips?: Trip[]) => Promise<void>;
     setTrips: (trips: Trip[]) => void;
     upsertTrip: (trip: Trip) => void;
     removeTripById: (tripId: number) => void;
@@ -74,6 +78,8 @@ export interface TripMapPanelInputs {
     searchPanelOpen: boolean;
     plansPanelOpen: boolean;
 }
+
+let activeLoadTripsPromise: Promise<void> | null = null;
 
 export function deriveTripMapPanels(inputs: TripMapPanelInputs): TripMapPanels {
     const showSidebar = !!inputs.selectedTrip && !inputs.fullScreenTrip;
@@ -131,46 +137,76 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     savedLodgingIds: [],
     isLoadingTrips: true,
     isLoadingTripById: false,
-    loadTrips: async () => {
-        set({ isLoadingTrips: true });
+    loadTrips: async (initialPublicTrips?: Trip[]) => {
+        if (activeLoadTripsPromise) {
+            return activeLoadTripsPromise;
+        }
+
+        activeLoadTripsPromise = (async () => {
+            set({ isLoadingTrips: true });
+
+            // Kick off deferred visibility lookup immediately; do not block first render on it.
+            const deferredTripIdsPromise = getDeferredTripIds().catch(() => [] as number[]);
+
+            try {
+                // Load public trips first for fastest render.
+                const publicTrips = initialPublicTrips ?? await fetchPublicTripsLightweight();
+                set({ trips: publicTrips, isLoadingTrips: false });
+
+                // Background hydration should never clear the already rendered public set.
+                try {
+                    const publicTripIds = publicTrips.map((trip) => trip.trip_id);
+                    const deferredTripIds = await deferredTripIdsPromise;
+                    const [publicChildren, deferredTrips] = await Promise.all([
+                        hydrateTripChildrenOnly(publicTripIds),
+                        fetchDeferredTripsWithChildren(deferredTripIds),
+                    ]);
+
+                    set((state) => {
+                        const publicChildrenByTripId = new Map(publicChildren.map((entry) => [entry.trip_id, entry]));
+                        const hydratedPublicTrips = publicTrips.map((trip) => {
+                            const children = publicChildrenByTripId.get(trip.trip_id);
+                            if (!children) {
+                                return trip;
+                            }
+
+                            return {
+                                ...trip,
+                                tags: children.tags,
+                                lodgings: children.lodgings,
+                                activities: children.activities,
+                                comments: children.comments,
+                            };
+                        });
+
+                        const updatedTrips = [...hydratedPublicTrips, ...deferredTrips].sort(
+                            (left, right) => right.trip_id - left.trip_id,
+                        );
+                        const hydratedMap = new Map(updatedTrips.map((trip) => [trip.trip_id, trip]));
+
+                        return {
+                            trips: updatedTrips,
+                            selectedTrip: state.selectedTrip && hydratedMap.has(state.selectedTrip.trip_id)
+                                ? hydratedMap.get(state.selectedTrip.trip_id)!
+                                : state.selectedTrip,
+                            fullScreenTrip: state.fullScreenTrip && hydratedMap.has(state.fullScreenTrip.trip_id)
+                                ? hydratedMap.get(state.fullScreenTrip.trip_id)!
+                                : state.fullScreenTrip,
+                        };
+                    });
+                } catch (error) {
+                    console.error("Failed to hydrate trip children/deferred trips:", error);
+                }
+            } catch (error) {
+                console.error("Failed to load trips:", error);
+                set({ trips: [], isLoadingTrips: false });
+            }
+        })();
 
         try {
-            // Load public trips first for fastest render.
-            const publicTrips = await fetchPublicTripsLightweight();
-            set({ trips: publicTrips, isLoadingTrips: false });
-
-            // In the background, hydrate public + deferred IDs
-            {
-                const publicTripIds = publicTrips.map((trip) => trip.trip_id);
-
-                // Get defered trip IDs (friends and private trips)
-                const deferredTripIds = await getDeferredTripIds();
-                const allVisibleTripIds = Array.from(new Set([...publicTripIds, ...deferredTripIds]));
-
-                // Hydrate the visible set of trips with children.
-                const hydratedVisibleTrips = await hydrateTripsWithChildren(allVisibleTripIds);
-
-                // Replace with the fully hydrated visible set.
-                set((state) => {
-                    const updatedTrips = [...hydratedVisibleTrips].sort(
-                        (left, right) => right.trip_id - left.trip_id,
-                    );
-                    const hydratedMap = new Map(updatedTrips.map((trip) => [trip.trip_id, trip]));
-
-                    return {
-                        trips: updatedTrips,
-                        selectedTrip: state.selectedTrip && hydratedMap.has(state.selectedTrip.trip_id)
-                            ? hydratedMap.get(state.selectedTrip.trip_id)!
-                            : state.selectedTrip,
-                        fullScreenTrip: state.fullScreenTrip && hydratedMap.has(state.fullScreenTrip.trip_id)
-                            ? hydratedMap.get(state.fullScreenTrip.trip_id)!
-                            : state.fullScreenTrip,
-                    };
-                });
-            }
-        } catch (error) {
-            console.error("Failed to load trips:", error);
-            set({ trips: [], isLoadingTrips: false });
+            await activeLoadTripsPromise;
+        } finally {
+            activeLoadTripsPromise = null;
         }
     },
     setTrips: (trips) => set({ trips }),
