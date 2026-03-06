@@ -9,11 +9,13 @@ import { CircleUser, MapPin, Notebook, Search, X, Users } from "lucide-react";
 import PlansSidebarPanel from "@/components/plans-sidebar-panel";
 import SearchSidebarPanel from "@/components/search-sidebar-panel";
 import SidebarPanel from "@/components/sidebar-panel";
+import SignupRequiredModal from "@/components/signup-required-modal";
 import StudentAddMenu from "@/components/student-add-menu";
 import UserProfileModal from "@/components/user-profile-modal";
 import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import OwnerFilterSlider from "@/components/owner-filter-slider";
+import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
 import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
@@ -36,6 +38,31 @@ interface ProfileState {
     canManageTrips: boolean;
     canEditProfile: boolean;
 }
+
+type SignupPromptIntent = "add-trip" | "friends" | "plans" | "profile" | "save-to-plans";
+
+const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; description: string }> = {
+    "add-trip": {
+        title: "Create an account to add trips",
+        description: "Sign up or sign in to add trips and pop-up events to the map.",
+    },
+    friends: {
+        title: "Create an account to use friends",
+        description: "Sign up or sign in to invite friends and manage friend requests.",
+    },
+    plans: {
+        title: "Create an account to open plans",
+        description: "Sign up or sign in to save places and access your plans panel.",
+    },
+    profile: {
+        title: "Create an account to view profiles",
+        description: "Sign up or sign in to open traveler profiles and your account settings.",
+    },
+    "save-to-plans": {
+        title: "Create an account to save to plans",
+        description: "Sign up or sign in to save activities and lodgings for later.",
+    },
+};
 
 const REVIEW_PANEL_WIDTH = "min(483px, 100vw)";
 
@@ -81,6 +108,7 @@ export default function TravelMap() {
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
+    const [signupPromptIntent, setSignupPromptIntent] = useState<SignupPromptIntent | null>(null);
     const ownerFilter = useTripSearchStore((state) => state.ownerFilter);
     const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
@@ -118,19 +146,67 @@ export default function TravelMap() {
         [selectedTrip, fullScreenTrip, searchPanelOpen, plansPanelOpen],
     );
 
+    const openSignupPrompt = useCallback((intent: SignupPromptIntent) => {
+        setSignupPromptIntent(intent);
+    }, []);
+
+    const handleContinueToSignup = useCallback(() => {
+        const search = new URLSearchParams(window.location.search);
+        const inviteToken = getInviteTokenFromSearch(search) ?? getStoredInviteToken();
+        const nextPath = `${window.location.pathname}${window.location.search}`;
+
+        persistInviteToken(inviteToken);
+        router.push(
+            buildSignupHref({
+                nextPath,
+                inviteToken,
+                prompt: signupPromptIntent ?? undefined,
+            }),
+        );
+    }, [router, signupPromptIntent]);
+
+    useEffect(() => {
+        const inviteToken = getInviteTokenFromSearch(new URLSearchParams(window.location.search));
+        if (inviteToken) {
+            persistInviteToken(inviteToken);
+        }
+    }, []);
+
+    const requireAuth = useCallback(
+        (intent: SignupPromptIntent, action: () => void) => {
+            if (userId === null) {
+                openSignupPrompt(intent);
+                return;
+            }
+
+            action();
+        },
+        [openSignupPrompt, userId],
+    );
+
     const handleToggleSavedActivity = useCallback((_tripId: number, activity: TripActivity) => {
+        if (userId === null) {
+            openSignupPrompt("save-to-plans");
+            return;
+        }
+
         toggleSavedActivityId(activity.activity_id);
         void toggleSavedActivityApi(activity.activity_id).then((plans) => {
             applySavedPlans(plans);
         });
-    }, [applySavedPlans, toggleSavedActivityId]);
+    }, [applySavedPlans, openSignupPrompt, toggleSavedActivityId, userId]);
 
     const handleToggleSavedLodging = useCallback((_tripId: number, lodging: TripLodging) => {
+        if (userId === null) {
+            openSignupPrompt("save-to-plans");
+            return;
+        }
+
         toggleSavedLodgingId(lodging.lodge_id);
         void toggleSavedLodgingApi(lodging.lodge_id).then((plans) => {
             applySavedPlans(plans);
         });
-    }, [applySavedPlans, toggleSavedLodgingId]);
+    }, [applySavedPlans, openSignupPrompt, toggleSavedLodgingId, userId]);
 
     useEffect(() => {
         void loadTrips();
@@ -414,7 +490,7 @@ export default function TravelMap() {
                             <button
                                 data-spotlight="plans"
                                 type="button"
-                                onClick={togglePlansPanel}
+                                onClick={() => requireAuth("plans", togglePlansPanel)}
                                 className={`flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors ${
                                     mapPanels.showPlansPanel
                                         ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
@@ -439,7 +515,7 @@ export default function TravelMap() {
                         </button>
                         <button
                             type="button"
-                            onClick={togglePlansPanel}
+                            onClick={() => requireAuth("plans", togglePlansPanel)}
                             className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-colors ${
                                 mapPanels.showPlansPanel
                                     ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
@@ -467,7 +543,7 @@ export default function TravelMap() {
                         data-spotlight="friends"
                         type="button"
                         aria-label="Open friends"
-                        onClick={() => setFriendsOpen(true)}
+                        onClick={() => requireAuth("friends", () => setFriendsOpen(true))}
                         className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
                     >
                         <Users className="h-6 w-6 text-foreground" />
@@ -476,9 +552,13 @@ export default function TravelMap() {
                     <button
                         data-spotlight="profile"
                         onClick={() => {
-                            if (userId !== null) {
+                            requireAuth("profile", () => {
+                                if (userId === null) {
+                                    return;
+                                }
+
                                 void openProfile(userId, "top-right");
-                            }
+                            });
                         }}
                         className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
                         aria-label="Open profile"
@@ -501,7 +581,9 @@ export default function TravelMap() {
                             review={selectedTrip}
                             onClose={() => void openTripById(null)}
                             onOpenAuthorProfile={(profileUserId) => {
-                                void openProfile(profileUserId, "left");
+                                requireAuth("profile", () => {
+                                    void openProfile(profileUserId, "left");
+                                });
                             }}
                             onExpandImage={setExpandedImage}
                             onToggleSavedActivity={handleToggleSavedActivity}
@@ -553,12 +635,22 @@ export default function TravelMap() {
                                 void openTripById(tripId);
                             }}
                             onToggleSavedActivity={(activityId) => {
+                                if (userId === null) {
+                                    openSignupPrompt("save-to-plans");
+                                    return;
+                                }
+
                                 removeSavedActivityId(activityId);
                                 void toggleSavedActivityApi(activityId).then((plans) => {
                                     applySavedPlans(plans);
                                 });
                             }}
                             onToggleSavedLodging={(lodgingId) => {
+                                if (userId === null) {
+                                    openSignupPrompt("save-to-plans");
+                                    return;
+                                }
+
                                 removeSavedLodgingId(lodgingId);
                                 void toggleSavedLodgingApi(lodgingId).then((plans) => {
                                     applySavedPlans(plans);
@@ -671,8 +763,10 @@ export default function TravelMap() {
                         void openTripById(tripId);
                     }}
                     onAddTrip={() => {
-                        const returnTo = pathname || "/";
-                        router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
+                        requireAuth("add-trip", () => {
+                            const returnTo = pathname || "/";
+                            router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
+                        });
                     }}
                     onEditTrip={(tripId) => {
                         const returnTo = pathname || "/";
@@ -688,15 +782,27 @@ export default function TravelMap() {
 
             {friendsOpen && <FriendsModal onClose={() => setFriendsOpen(false)} />}
 
+            <SignupRequiredModal
+                open={signupPromptIntent !== null}
+                title={signupPromptIntent ? SIGNUP_PROMPT_COPY[signupPromptIntent].title : undefined}
+                description={signupPromptIntent ? SIGNUP_PROMPT_COPY[signupPromptIntent].description : undefined}
+                onClose={() => setSignupPromptIntent(null)}
+                onConfirm={handleContinueToSignup}
+            />
+
             <StudentAddMenu
-                visible={isStudent && !mapPanels.showAnyLeftSidebar}
+                visible={(isStudent || userId === null) && !mapPanels.showAnyLeftSidebar}
                 onAddTrip={() => {
-                    const returnTo = pathname || "/";
-                    router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
+                    requireAuth("add-trip", () => {
+                        const returnTo = pathname || "/";
+                        router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
+                    });
                 }}
                 onAddPopUp={() => {
-                    const returnTo = pathname || "/";
-                    router.push(`/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`);
+                    requireAuth("add-trip", () => {
+                        const returnTo = pathname || "/";
+                        router.push(`/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`);
+                    });
                 }}
             />
 

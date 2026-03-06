@@ -3,9 +3,10 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 
-const PUBLIC_ROUTES = new Set(["/signup"]);
+const PUBLIC_ROUTES = new Set(["/", "/map", "/signup"]);
 const STUDENT_ONLY_ROUTES = new Set(["/trips"]);
 
 export default function AuthBootstrap({ children }: { children: React.ReactNode }) {
@@ -45,7 +46,13 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
         }
 
         if (status === "unauthenticated" && !isPublicRoute) {
-            router.replace("/signup");
+            const inviteToken = getInviteTokenFromSearch(new URLSearchParams(window.location.search)) ?? getStoredInviteToken();
+            router.replace(
+                buildSignupHref({
+                    nextPath: pathname,
+                    inviteToken,
+                }),
+            );
             return;
         }
 

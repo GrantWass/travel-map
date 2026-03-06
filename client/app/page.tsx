@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 import TravelMap from "@/components/travel-map";
 import OnboardingTour from "@/components/onboarding-tour";
@@ -9,16 +8,9 @@ import { getStepsForUser } from "@/lib/onboarding-steps";
 import { useAuthStore } from "@/stores/auth-store";
 
 export default function Page() {
-  const router = useRouter();
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const refreshSession = useAuthStore((state) => state.refreshSession);
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/signup");
-    }
-  }, [router, status]);
 
   const pendingSteps = useMemo(() => {
     if (status !== "authenticated" || !user) return [];
@@ -29,10 +21,6 @@ export default function Page() {
 
   function handleTourComplete() {
     void refreshSession();
-  }
-
-  if (status !== "authenticated") {
-    return null;
   }
 
   return (

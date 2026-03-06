@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Camera, GraduationCap, UserRound, Globe, ArrowRight, ArrowLeft } from "lucide-react";
 
+import { buildSignupHref } from "@/lib/auth-navigation";
 import { createProfileSetup, uploadImage } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -28,6 +29,7 @@ function SetupContent() {
     const refreshSession = useAuthStore((state) => state.refreshSession);
 
     const accountTypeParam = searchParams.get("accountType");
+    const nextPath = sanitizeNextPath(searchParams.get("next"));
     const accountType: AccountType = accountTypeParam === "student" ? "student" : "traveler";
 
     // Profile data
@@ -69,9 +71,9 @@ function SetupContent() {
 
     useEffect(() => {
         if (status === "unauthenticated") {
-            router.replace("/signup");
+            router.replace(buildSignupHref({ nextPath }));
         }
-    }, [router, status]);
+    }, [nextPath, router, status]);
 
     useEffect(() => {
         if (college.trim().length < 2) {
@@ -138,7 +140,7 @@ function SetupContent() {
                 profile_image_url: profileImageUrl ?? undefined,
             });
             await refreshSession();
-            router.push("/");
+            router.push(nextPath);
         } catch {
             setSaveError("Could not save your setup. Please try again.");
         } finally {
@@ -346,4 +348,16 @@ function SetupContent() {
             </div>
         </div>
     );
+}
+
+function sanitizeNextPath(rawPath: string | null): string {
+    if (!rawPath) {
+        return "/";
+    }
+
+    if (!rawPath.startsWith("/") || rawPath.startsWith("//")) {
+        return "/";
+    }
+
+    return rawPath;
 }

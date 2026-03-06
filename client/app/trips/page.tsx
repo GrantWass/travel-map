@@ -9,6 +9,7 @@ import PlacePicker from "@/components/place-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
 import { ApiError, createTrip, getTripRaw, updateTrip, uploadImage } from "@/lib/api-client";
 import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
@@ -186,7 +187,9 @@ function TripsPageContent() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/signup");
+      const inviteToken = getInviteTokenFromSearch(new URLSearchParams(window.location.search)) ?? getStoredInviteToken();
+      const nextPath = `${window.location.pathname}${window.location.search}`;
+      router.replace(buildSignupHref({ nextPath, inviteToken }));
     }
     if (status === "authenticated" && !isStudent) {
       router.replace("/");

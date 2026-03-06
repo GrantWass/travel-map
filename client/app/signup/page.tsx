@@ -4,9 +4,10 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
 import BrandNameButton from "@/components/brand-name-button";
+import { getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
 import { API_BASE_URL, setAuthToken, claimSmsInvite } from "@/lib/api-client";
 import type { User } from "@/lib/api-types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -17,12 +18,7 @@ type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
     const router = useRouter();
-    const [inviteToken, setInviteToken] = useState<string | null>(null);
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            setInviteToken(new URLSearchParams(window.location.search).get("invite"));
-        }
-    }, []);
+    const searchParams = useSearchParams();
     const setAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const setStatus = useAuthStore((state) => state.setStatus);
@@ -36,6 +32,15 @@ export default function SignUpPage() {
 
     const isSignup = mode === "signup";
     const isStudent = isSignup && accountType === "student";
+    const inviteTokenFromQuery = searchParams.get("invite");
+    const nextPath = sanitizeNextPath(searchParams.get("next"));
+    const inviteToken = (inviteTokenFromQuery || getStoredInviteToken())?.trim() || null;
+
+    useEffect(() => {
+        if (inviteTokenFromQuery) {
+            persistInviteToken(inviteTokenFromQuery);
+        }
+    }, [inviteTokenFromQuery]);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -95,6 +100,7 @@ export default function SignUpPage() {
                 if (token) {
                     try {
                         await claimSmsInvite(token);
+                        persistInviteToken(null);
                     } catch {
                         // Ignore claim failures — user created successfully regardless.
                     }
@@ -102,7 +108,8 @@ export default function SignUpPage() {
                 // Set to "loading" so AuthBootstrap doesn't redirect while /setup
                 // initializes its own refreshSession call.
                 setStatus("loading");
-                router.push(`/setup?accountType=${accountType}`);
+                const setupParams = new URLSearchParams({ accountType, next: nextPath });
+                router.push(`/setup?${setupParams.toString()}`);
                 return;
             } else {
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
@@ -110,6 +117,7 @@ export default function SignUpPage() {
                 if (token) {
                     try {
                         await claimSmsInvite(token);
+                        persistInviteToken(null);
                     } catch {
                         // ignore
                     }
@@ -118,7 +126,7 @@ export default function SignUpPage() {
                 await refreshMyProfile(loggedInUser.user_id);
             }
 
-            router.push("/");
+            router.push(nextPath);
             router.refresh();
         } catch {
             setError("Could not reach server. Make sure the server is running.");
@@ -422,4 +430,16 @@ export default function SignUpPage() {
             </div>
         </div>
     );
+}
+
+function sanitizeNextPath(rawPath: string | null): string {
+    if (!rawPath) {
+        return "/";
+    }
+
+    if (!rawPath.startsWith("/") || rawPath.startsWith("//")) {
+        return "/";
+    }
+
+    return rawPath;
 }

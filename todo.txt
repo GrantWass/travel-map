@@ -6,3 +6,5 @@ bounding box search implementation
 trip priority (text amount, AI check, or other method)
 map as default, sign in later
 other time optimizations??? (streaming results? idk)
+
+PROFILE OPENS UP TWICE AND IM NOT SURE WHY
