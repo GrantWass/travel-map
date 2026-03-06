@@ -3,7 +3,7 @@
 //TODO: fix
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin, GraduationCap, Globe } from "lucide-react";
 import BrandNameButton from "@/components/brand-name-button";
@@ -17,6 +17,14 @@ type Mode = "signup" | "signin";
 type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#fdf8f0]" />}>
+            <SignUpContent />
+        </Suspense>
+    );
+}
+
+function SignUpContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const setAuthenticatedUser = useAuthStore((state) => state.setAuthenticatedUser);
