@@ -296,11 +296,94 @@ def _are_friends(user_id_a: int, user_id_b: int) -> bool:
         return cur.fetchone() is not None
 
 
-def list_trips(viewer_user_id: int | None, bounding_box: BoundingBox | None = None) -> list[dict[str, Any]]:
+def _filter_trips_by_visibility(trips: list[dict[str, Any]], viewer_user_id: int | None) -> list[dict[str, Any]]:
+    """Filter trips based on visibility rules and viewer permissions."""
+    visible_trips = []
+    for trip in trips:
+        visibility = trip["visibility"]
+        owner_id = trip["owner_user_id"]
+        
+        if visibility == "public":
+            visible_trips.append(trip)
+        elif visibility == "private":
+            if viewer_user_id == owner_id:
+                visible_trips.append(trip)
+        elif visibility == "friends":
+            if viewer_user_id == owner_id:
+                visible_trips.append(trip)
+            elif viewer_user_id is not None and _are_friends(viewer_user_id, owner_id):
+                visible_trips.append(trip)
+    
+    return visible_trips
+
+
+def _maybe_hydrate_trips(trips: list[dict[str, Any]], include_children: bool) -> list[dict[str, Any]]:
+    """Conditionally hydrate trips with children based on include_children flag."""
+    if not include_children:
+        return trips
+    return _hydrate_trip_children(trips)
+
+
+def _list_non_public_visible_trip_ids(
+    viewer_user_id: int | None,
+    bounding_box: BoundingBox | None = None,
+) -> list[int]:
+    if viewer_user_id is None:
+        return []
+
+    where_sql, params = _append_bounding_box_filter(
+        """(
+            (t.owner_user_id = %s AND t.visibility <> 'public')
+            OR (
+                t.visibility = 'friends'
+                AND t.owner_user_id <> %s
+                AND EXISTS (
+                    SELECT 1 FROM friendships f
+                    WHERE f.status = 'accepted'
+                    AND (
+                        (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
+                        OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
+                    )
+                )
+            )
+        )""",
+        (viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id),
+        bounding_box,
+    )
+
+    with get_cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT t.trip_id
+            FROM trips t
+            WHERE {where_sql}
+            ORDER BY t.trip_id DESC
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+
+    return [int(row["trip_id"]) for row in rows]
+
+
+def list_non_public_visible_trip_ids(
+    viewer_user_id: int | None,
+    bounding_box: BoundingBox | None = None,
+) -> list[int]:
+    return _list_non_public_visible_trip_ids(viewer_user_id=viewer_user_id, bounding_box=bounding_box)
+
+
+def list_trips(
+    viewer_user_id: int | None,
+    bounding_box: BoundingBox | None = None,
+    include_children: bool = True,
+    public_only: bool = False,
+) -> list[dict[str, Any]]:
     now = monotonic()
 
     # TODO: why only cache when no bounding box?
-    if bounding_box is None:
+    # Only use cache for full hydrated trips
+    if bounding_box is None and include_children:
         with _trip_list_cache_lock:
             cache_entry = _trip_list_cache.get(viewer_user_id)
             if cache_entry is not None:
@@ -309,42 +392,56 @@ def list_trips(viewer_user_id: int | None, bounding_box: BoundingBox | None = No
                 if is_fresh and cache_version == _trip_list_cache_version:
                     return deepcopy(cached_value)
 
-    if viewer_user_id is None:
+    if viewer_user_id is None or public_only:
         where_sql, params = _append_bounding_box_filter("t.visibility = 'public'", tuple(), bounding_box)
         trips = _fetch_trip_rows(where_sql, params)
     else:
-        where_sql, params = _append_bounding_box_filter(
-            """(
-                t.visibility = 'public'
-                OR t.owner_user_id = %s
-                OR (
-                    t.visibility = 'friends'
-                    AND EXISTS (
-                        SELECT 1 FROM friendships f
-                        WHERE f.status = 'accepted'
-                        AND (
-                            (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
-                            OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
-                        )
-                    )
-                )
-            )""",
-            (viewer_user_id, viewer_user_id, viewer_user_id),
+        # First pass: public trips only (fast path).
+        public_where_sql, public_params = _append_bounding_box_filter(
+            "t.visibility = 'public'",
+            tuple(),
             bounding_box,
         )
-        trips = _fetch_trip_rows(where_sql, params)
+        public_trips = _fetch_trip_rows(public_where_sql, public_params)
 
-    hydrated = _hydrate_trip_children(trips)
+        # Second pass: non-public trips the viewer can see (owner/friends checks).
+        extra_trip_ids = _list_non_public_visible_trip_ids(
+            viewer_user_id=viewer_user_id,
+            bounding_box=bounding_box,
+        )
+        extra_trips = _fetch_trip_rows("t.trip_id = ANY(%s)", (extra_trip_ids,)) if extra_trip_ids else []
 
-    if bounding_box is None:
+        # Merge and preserve global trip_id desc ordering.
+        by_trip_id = {trip["trip_id"]: trip for trip in public_trips}
+        for trip in extra_trips:
+            by_trip_id[trip["trip_id"]] = trip
+        trips = sorted(by_trip_id.values(), key=lambda trip: trip["trip_id"], reverse=True)
+
+    result = _maybe_hydrate_trips(trips, include_children)
+
+    if bounding_box is None and include_children:
         with _trip_list_cache_lock:
             _trip_list_cache[viewer_user_id] = (
                 now,
                 _trip_list_cache_version,
-                deepcopy(hydrated),
+                deepcopy(result),
             )
 
-    return hydrated
+    return result
+
+
+def get_trips_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[dict[str, Any]]:
+    """Fetch specific trips by ID with visibility checks and children hydration."""
+    if not trip_ids:
+        return []
+
+    # Fetch trips using the common method with IN clause
+    trips = _fetch_trip_rows("t.trip_id = ANY(%s)", (trip_ids,))
+    
+    # Filter based on visibility permissions
+    visible_trips = _filter_trips_by_visibility(trips, viewer_user_id)
+    
+    return _maybe_hydrate_trips(visible_trips, include_children=True)
 
 
 def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dict[str, Any]]:
@@ -371,25 +468,21 @@ def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dic
             )""",
             (target_user_id, viewer_user_id, target_user_id, target_user_id, viewer_user_id),
         )
-    return _hydrate_trip_children(trips)
+    return _maybe_hydrate_trips(trips, include_children=True)
 
 
-def get_trip(trip_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
+def get_trip(trip_id: int, viewer_user_id: int | None, include_children: bool = True) -> dict[str, Any] | None:
     trips = _fetch_trip_rows("t.trip_id = %s", (trip_id,))
     if not trips:
         return None
 
-    trip = trips[0]
-    is_owner = viewer_user_id == trip["owner_user_id"]
-
-    if trip["visibility"] == "private" and not is_owner:
+    # Apply visibility filtering
+    visible_trips = _filter_trips_by_visibility(trips, viewer_user_id)
+    if not visible_trips:
         return None
-
-    if trip["visibility"] == "friends" and not is_owner:
-        if viewer_user_id is None or not _are_friends(viewer_user_id, trip["owner_user_id"]):
-            return None
-
-    return _hydrate_trip_children([trip])[0]
+    
+    hydrated_trips = _maybe_hydrate_trips(visible_trips, include_children)
+    return hydrated_trips[0]
 
 
 def _parse_visibility(value: Any) -> str:

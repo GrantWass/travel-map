@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
-import { ApiError, createTrip, getTripRaw, updateTrip, uploadImage } from "@/lib/api-client";
+import { ApiError, createTrip, getTripFull, updateTrip, uploadImage } from "@/lib/api-client";
 import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
 import type { TripDuration, TripVisibility } from "@/lib/api-types";
@@ -229,7 +229,7 @@ function TripsPageContent() {
     setIsLoadingEditTrip(true);
     setEditLoadError("");
 
-    getTripRaw(editTripId)
+    getTripFull(editTripId)
       .then((trip) => {
         if (userId !== null && trip.owner_user_id !== userId) {
           setEditLoadError("You don't have permission to edit this trip.");

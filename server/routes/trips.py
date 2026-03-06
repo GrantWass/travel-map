@@ -15,6 +15,8 @@ from services.trip_service import (
     create_trip,
     delete_trip,
     get_trip,
+    get_trips_by_ids,
+    list_non_public_visible_trip_ids,
     list_trip_comments,
     list_trips,
     update_trip,
@@ -70,13 +72,73 @@ def get_trips():
 
     try:
         bounding_box = _parse_optional_bounding_box(request.args)
-        trips = list_trips(viewer_user_id=viewer_user_id, bounding_box=bounding_box)
-        return jsonify({"trips": trips}), 200
+        include_children = request.args.get("include_children", "true").lower() in ("true", "1", "yes")
+        public_only = request.args.get("public_only", "false").lower() in ("true", "1", "yes")
+        trips = list_trips(
+            viewer_user_id=viewer_user_id,
+            bounding_box=bounding_box,
+            include_children=include_children,
+            public_only=public_only,
+        )
+        response_payload: dict[str, Any] = {"trips": trips}
+        return jsonify(response_payload), 200
     except TripValidationError as error:
         return jsonify({"error": str(error)}), 400
     except Exception as error:
         current_app.logger.exception("List trips failed")
         return jsonify({"error": f"list trips failed: {str(error)}"}), 500
+
+
+@trips_bp.route("/trips/deferred-ids", methods=["GET", "OPTIONS"])
+def get_deferred_trip_ids():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    viewer = get_authenticated_user()
+    viewer_user_id = viewer["user_id"] if viewer else None
+
+    try:
+        bounding_box = _parse_optional_bounding_box(request.args)
+        trip_ids = list_non_public_visible_trip_ids(viewer_user_id=viewer_user_id, bounding_box=bounding_box)
+        return jsonify({"trip_ids": trip_ids}), 200
+    except TripValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception as error:
+        current_app.logger.exception("Get deferred trip IDs failed")
+        return jsonify({"error": f"get deferred trip ids failed: {str(error)}"}), 500
+
+
+@trips_bp.route("/trips/batch", methods=["GET", "OPTIONS"])
+def get_trips_batch():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    viewer = get_authenticated_user()
+    viewer_user_id = viewer["user_id"] if viewer else None
+
+    try:
+        trip_ids_raw = request.args.get("ids", "")
+        if not trip_ids_raw.strip():
+            return jsonify({"error": "ids parameter is required"}), 400
+
+        trip_ids = []
+        for id_str in trip_ids_raw.split(","):
+            id_str = id_str.strip()
+            if not id_str:
+                continue
+            try:
+                trip_ids.append(int(id_str))
+            except ValueError:
+                return jsonify({"error": f"invalid trip id: {id_str}"}), 400
+
+        if not trip_ids:
+            return jsonify({"trips": []}), 200
+
+        trips = get_trips_by_ids(trip_ids, viewer_user_id)
+        return jsonify({"trips": trips}), 200
+    except Exception as error:
+        current_app.logger.exception("Get trips batch failed")
+        return jsonify({"error": f"get trips batch failed: {str(error)}"}), 500
 
 
 @trips_bp.route("/trips/<int:trip_id>", methods=["GET", "OPTIONS"])
@@ -88,7 +150,8 @@ def get_trip_by_id(trip_id: int):
     viewer_user_id = viewer["user_id"] if viewer else None
 
     try:
-        trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id)
+        include_children = request.args.get("include_children", "true").lower() in ("true", "1", "yes")
+        trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id, include_children=include_children)
         if not trip:
             return jsonify({"error": "trip not found"}), 404
 

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { getTrips } from "@/lib/api-client";
+import { getPublicTrips, getTripsBatch } from "@/lib/api-client";
 import type { FriendshipRecord, Trip, TripActivity, TripLodging } from "@/lib/api-types";
 
 export const MAX_COST = 500;
@@ -44,8 +44,15 @@ export const useTripSearchStore = create<TripSearchState>((set) => ({
     })),
 }));
 
-export async function fetchActiveTrips(): Promise<Trip[]> {
-  const apiTrips = await getTrips();
+export async function hydrateTripsWithChildren(tripIds: number[]): Promise<Trip[]> {
+  if (tripIds.length === 0) {
+    return [];
+  }
+  return getTripsBatch(tripIds);
+}
+
+export async function fetchPublicTripsLightweight(): Promise<Trip[]> {
+  const apiTrips = await getPublicTrips();
   const now = new Date();
 
   return apiTrips

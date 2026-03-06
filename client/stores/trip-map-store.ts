@@ -3,7 +3,8 @@ import { create } from "zustand";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { getLocationKey, getTripTimestamp } from "@/lib/utils";
-import { fetchActiveTrips } from "@/stores/trip-search-store";
+import { fetchPublicTripsLightweight, hydrateTripsWithChildren } from "@/stores/trip-search-store";
+import { getDeferredTripIds } from "@/lib/api-client";
 
 interface TripMapStoreState {
     trips: Trip[];
@@ -82,14 +83,7 @@ export function deriveTripMapPanels(inputs: TripMapPanelInputs): TripMapPanels {
     const showTopLeftControls = !showSidebar && !showFullScreen && !showSearchPanel && !showPlansPanel;
     const showAnyLeftSidebar = showSidebar || showFullScreen || showSearchPanel || showPlansPanel;
 
-    return {
-        showSidebar,
-        showFullScreen,
-        showSearchPanel,
-        showPlansPanel,
-        showTopLeftControls,
-        showAnyLeftSidebar,
-    };
+    return { showSidebar, showFullScreen, showSearchPanel, showPlansPanel, showTopLeftControls, showAnyLeftSidebar };
 }
 
 function getTripsAtLocation(trips: Trip[], selectedTrip: Trip | null): Trip[] {
@@ -141,12 +135,42 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         set({ isLoadingTrips: true });
 
         try {
-            const trips = await fetchActiveTrips();
-            set({ trips });
-        } catch {
-            set({ trips: [] });
-        } finally {
-            set({ isLoadingTrips: false });
+            // Load public trips first for fastest render.
+            const publicTrips = await fetchPublicTripsLightweight();
+            set({ trips: publicTrips, isLoadingTrips: false });
+
+            // In the background, hydrate public + deferred IDs
+            {
+                const publicTripIds = publicTrips.map((trip) => trip.trip_id);
+
+                // Get defered trip IDs (friends and private trips)
+                const deferredTripIds = await getDeferredTripIds();
+                const allVisibleTripIds = Array.from(new Set([...publicTripIds, ...deferredTripIds]));
+
+                // Hydrate the visible set of trips with children.
+                const hydratedVisibleTrips = await hydrateTripsWithChildren(allVisibleTripIds);
+
+                // Replace with the fully hydrated visible set.
+                set((state) => {
+                    const updatedTrips = [...hydratedVisibleTrips].sort(
+                        (left, right) => right.trip_id - left.trip_id,
+                    );
+                    const hydratedMap = new Map(updatedTrips.map((trip) => [trip.trip_id, trip]));
+
+                    return {
+                        trips: updatedTrips,
+                        selectedTrip: state.selectedTrip && hydratedMap.has(state.selectedTrip.trip_id)
+                            ? hydratedMap.get(state.selectedTrip.trip_id)!
+                            : state.selectedTrip,
+                        fullScreenTrip: state.fullScreenTrip && hydratedMap.has(state.fullScreenTrip.trip_id)
+                            ? hydratedMap.get(state.fullScreenTrip.trip_id)!
+                            : state.fullScreenTrip,
+                    };
+                });
+            }
+        } catch (error) {
+            console.error("Failed to load trips:", error);
+            set({ trips: [], isLoadingTrips: false });
         }
     },
     setTrips: (trips) => set({ trips }),
@@ -273,12 +297,8 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         })),
     setIsLoadingTrips: (isLoadingTrips) => set({ isLoadingTrips }),
     setIsLoadingTripById: (isLoadingTripById) => set({ isLoadingTripById }),
-    getSavedActivityIdSet: () => {
-        return new Set(get().savedActivityIds);
-    },
-    getSavedLodgingIdSet: () => {
-        return new Set(get().savedLodgingIds);
-    },
+    getSavedActivityIdSet: () => new Set(get().savedActivityIds),
+    getSavedLodgingIdSet: () => new Set(get().savedLodgingIds),
     getSavedActivities: () => {
         const state = get();
         const savedActivityIds = new Set(state.savedActivityIds);
@@ -309,10 +329,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                 })),
         );
     },
-    getTripsAtSelectedLocation: () => {
-        const state = get();
-        return getTripsAtLocation(state.trips, state.selectedTrip);
-    },
+    getTripsAtSelectedLocation: () => getTripsAtLocation(get().trips, get().selectedTrip),
     getSelectedTripLocationIndex: () => {
         const state = get();
         if (!state.selectedTrip) {
@@ -323,8 +340,5 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
 
         return tripsAtSelectedLocation.findIndex((trip) => trip.trip_id === state.selectedTrip?.trip_id);
     },
-    getSelectedLocationContext: () => {
-        const state = get();
-        return deriveSelectedLocationContext(state.trips, state.selectedTrip);
-    }
+    getSelectedLocationContext: () => deriveSelectedLocationContext(get().trips, get().selectedTrip)
 }));

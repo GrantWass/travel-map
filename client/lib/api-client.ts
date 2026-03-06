@@ -122,9 +122,20 @@ export async function updateProfileSettings(payload: {
   });
 }
 
-export async function getTrips(): Promise<Trip[]> {
-  const data = await requestJson<{ trips: Trip[] }>("/trips", { method: "GET" });
+export async function getPublicTrips(): Promise<Trip[]> {
+  const params = new URLSearchParams();
+  params.set("include_children", "false");
+  params.set("public_only", "true");
+  const data = await requestJson<{ trips: Trip[] }>(
+    `/trips?${params.toString()}`,
+    { method: "GET" },
+  );
   return data.trips;
+}
+
+export async function getDeferredTripIds(): Promise<number[]> {
+  const data = await requestJson<{ trip_ids: number[] }>("/trips/deferred-ids", { method: "GET" });
+  return data.trip_ids;
 }
 
 const PLACEHOLDER_IMAGE =
@@ -163,9 +174,29 @@ export async function updateTrip(tripId: number, payload: UpdateTripPayload): Pr
   return data.trip;
 }
 
-export async function getTripRaw(tripId: number): Promise<Trip> {
-  const data = await requestJson<{ trip: Trip }>(`/trips/${tripId}`, { method: "GET" });
+/**
+ * Fetches full trip details including children (activities, lodgings, tags, comments)
+ * Use after initial lightweight load for better performance
+ */
+export async function getTripFull(tripId: number): Promise<Trip> {
+  const params = new URLSearchParams();
+  params.set("include_children", "true");
+  const data = await requestJson<{ trip: Trip }>(`/trips/${tripId}?${params.toString()}`, { method: "GET" });
   return data.trip;
+}
+
+/**
+ * Fetches multiple trips with all children (activities, lodgings, tags, comments)
+ * Pass trip IDs to hydrate them in a single batch request
+ */
+export async function getTripsBatch(tripIds: number[]): Promise<Trip[]> {
+  if (tripIds.length === 0) {
+    return [];
+  }
+  const params = new URLSearchParams();
+  params.set("ids", tripIds.join(","));
+  const data = await requestJson<{ trips: Trip[] }>(`/trips/batch?${params.toString()}`, { method: "GET" });
+  return data.trips;
 }
 
 export async function uploadImage(file: File, folder = "trips"): Promise<string> {
