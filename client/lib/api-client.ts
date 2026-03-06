@@ -4,6 +4,7 @@ import type {
   CreateTripPayload,
   UpdateTripPayload,
   SessionResponse,
+  TripComment,
   User,
   Trip,
   UserProfileResponse,
@@ -215,6 +216,21 @@ export async function addTripActivity(tripId: number, payload: AddActivityPayloa
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function getTripComments(tripId: number): Promise<TripComment[]> {
+  const data = await requestJson<{ comments: TripComment[] }>(`/trips/${tripId}/comments`, {
+    method: "GET",
+  });
+  return data.comments;
+}
+
+export async function createTripComment(tripId: number, body: string): Promise<TripComment> {
+  const data = await requestJson<{ message: string; comment: TripComment }>(`/trips/${tripId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+  return data.comment;
 }
 
 export async function deleteTrip(tripId: number) {

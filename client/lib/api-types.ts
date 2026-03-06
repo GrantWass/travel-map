@@ -40,6 +40,7 @@ export interface TripComment {
   body: string;
   created_at: string | null;
   user_name: string | null;
+  user_profile_image_url?: string | null;
 }
 
 export interface TripLodging {

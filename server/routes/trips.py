@@ -9,11 +9,13 @@ from services.trip_service import (
     TripForbiddenError,
     TripNotFoundError,
     TripValidationError,
+    create_trip_comment,
     add_activity,
     add_lodging,
     create_trip,
     delete_trip,
     get_trip,
+    list_trip_comments,
     list_trips,
     update_trip,
 )
@@ -201,3 +203,47 @@ def add_activity_route(trip_id: int):
     except Exception as error:
         current_app.logger.exception("Add activity failed")
         return jsonify({"error": f"add activity failed: {str(error)}"}), 500
+
+
+@trips_bp.route("/trips/<int:trip_id>/comments", methods=["GET", "OPTIONS"])
+def get_trip_comments_route(trip_id: int):
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    viewer = get_authenticated_user()
+    viewer_user_id = viewer["user_id"] if viewer else None
+
+    try:
+        comments = list_trip_comments(trip_id=trip_id, viewer_user_id=viewer_user_id)
+        return jsonify({"comments": comments}), 200
+    except TripNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    except Exception as error:
+        current_app.logger.exception("List trip comments failed")
+        return jsonify({"error": f"list trip comments failed: {str(error)}"}), 500
+
+
+@trips_bp.route("/trips/<int:trip_id>/comments", methods=["POST", "OPTIONS"])
+def create_trip_comment_route(trip_id: int):
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        comment = create_trip_comment(
+            trip_id=trip_id,
+            user_id=user["user_id"],
+            body=payload.get("body"),
+        )
+        return jsonify({"message": "comment created", "comment": comment}), 201
+    except TripValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except TripNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    except Exception as error:
+        current_app.logger.exception("Create trip comment failed")
+        return jsonify({"error": f"create trip comment failed: {str(error)}"}), 500

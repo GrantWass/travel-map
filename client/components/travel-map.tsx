@@ -16,7 +16,7 @@ import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, deleteTrip, getSavedPlans, getTrip, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, createTripComment, deleteTrip, getSavedPlans, getTrip, getTripComments, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -39,7 +39,7 @@ interface ProfileState {
     canEditProfile: boolean;
 }
 
-type SignupPromptIntent = "add-trip" | "friends" | "plans" | "profile" | "save-to-plans";
+type SignupPromptIntent = "add-trip" | "friends" | "plans" | "profile" | "save-to-plans" | "comment";
 
 const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; description: string }> = {
     "add-trip": {
@@ -61,6 +61,10 @@ const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; descriptio
     "save-to-plans": {
         title: "Create an account to save to plans",
         description: "Sign up or sign in to save activities and lodgings for later.",
+    },
+    comment: {
+        title: "Create an account to comment",
+        description: "Sign up or sign in to join the conversation on this trip.",
     },
 };
 
@@ -109,6 +113,8 @@ export default function TravelMap() {
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
     const [signupPromptIntent, setSignupPromptIntent] = useState<SignupPromptIntent | null>(null);
+    const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
+    const [commentError, setCommentError] = useState<string | null>(null);
     const ownerFilter = useTripSearchStore((state) => state.ownerFilter);
     const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
@@ -252,6 +258,10 @@ export default function TravelMap() {
         const cached = toUserProfileFromApi(myProfile);
         setProfileCacheByUser((current) => ({ ...current, [cached.user_id]: cached }));
     }, [myProfile]);
+
+    useEffect(() => {
+        setCommentError(null);
+    }, [selectedTrip?.trip_id]);
 
     const openTripById = useCallback(
         async (tripId: number | null) => {
@@ -460,6 +470,47 @@ export default function TravelMap() {
         [refreshMyProfile, removeTripById, userId],
     );
 
+        const handleLoadComments = useCallback(async () => {
+            if (!selectedTrip) {
+                return;
+            }
+
+            try {
+                const comments = await getTripComments(selectedTrip.trip_id);
+                upsertTrip({ ...selectedTrip, comments });
+                setCommentError(null);
+            } catch {
+                setCommentError("Could not load comments right now.");
+            }
+        }, [selectedTrip, upsertTrip]);
+
+        const handleCreateComment = useCallback(
+            async (body: string) => {
+                if (!selectedTrip) {
+                    return;
+                }
+                if (userId === null) {
+                    openSignupPrompt("comment");
+                    return;
+                }
+
+                setIsCommentSubmitting(true);
+                setCommentError(null);
+                try {
+                    const createdComment = await createTripComment(selectedTrip.trip_id, body);
+                    upsertTrip({
+                        ...selectedTrip,
+                        comments: [createdComment, ...(selectedTrip.comments ?? [])],
+                    });
+                } catch {
+                    setCommentError("Could not post comment right now.");
+                } finally {
+                    setIsCommentSubmitting(false);
+                }
+            },
+            [openSignupPrompt, selectedTrip, upsertTrip, userId],
+        );
+
     const topLeftControlsWidthClass = "w-[min(506px,calc(100vw-2rem))]";
 
     const friendIds = useMemo(() => getFriendIds(acceptedFriendships, userId), [acceptedFriendships, userId]);
@@ -603,6 +654,17 @@ export default function TravelMap() {
                             onShowNextTripAtLocation={handleShowNextTripAtLocation}
                             canShowPreviousTripAtLocation={selectedLocationContext.hasPrevious}
                             canShowNextTripAtLocation={selectedLocationContext.hasNext}
+                            comments={selectedTrip.comments ?? []}
+                            isAuthenticated={userId !== null}
+                            isCommentSubmitting={isCommentSubmitting}
+                            commentError={commentError}
+                            onCommentSubmit={handleCreateComment}
+                            onLoadComments={() => {
+                                void handleLoadComments();
+                            }}
+                            onRequireSignInToComment={() => {
+                                openSignupPrompt("comment");
+                            }}
                         />
                     )}
                     {mapPanels.showSearchPanel && (

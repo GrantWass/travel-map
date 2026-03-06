@@ -191,7 +191,14 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         cur.execute(
             """
-            SELECT c.comment_id, c.user_id, c.trip_id, c.body, c.created_at, u.name AS user_name
+            SELECT
+                c.comment_id,
+                c.user_id,
+                c.trip_id,
+                c.body,
+                c.created_at,
+                u.name AS user_name,
+                u.profile_image_url AS user_profile_image_url
             FROM comments c
             JOIN travelers u ON u.user_id = c.user_id
             WHERE c.trip_id = ANY(%s)
@@ -208,6 +215,7 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "body": row.get("body") or "",
                     "created_at": _as_datetime_iso(row.get("created_at")),
                     "user_name": row.get("user_name"),
+                    "user_profile_image_url": row.get("user_profile_image_url"),
                 }
             )
 
@@ -929,4 +937,95 @@ def get_user_profile(*, user_id: int, viewer_user_id: int | None) -> dict[str, A
             "profile_image_url": user_row.get("profile_image_url"),
         },
         "trips": trip_entries,
+    }
+
+
+def list_trip_comments(*, trip_id: int, viewer_user_id: int | None) -> list[dict[str, Any]]:
+    trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id)
+    if not trip:
+        raise TripNotFoundError("trip not found")
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                c.comment_id,
+                c.user_id,
+                c.trip_id,
+                c.body,
+                c.created_at,
+                u.name AS user_name,
+                u.profile_image_url AS user_profile_image_url
+            FROM comments c
+            JOIN travelers u ON u.user_id = c.user_id
+            WHERE c.trip_id = %s
+            ORDER BY c.created_at DESC
+            """,
+            (trip_id,),
+        )
+        rows = cur.fetchall()
+
+    comments: list[dict[str, Any]] = []
+    for row in rows:
+        comments.append(
+            {
+                "comment_id": int(row["comment_id"]),
+                "user_id": int(row["user_id"]),
+                "trip_id": int(row["trip_id"]),
+                "body": row.get("body") or "",
+                "created_at": _as_datetime_iso(row.get("created_at")),
+                "user_name": row.get("user_name"),
+                "user_profile_image_url": row.get("user_profile_image_url"),
+            }
+        )
+
+    return comments
+
+
+def create_trip_comment(*, trip_id: int, user_id: int, body: Any) -> dict[str, Any]:
+    trip = get_trip(trip_id=trip_id, viewer_user_id=user_id)
+    if not trip:
+        raise TripNotFoundError("trip not found")
+
+    normalized_body = to_nullable_string(body)
+    if not normalized_body:
+        raise TripValidationError("comment body is required")
+    if len(normalized_body) > 1200:
+        raise TripValidationError("comment body must be 1200 characters or fewer")
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            INSERT INTO comments (user_id, trip_id, body)
+            VALUES (%s, %s, %s)
+            RETURNING comment_id, user_id, trip_id, body, created_at
+            """,
+            (user_id, trip_id, normalized_body),
+        )
+        created_comment = cur.fetchone()
+
+        if not created_comment:
+            raise TripValidationError("failed to create comment")
+
+        cur.execute(
+            """
+            SELECT name, profile_image_url
+            FROM travelers
+            WHERE user_id = %s
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+        author_row = cur.fetchone()
+
+    invalidate_trip_list_cache()
+
+    return {
+        "comment_id": int(created_comment["comment_id"]),
+        "user_id": int(created_comment["user_id"]),
+        "trip_id": int(created_comment["trip_id"]),
+        "body": created_comment.get("body") or "",
+        "created_at": _as_datetime_iso(created_comment.get("created_at")),
+        "user_name": author_row.get("name") if author_row else None,
+        "user_profile_image_url": author_row.get("profile_image_url") if author_row else None,
     }

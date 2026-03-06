@@ -1,12 +1,14 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Image from "next/image";
-import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil } from "lucide-react";
+import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
-import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
+import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-types";
 import { formatTripDate, formatPopupTimeRange } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 
@@ -24,6 +26,13 @@ interface SidebarPanelProps {
     onShowNextTripAtLocation: () => void;
     canShowPreviousTripAtLocation: boolean;
     canShowNextTripAtLocation: boolean;
+    comments: TripComment[];
+    isAuthenticated: boolean;
+    isCommentSubmitting: boolean;
+    commentError: string | null;
+    onCommentSubmit: (body: string) => Promise<void>;
+    onLoadComments: () => void;
+    onRequireSignInToComment: () => void;
 }
 
 function formatCost(cost: number | null | undefined): string | null {
@@ -63,6 +72,13 @@ export default function SidebarPanel({
     onShowNextTripAtLocation,
     canShowPreviousTripAtLocation,
     canShowNextTripAtLocation,
+    comments,
+    isAuthenticated,
+    isCommentSubmitting,
+    commentError,
+    onCommentSubmit,
+    onLoadComments,
+    onRequireSignInToComment,
 }: SidebarPanelProps) {
     const selectedActivity = useTripMapStore((state) => state.selectedActivity);
     const selectedLodging = useTripMapStore((state) => state.selectedLodging);
@@ -93,6 +109,35 @@ export default function SidebarPanel({
     }
 
     const isPopupEvent = Boolean(review.event_start && review.event_end);
+    const [commentInput, setCommentInput] = useState("");
+    const [commentInputError, setCommentInputError] = useState<string | null>(null);
+
+    const sortedComments = useMemo(
+        () =>
+            [...comments].sort((left, right) => {
+                const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
+                const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
+                return rightTime - leftTime;
+            }),
+        [comments],
+    );
+
+    async function handleCommentSubmit() {
+        if (!isAuthenticated) {
+            onRequireSignInToComment();
+            return;
+        }
+
+        const body = commentInput.trim();
+        if (!body) {
+            setCommentInputError("Write a comment before posting.");
+            return;
+        }
+
+        setCommentInputError(null);
+        await onCommentSubmit(body);
+        setCommentInput("");
+    }
 
     return (
         <div className="relative flex h-full w-full flex-col bg-card border-r border-border">
@@ -422,6 +467,107 @@ export default function SidebarPanel({
                             )}
                         </div>
                     )}
+
+                    <div className="flex flex-col gap-3 border-t border-border pt-4">
+                        <div className="flex items-center justify-between gap-2">
+                            <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                Comments ({sortedComments.length})
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={onLoadComments}
+                                className="text-xs font-medium text-primary transition-opacity hover:opacity-80"
+                            >
+                                Refresh
+                            </button>
+                        </div>
+
+                        {isAuthenticated ? (
+                            <div className="rounded-xl border border-border bg-secondary/40 p-2">
+                                <textarea
+                                    value={commentInput}
+                                    onChange={(event) => {
+                                        setCommentInput(event.target.value);
+                                        if (commentInputError) {
+                                            setCommentInputError(null);
+                                        }
+                                    }}
+                                    placeholder="Share a tip or thought about this trip"
+                                    rows={3}
+                                    className="w-full resize-none rounded-md bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                                    disabled={isCommentSubmitting}
+                                    maxLength={1200}
+                                />
+                                <div className="mt-2 flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">{commentInput.trim().length}/1200</span>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => void handleCommentSubmit()}
+                                        disabled={isCommentSubmitting}
+                                    >
+                                        <SendHorizontal className="mr-1.5 h-3.5 w-3.5" />
+                                        {isCommentSubmitting ? "Posting..." : "Post"}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-border p-3">
+                                <p className="text-sm text-muted-foreground">Sign up or sign in to leave a comment.</p>
+                                <Button type="button" size="sm" className="mt-2" onClick={onRequireSignInToComment}>
+                                    Sign up to comment
+                                </Button>
+                            </div>
+                        )}
+
+                        {(commentInputError || commentError) && (
+                            <p className="text-xs text-destructive">{commentInputError ?? commentError}</p>
+                        )}
+
+                        <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                            {sortedComments.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No comments yet. Be the first to add one.</p>
+                            ) : (
+                                sortedComments.map((comment) => {
+                                    const authorName = comment.user_name || "Traveler";
+                                    const initials = authorName
+                                        .split(" ")
+                                        .filter(Boolean)
+                                        .map((part) => part[0])
+                                        .join("")
+                                        .slice(0, 2)
+                                        .toUpperCase() || "?";
+                                    const createdAtLabel = comment.created_at
+                                        ? new Date(comment.created_at).toLocaleString()
+                                        : "";
+
+                                    return (
+                                        <div key={comment.comment_id} className="rounded-xl border border-border bg-background p-3">
+                                            <div className="mb-1.5 flex items-center gap-2">
+                                                {comment.user_profile_image_url ? (
+                                                    <img
+                                                        src={comment.user_profile_image_url}
+                                                        alt={`${authorName} avatar`}
+                                                        className="h-6 w-6 rounded-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                                                        {initials}
+                                                    </div>
+                                                )}
+                                                <span className="text-xs font-medium text-foreground">{authorName}</span>
+                                                {createdAtLabel && (
+                                                    <span className="text-[11px] text-muted-foreground">· {createdAtLabel}</span>
+                                                )}
+                                            </div>
+                                            <p className="whitespace-pre-wrap break-words text-sm text-foreground/85">{comment.body}</p>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
                 </div>
             </ScrollArea>
 
