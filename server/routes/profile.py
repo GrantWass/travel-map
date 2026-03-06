@@ -5,7 +5,7 @@ from flask import Blueprint, current_app, jsonify, request
 from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_profile, update_user_settings
 from services.trip_service import get_user_profile, list_user_trips
 from services.auth_service import search_users as svc_search_users
-from services.sms_service import create_sms_invite as svc_create_sms_invite, claim_sms_invite as svc_claim_sms_invite
+from services.sms_service import create_sms_invite as svc_create_sms_invite, create_link_invite as svc_create_link_invite, claim_sms_invite as svc_claim_sms_invite
 from services.friendship_service import create_friend_request as svc_create_friend_request, respond_friend_request as svc_respond_friend_request
 from services.friendship_service import list_friendships as svc_list_friendships
 
@@ -182,6 +182,23 @@ def create_sms_invite():
     except Exception as error:
         current_app.logger.exception("Create sms invite failed")
         return jsonify({"error": f"create sms invite failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/sms-invites/link", methods=["POST", "OPTIONS"])
+def create_link_invite():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        invite = svc_create_link_invite(inviter_id=user["user_id"])
+        return jsonify({"message": "invite link created", "invite": invite}), 201
+    except Exception as error:
+        current_app.logger.exception("Create invite link failed")
+        return jsonify({"error": f"create invite link failed: {str(error)}"}), 500
 
 
 @profile_bp.route("/sms-invites/claim", methods=["POST", "OPTIONS"])

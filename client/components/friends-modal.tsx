@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, UserPlus, Phone, Check, Slash } from "lucide-react";
+import { X, UserPlus, Phone, Check, Slash, Copy, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   createSmsInvite,
+  createInviteLink,
   createFriendRequest,
   respondFriendRequest,
   getUserProfile,
@@ -174,6 +175,9 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
+  const [inviteLink, setInviteLink] = useState("/signup");
+  const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
+  const [copyInviteState, setCopyInviteState] = useState<"idle" | "copied" | "error">("idle");
 
   const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
 
@@ -195,6 +199,30 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
     } else {
       void load();
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const baseSignupUrl = `${window.location.origin}/signup`;
+    setInviteLink(baseSignupUrl);
+
+    const loadInviteLink = async () => {
+      setInviteLinkLoading(true);
+      try {
+        const response = await createInviteLink();
+        const inviteToken = response?.invite?.invite_token;
+        if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
+          setInviteLink(`${baseSignupUrl}?invite=${encodeURIComponent(inviteToken)}`);
+        }
+      } catch {
+        // Keep fallback signup URL when token generation fails.
+      } finally {
+        setInviteLinkLoading(false);
+      }
+    };
+
+    void loadInviteLink();
   }, []);
 
   async function handleSendInvite() {
@@ -244,6 +272,17 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
       setError(err?.message || "Could not send friend request");
     } finally {
       setRequestBusy(false);
+    }
+  }
+
+  async function handleCopyInviteLink() {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopyInviteState("copied");
+      window.setTimeout(() => setCopyInviteState("idle"), 1600);
+    } catch {
+      setCopyInviteState("error");
+      window.setTimeout(() => setCopyInviteState("idle"), 2200);
     }
   }
 
@@ -303,8 +342,34 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
           </div>
 
           <div className="p-4 grid gap-6">
-            {/* SMS Invite */}
+            <section>
+              <h3 className="text-sm font-medium">Invite link</h3>
 
+              <div className="mt-2 flex gap-2">
+                <div className="flex h-10 flex-1 items-center gap-2 rounded-md border border-input px-3 text-sm text-muted-foreground">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">
+                    {inviteLinkLoading ? "Generating invite link..." : inviteLink}
+                  </span>
+                </div>
+                <Button onClick={handleCopyInviteLink} disabled={inviteLinkLoading}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {copyInviteState === "copied"
+                    ? "Copied"
+                    : copyInviteState === "error"
+                    ? "Retry"
+                    : "Copy"}
+                </Button>
+              </div>
+
+              {copyInviteState === "error" && (
+                <div className="mt-2 text-sm text-red-600">
+                  Could not copy automatically. You can still copy the link above.
+                </div>
+              )}
+            </section>
+
+            {/*
             <section>
               <h3 className="text-sm font-medium">Invite via SMS</h3>
 
@@ -329,6 +394,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                 <div className="text-sm text-red-600 mt-2">{phoneError}</div>
               )}
             </section>
+            */}
 
             {/* Search */}
 

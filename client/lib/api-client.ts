@@ -241,6 +241,12 @@ export async function createSmsInvite(phoneNumber: string) {
   });
 }
 
+export async function createInviteLink() {
+  return requestJson<{ message: string; invite: { invite_token?: string | null } }>("/sms-invites/link", {
+    method: "POST",
+  });
+}
+
 export async function claimSmsInvite(inviteToken: string) {
   return requestJson<{ message: string; invite: any }>("/sms-invites/claim", {
     method: "POST",

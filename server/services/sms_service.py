@@ -52,6 +52,22 @@ def create_sms_invite(*, inviter_id: int, phone_number: str) -> dict[str, Any]:
     return result
 
 
+def create_link_invite(*, inviter_id: int) -> dict[str, Any]:
+    token = uuid.uuid4().hex
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            INSERT INTO sms_invites (inviter_id, phone_number, invite_token, status)
+            VALUES (%s, %s, %s, 'sent')
+            RETURNING id, inviter_id, phone_number, invite_token, status, claimed_user_id, created_at
+            """,
+            (inviter_id, "", token),
+        )
+        row = cur.fetchone()
+
+    return dict(row) if row else {}
+
+
 def claim_sms_invite(*, invite_token: str, claimed_user_id: int) -> Optional[dict[str, Any]]:
     with get_cursor(commit=True) as cur:
         cur.execute("SELECT id, status FROM sms_invites WHERE invite_token = %s LIMIT 1", (invite_token,))
