@@ -253,6 +253,45 @@ Relationships:
 
 ---
 
+## TABLE: user_comment_read_state
+
+Tracks comment-notification read cursor for each user.
+
+Columns:
+
+* user_id (PK, FK → travelers.user_id)
+* last_seen_trip_comment_at (timestamp with timezone)
+
+Relationships:
+
+* one row per user
+* used to calculate unread comments on trips they own
+
+---
+
+## COMMENT NOTIFICATION API STRUCTURES
+
+### GET /users/me/notifications/comments/unread-count
+
+Response:
+
+* unread_count (integer total)
+* unread_count_by_trip (dictionary/map of trip_id → count)
+
+Example:
+
+* unread_count = 7
+* unread_count_by_trip = {"12": 2, "44": 5}
+
+### POST /users/me/notifications/comments/mark-read
+
+Response:
+
+* message
+* last_seen_at (ISO timestamp)
+
+---
+
 ## SPATIAL / POSTGIS TABLES
 
 These are system tables used by PostGIS.

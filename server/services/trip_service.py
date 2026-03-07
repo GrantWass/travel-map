@@ -21,7 +21,6 @@ _trip_list_cache_lock = Lock()
 _trip_list_cache_version = 0
 _trip_list_cache: dict[int | None, tuple[float, int, list[dict[str, Any]]]] = {}
 
-
 BoundingBox = tuple[float, float, float, float]
 
 
@@ -35,7 +34,6 @@ class TripNotFoundError(LookupError):
 
 class TripForbiddenError(PermissionError):
     pass
-
 
 def invalidate_trip_list_cache() -> None:
     global _trip_list_cache_version
@@ -1224,3 +1222,44 @@ def create_trip_comment(*, trip_id: int, user_id: int, body: Any) -> dict[str, A
         "user_name": author_row.get("name") if author_row else None,
         "user_profile_image_url": author_row.get("profile_image_url") if author_row else None,
     }
+
+def get_unread_trip_comment_count_by_trip(*, user_id: int) -> dict[int, int]:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT c.trip_id, COUNT(*) AS unread_count
+            FROM comments c
+            JOIN trips t ON t.trip_id = c.trip_id
+            LEFT JOIN user_comment_read_state rs ON rs.user_id = %s
+            WHERE t.owner_user_id = %s
+            AND c.user_id <> %s
+            AND (rs.last_seen_trip_comment_at IS NULL OR c.created_at > rs.last_seen_trip_comment_at)
+            GROUP BY c.trip_id
+            """,
+            (user_id, user_id, user_id),
+        )
+        rows = cur.fetchall()
+
+    return {
+        int(row["trip_id"]): int(row["unread_count"])
+        for row in rows
+        if row.get("trip_id") is not None and row.get("unread_count") is not None
+    }
+
+
+def mark_trip_comment_notifications_read(*, user_id: int) -> str | None:
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            INSERT INTO user_comment_read_state (user_id, last_seen_trip_comment_at)
+            VALUES (%s, NOW())
+            ON CONFLICT (user_id)
+            DO UPDATE SET last_seen_trip_comment_at = EXCLUDED.last_seen_trip_comment_at
+            RETURNING last_seen_trip_comment_at
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+
+    return _as_datetime_iso(row.get("last_seen_trip_comment_at")) if row else None

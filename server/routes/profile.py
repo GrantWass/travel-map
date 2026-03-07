@@ -3,7 +3,12 @@ from __future__ import annotations
 from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_profile, update_user_settings
-from services.trip_service import get_user_profile, list_user_trips
+from services.trip_service import (
+    get_unread_trip_comment_count_by_trip,
+    get_user_profile,
+    list_user_trips,
+    mark_trip_comment_notifications_read,
+)
 from services.auth_service import search_users as svc_search_users
 from services.sms_service import create_sms_invite as svc_create_sms_invite, create_link_invite as svc_create_link_invite, claim_sms_invite as svc_claim_sms_invite
 from services.friendship_service import create_friend_request as svc_create_friend_request, respond_friend_request as svc_respond_friend_request
@@ -76,6 +81,46 @@ def user_profile(user_id: int):
     except Exception as error:
         current_app.logger.exception("User profile lookup failed")
         return jsonify({"error": f"user profile lookup failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/users/me/notifications/comments/unread-count", methods=["GET", "OPTIONS"])
+def unread_trip_comment_count():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        unread_count_by_trip = get_unread_trip_comment_count_by_trip(user_id=user["user_id"])
+        unread_count = sum(unread_count_by_trip.values())
+        return jsonify(
+            {
+                "unread_count": unread_count,
+                "unread_count_by_trip": {str(trip_id): count for trip_id, count in unread_count_by_trip.items()},
+            }
+        ), 200
+    except Exception as error:
+        current_app.logger.exception("Unread trip comment count failed")
+        return jsonify({"error": f"unread trip comment count failed: {str(error)}"}), 500
+
+
+@profile_bp.route("/users/me/notifications/comments/mark-read", methods=["POST", "OPTIONS"])
+def mark_trip_comments_read():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    try:
+        last_seen_at = mark_trip_comment_notifications_read(user_id=user["user_id"])
+        return jsonify({"message": "trip comment notifications marked as read", "last_seen_at": last_seen_at}), 200
+    except Exception as error:
+        current_app.logger.exception("Mark trip comments read failed")
+        return jsonify({"error": f"mark trip comments read failed: {str(error)}"}), 500
 
 
 @profile_bp.route("/users/me/onboarding", methods=["PATCH", "OPTIONS"])
