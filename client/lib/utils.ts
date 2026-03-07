@@ -1,5 +1,12 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { TripDuration } from './api-types'
+
+const TRIP_DURATION_LABELS: Record<TripDuration, string> = {
+  "day trip": "Day Trip",
+  "overnight trip": "Overnight Trip",
+  "multiday trip": "Multi-Day Trip",
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -51,6 +58,23 @@ export function formatPopupTimeRange(startIso: string, endIso: string): string {
 
     const dateStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     return `${dateStr} · ${startTime} – ${endTime}`;
+}
+
+export function formatTripDuration(value: string | null | undefined): string {
+  if (!value) {
+    return "Duration Flexible"
+  }
+
+  const normalized = value.trim().toLowerCase() as TripDuration
+  if (normalized in TRIP_DURATION_LABELS) {
+    return TRIP_DURATION_LABELS[normalized]
+  }
+
+  return value
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
 }
 
 export function getLocationKey(lat: number, lng: number): string {

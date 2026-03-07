@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo } from "react";
-import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye } from "lucide-react";
+import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer } from "lucide-react";
 
 function formatCityState(address: string | null | undefined): string | null {
     if (!address) return null;
@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import type { Trip } from "@/lib/api-types";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
+import { formatTripDuration } from "@/lib/utils";
 import { buildSearchResults, getAvailableTags, MAX_COST, useTripSearchStore } from "@/stores/trip-search-store";
 
 interface SearchSidebarPanelProps {
@@ -214,10 +215,16 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                     <User className="h-3 w-3 flex-shrink-0" />
                                                     <span className="truncate">{trip.owner?.name}</span>
                                                 </p>
+                                                <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                    <Timer className="h-3 w-3 flex-shrink-0" />
+                                                    <span>{formatTripDuration(trip.duration)}</span>
+                                                </div>
                                                 {(trip.cost !== null || trip.tags.length > 0) && (
                                                     <div className="mt-0.5 flex items-center gap-2">
                                                         {trip.cost !== null && (
-                                                            <span className="text-xs text-muted-foreground">${trip.cost}/person</span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {trip.cost <= 0 ? "Free" : `$${trip.cost}/person`}
+                                                            </span>
                                                         )}
                                                         {trip.tags.length > 0 && (
                                                             <span className="truncate text-xs capitalize text-muted-foreground">

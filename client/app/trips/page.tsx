@@ -15,6 +15,7 @@ import { ApiError, createTrip, getTripFull, updateTrip, uploadImage } from "@/li
 import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
 import type { TripDuration, TripVisibility } from "@/lib/api-types";
+import { formatTripDuration } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
 interface StopDraft {
@@ -114,6 +115,11 @@ function makeStopDraft(): StopDraft {
 const READABLE_INPUT_CLASS = "bg-white text-stone-900 placeholder:text-stone-500";
 const READABLE_TEXTAREA_CLASS = "bg-white text-stone-900 placeholder:text-stone-500";
 const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"] as const;
+const TRIP_DURATION_OPTIONS: Array<{ value: TripDuration; label: string; hint: string }> = [
+  { value: "day trip", label: "Day Trip", hint: "In and out in one day" },
+  { value: "overnight trip", label: "Overnight", hint: "One night away" },
+  { value: "multiday trip", label: "Multi-Day", hint: "A longer getaway" },
+];
 
 function hasStopContent(stop: StopDraft): boolean {
   return Boolean(
@@ -768,15 +774,32 @@ function TripsPageContent() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Duration</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
-                    value={duration}
-                    onChange={(event) => setDuration(event.target.value as TripDuration)}
-                  >
-                    <option value="multiday trip">multiday trip</option>
-                    <option value="day trip">day trip</option>
-                    <option value="overnight trip">overnight trip</option>
-                  </select>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Trip duration">
+                    {TRIP_DURATION_OPTIONS.map((option) => {
+                      const selected = duration === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setDuration(option.value)}
+                          className={`rounded-lg border px-3 py-2 text-left transition-all ${
+                            selected
+                              ? "border-amber-600 bg-amber-50 shadow-sm shadow-amber-100"
+                              : "border-stone-300 bg-white hover:border-stone-400"
+                          }`}
+                        >
+                          <p className={`text-sm font-semibold ${selected ? "text-amber-900" : "text-stone-800"}`}>
+                            {option.label}
+                          </p>
+                          <p className={`text-xs ${selected ? "text-amber-700" : "text-stone-500"}`}>
+                            {option.hint}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
@@ -1163,6 +1186,19 @@ function TripsPageContent() {
                     <MapPin className="h-3.5 w-3.5" />
                     {tripLocation?.label || "Pick a primary location"}
                   </p>
+                  {!isPopupMode && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                        <Timer className="h-3 w-3" />
+                        {formatTripDuration(duration)}
+                      </span>
+                      {cost && (
+                        <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                          ${cost}/person
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

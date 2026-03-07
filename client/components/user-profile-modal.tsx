@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Image from "next/image";
-import { X, Mail, GraduationCap, Trash2, Plus, Settings, Upload, Loader2, Pencil } from "lucide-react";
+import { X, Mail, GraduationCap, Trash2, Plus, Settings, Upload, Loader2, Pencil, Timer } from "lucide-react";
 import { ApiError, updateProfileSettings, uploadImage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { User } from "@/lib/api-types";
-import { formatTripDate, initialsFromName } from "@/lib/utils";
+import { formatTripDate, formatTripDuration, initialsFromName } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { DEFAULT_FALLBACK_IMAGE, DEFAULT_PROFILE_BIO } from "@/lib/trip-constants";
 
@@ -551,6 +551,10 @@ export default function UserProfileModal({
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-0.5">
                                                 {formatTripDate(trip.date || "")}
+                                            </p>
+                                            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                                <Timer className="h-3 w-3" />
+                                                {formatTripDuration(trip.duration)}
                                             </p>
                                         </div>
                                     </button>

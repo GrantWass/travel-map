@@ -1,4 +1,4 @@
-show duration on trip panel
+map reflects search filters
 bounding box search implementation (when we have more data)
 trip priority (text amount, AI check, or other method)
 include comments in the search??? (maybe idk)

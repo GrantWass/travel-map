@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-types";
-import { formatTripDate, formatPopupTimeRange } from "@/lib/utils";
+import { formatTripDate, formatPopupTimeRange, formatTripDuration } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 
 interface SidebarPanelProps {
@@ -37,6 +37,7 @@ interface SidebarPanelProps {
 
 function formatCost(cost: number | null | undefined): string | null {
     if (cost == null) return null;
+    if (cost <= 0) return "Free";
     return cost % 1 === 0 ? `$${cost}/person` : `$${cost.toFixed(2)}/person`;
 }
 
@@ -197,7 +198,7 @@ export default function SidebarPanel({
             <ScrollArea className="flex-1 min-h-0">
                 <div className="flex flex-col gap-5 p-5 pb-20">
                     {/* Meta */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                         <button
                             onClick={() => onOpenAuthorProfile(review.owner_user_id)}
                             className="flex items-center gap-1.5 hover:text-foreground transition-colors"
@@ -217,6 +218,12 @@ export default function SidebarPanel({
                                     {formatTripDate(review.date)}
                                 </span>
                             )
+                        )}
+                        {!isPopupEvent && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-foreground/80">
+                                <Timer className="h-3 w-3" />
+                                {formatTripDuration(review.duration)}
+                            </span>
                         )}
                     </div>
 
@@ -250,6 +257,7 @@ export default function SidebarPanel({
                                 review.lodgings.map((lodging) => {
                                     const hasImage = Boolean(lodging.thumbnail_url);
                                     const isExpanded = hasImage && selectedLodgingId === lodging.lodge_id;
+                                    const lodgingCostLabel = formatCost(lodging.cost);
                                     return hasImage ? (
                                         <div
                                             key={lodging.lodge_id}
@@ -285,6 +293,11 @@ export default function SidebarPanel({
                                                                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                                                             />
                                                         </AspectRatio>
+                                                        {lodgingCostLabel && (
+                                                            <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                                                                {lodgingCostLabel}
+                                                            </span>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             onClick={(e) => {
@@ -305,9 +318,6 @@ export default function SidebarPanel({
                                                         )}
                                                         {lodging.description && (
                                                             <p className="text-sm leading-relaxed text-foreground/70">{lodging.description}</p>
-                                                        )}
-                                                        {formatCost(lodging.cost) && (
-                                                            <span className="text-sm font-medium text-foreground/80">{formatCost(lodging.cost)}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -357,6 +367,7 @@ export default function SidebarPanel({
                                 review.activities.map((activity) => {
                                     const hasImage = Boolean(activity.thumbnail_url);
                                     const isExpanded = hasImage && selectedActivityId === activity.activity_id;
+                                    const activityCostLabel = formatCost(activity.cost);
                                     return hasImage ? (
                                         <div
                                             key={activity.activity_id}
@@ -392,6 +403,11 @@ export default function SidebarPanel({
                                                                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                                                             />
                                                         </AspectRatio>
+                                                        {activityCostLabel && (
+                                                            <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                                                                {activityCostLabel}
+                                                            </span>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             onClick={(e) => {
@@ -419,9 +435,6 @@ export default function SidebarPanel({
                                                         </div>
                                                         {activity.description && (
                                                             <p className="text-sm leading-relaxed text-foreground/70">{activity.description}</p>
-                                                        )}
-                                                        {formatCost(activity.cost) && (
-                                                            <span className="text-sm font-medium text-foreground/80">{formatCost(activity.cost)}</span>
                                                         )}
                                                     </div>
                                                 </div>
