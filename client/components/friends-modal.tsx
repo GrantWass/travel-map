@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { X, UserPlus, Phone, Check, Slash, Copy, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,10 +40,11 @@ function UserAvatar({
 
   if (image) {
     return (
-      <img
+      <Image
         src={image}
         alt={`${name} avatar`}
-        style={{ width: size, height: size }}
+        width={size}
+        height={size}
         className="rounded-full object-cover"
       />
     );

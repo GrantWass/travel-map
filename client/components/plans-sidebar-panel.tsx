@@ -74,6 +74,7 @@ export default function PlansSidebarPanel({
                             src={entry.activity.thumbnail_url || entry.tripThumbnail}
                             alt={entry.activity.title || "Activity"}
                             fill
+                            sizes="48px"
                             className="object-cover"
                           />
                         </div>
@@ -117,6 +118,7 @@ export default function PlansSidebarPanel({
                             src={entry.lodging.thumbnail_url || entry.tripThumbnail}
                             alt={entry.lodging.title || "Lodging"}
                             fill
+                            sizes="48px"
                             className="object-cover"
                           />
                         </div>

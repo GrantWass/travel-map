@@ -309,11 +309,12 @@ export default function UserProfileModal({
                     <div className="flex items-start gap-4 sm:gap-6">
                         <div className="relative flex h-14 w-14 sm:h-20 sm:w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xl sm:text-2xl font-bold text-primary-foreground">
                             {showProfileImage ? (
-                                <img
+                                <Image
                                     src={profileImageUrl}
                                     alt={`${displayState.name} profile photo`}
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
+                                    fill
+                                    sizes="80px"
+                                    className="object-cover"
                                     onError={() => setProfileImageFailed(true)}
                                 />
                             ) : (
@@ -540,6 +541,7 @@ export default function UserProfileModal({
                                                 src={trip.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
                                                 alt={trip.title}
                                                 fill
+                                                sizes="(max-width: 640px) 100vw, 260px"
                                                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
                                         </div>

@@ -18,6 +18,19 @@ function escapeHtml(value: string): string {
         .replaceAll("'", "&#39;");
 }
 
+function sanitizeImageUrl(raw: string): string {
+    // Encode unsafe characters while preserving valid URL structure.
+    const trimmed = raw.trim();
+    if (!trimmed) {
+        return "";
+    }
+    try {
+        return encodeURI(trimmed);
+    } catch {
+        return "";
+    }
+}
+
 function truncateTripMarkerTitle(value: string, maxLength: number): string {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -33,7 +46,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
 
     const safeAltTitle = escapeHtml(trip.title);
     const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
-    const imageUrl = trip.thumbnail_url?.trim() || "";
+    const imageUrl = sanitizeImageUrl(trip.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
         const size = hasImage ? (isActive ? 80 : 64) : (isActive ? 64 : 50);
     const popupBadge = trip.event_end && trip.event_start
@@ -77,7 +90,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
 
 export function createActivityIcon(activity: TripActivity, isActive: boolean): L.DivIcon {
     const safeTitle = escapeHtml(activity.title || "Activity");
-    const imageUrl = activity.thumbnail_url?.trim() || "";
+    const imageUrl = sanitizeImageUrl(activity.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 70 : 50);
 
@@ -123,7 +136,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
 }
 
 export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.DivIcon {
-    const imageUrl = lodging.thumbnail_url?.trim() || "";
+    const imageUrl = sanitizeImageUrl(lodging.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 70 : 50);
     const roofHeight = Math.round(size * 0.34);

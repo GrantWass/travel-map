@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ImagePlus, MapPin, Plus, Sparkles, Timer, Trash2 } from "lucide-react";
@@ -943,9 +944,11 @@ function TripsPageContent() {
                           {stop.imageUrl ? (
                             <div className="rounded-lg border border-stone-200 bg-white p-2">
                               <div className="flex items-center gap-3">
-                                <img
+                                <Image
                                   src={stop.imageUrl}
                                   alt={stop.title ? `${stop.title} preview` : "Stay photo preview"}
+                                  width={80}
+                                  height={80}
                                   className="h-20 w-20 rounded-md border border-stone-200 object-cover"
                                 />
                                 <div className="min-w-0 flex-1">
@@ -1067,9 +1070,11 @@ function TripsPageContent() {
                           {stop.imageUrl ? (
                             <div className="rounded-lg border border-stone-200 bg-white p-2">
                               <div className="flex items-center gap-3">
-                                <img
+                                <Image
                                   src={stop.imageUrl}
                                   alt={stop.title ? `${stop.title} preview` : "Activity photo preview"}
+                                  width={80}
+                                  height={80}
                                   className="h-20 w-20 rounded-md border border-stone-200 object-cover"
                                 />
                                 <div className="min-w-0 flex-1">
@@ -1187,9 +1192,11 @@ function TripsPageContent() {
                           {previewLodgings.map((stop) => (
                             <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
                               <div className="flex items-start gap-3">
-                                <img
+                                <Image
                                   src={stop.imageUrl || BANNER_PLACEHOLDER}
                                   alt={stop.title ? `${stop.title} preview` : "Stay preview"}
+                                  width={64}
+                                  height={64}
                                   className="h-16 w-16 rounded-md border border-stone-200 object-cover"
                                 />
                                 <div className="min-w-0 flex-1 space-y-1">
@@ -1220,9 +1227,11 @@ function TripsPageContent() {
                           {previewActivities.map((stop) => (
                             <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
                               <div className="flex items-start gap-3">
-                                <img
+                                <Image
                                   src={stop.imageUrl || BANNER_PLACEHOLDER}
                                   alt={stop.title ? `${stop.title} preview` : "Activity preview"}
+                                  width={64}
+                                  height={64}
                                   className="h-16 w-16 rounded-md border border-stone-200 object-cover"
                                 />
                                 <div className="min-w-0 flex-1 space-y-1">

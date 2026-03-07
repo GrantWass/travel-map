@@ -428,7 +428,7 @@ export default function SidebarPanel({
                                             ) : (
                                                 <div className="flex items-center gap-3 p-3">
                                                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                        <Image src={activity.thumbnail_url!} alt={activity.title || "Activity"} fill className="object-cover" />
+                                                        <Image src={activity.thumbnail_url!} alt={activity.title || "Activity"} fill sizes="48px" className="object-cover" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-foreground break-words">{activity.title}</p>
@@ -546,9 +546,11 @@ export default function SidebarPanel({
                                         <div key={comment.comment_id} className="rounded-xl border border-border bg-background p-3">
                                             <div className="mb-1.5 flex items-center gap-2">
                                                 {comment.user_profile_image_url ? (
-                                                    <img
+                                                    <Image
                                                         src={comment.user_profile_image_url}
                                                         alt={`${authorName} avatar`}
+                                                        width={24}
+                                                        height={24}
                                                         className="h-6 w-6 rounded-full object-cover"
                                                     />
                                                 ) : (

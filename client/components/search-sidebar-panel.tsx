@@ -206,7 +206,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                             className="flex w-full items-center gap-3 rounded-lg bg-secondary/40 p-3 text-left transition-colors hover:bg-secondary/70 active:bg-secondary"
                                         >
                                             <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                <Image src={trip.thumbnail_url} alt={trip.title} fill className="object-cover" />
+                                                <Image src={trip.thumbnail_url} alt={trip.title} fill sizes="48px" className="object-cover" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-foreground">{trip.title}</p>
@@ -240,7 +240,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill className="object-cover" />
+                                                            <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill sizes="36px" className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{activity.title}</p>
@@ -259,7 +259,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill className="object-cover" />
+                                                            <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill sizes="36px" className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{lodging.title}</p>
