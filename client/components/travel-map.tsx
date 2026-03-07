@@ -124,6 +124,13 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const activeTripRequestIdRef = useRef(0);
+    const profileOpenRequestIdRef = useRef(0);
+
+    const closeProfileModal = useCallback(() => {
+        // Invalidate in-flight profile requests so late responses cannot reopen the modal.
+        profileOpenRequestIdRef.current += 1;
+        setProfileState(null);
+    }, []);
 
     const applySavedPlans = useCallback((plans: Awaited<ReturnType<typeof getSavedPlans>>) => {
         setSavedActivityIds(plans.saved_activity_ids);
@@ -368,6 +375,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
     const openProfile = useCallback(
         async (targetUserId: number, expandFrom: "top-right" | "left") => {
+            const requestId = profileOpenRequestIdRef.current + 1;
+            profileOpenRequestIdRef.current = requestId;
             const canManageTrips = userId !== null && targetUserId === userId && isStudent;
             const canEditProfile = userId !== null && targetUserId === userId;
 
@@ -393,6 +402,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             try {
                 if (userId !== null && targetUserId === userId) {
                     const refreshedOwnProfile = await refreshMyProfile(targetUserId);
+                    if (profileOpenRequestIdRef.current !== requestId) {
+                        return;
+                    }
                     if (!refreshedOwnProfile) {
                         return;
                     }
@@ -409,6 +421,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 }
 
                 const profileResponse = await getUserProfile(targetUserId);
+                if (profileOpenRequestIdRef.current !== requestId) {
+                    return;
+                }
                 const mappedProfile = toUserProfileFromApi(profileResponse);
 
                 setProfileCacheByUser((current) => ({ ...current, [mappedProfile.user_id]: mappedProfile }));
@@ -843,7 +858,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         const base = `/trips?edit=${tripId}&returnTo=${encodeURIComponent(returnTo)}`;
                         router.push(isPopup ? `${base}&mode=popup` : base);
                     }}
-                    onClose={() => setProfileState(null)}
+                    onClose={closeProfileModal}
                 />
             )}
 
