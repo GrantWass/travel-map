@@ -11,6 +11,7 @@ from typing import Any
 
 from db import get_cursor
 from services.auth_service import to_nullable_string
+from services.trip_priority import score_trip_priority
 
 VALID_VISIBILITY = {"public", "private", "friends"}
 VALID_DURATION = {"multiday trip", "day trip", "overnight trip"}
@@ -93,6 +94,17 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
         "event_start": _as_datetime_iso(row.get("event_start")),
         "event_end": _as_datetime_iso(row.get("event_end")),
     }
+
+
+def _prepare_trip_priority_on_write(trip: dict[str, Any]) -> None:
+    """
+    Compute priority during create/update flows so the write path is ready for
+    future persistence/analytics hooks.
+
+    Intentionally does not mutate the trip payload returned to clients and does
+    not write to the database.
+    """
+    score_trip_priority(trip)
 
 
 def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -874,6 +886,9 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
     if not created_trip:
         raise TripValidationError("failed to load created trip")
 
+    # Prepare quality scoring at write time without persisting or returning it yet.
+    _prepare_trip_priority_on_write(created_trip)
+
     invalidate_trip_list_cache()
 
     return created_trip
@@ -1073,6 +1088,9 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
     updated_trip = get_trip(trip_id, owner_user_id)
     if not updated_trip:
         raise TripValidationError("failed to load updated trip")
+
+    # Prepare quality scoring at write time without persisting or returning it yet.
+    _prepare_trip_priority_on_write(updated_trip)
 
     invalidate_trip_list_cache()
 
