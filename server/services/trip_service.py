@@ -16,6 +16,7 @@ from services.trip_priority import score_trip_priority
 VALID_VISIBILITY = {"public", "private", "friends"}
 VALID_DURATION = {"multiday trip", "day trip", "overnight trip"}
 TRIP_LIST_CACHE_TTL_SECONDS = 30
+PUBLIC_TRIPS_LIMIT = 50
 
 
 _trip_list_cache_lock = Lock()
@@ -76,6 +77,7 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
         "longitude": _as_float(row.get("longitude")),
         "cost": _as_float(row.get("cost")),
         "duration": row.get("duration"),
+        "priority_score": _as_float(row.get("priority_score")),
         "date": row.get("date"),
         "visibility": row.get("visibility") or "public",
         "owner_user_id": int(row["owner_user_id"]),
@@ -96,15 +98,28 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _prepare_trip_priority_on_write(trip: dict[str, Any]) -> None:
-    """
-    Compute priority during create/update flows so the write path is ready for
-    future persistence/analytics hooks.
+def _persist_trip_priority_score(*, trip_id: int, score: float) -> None:
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            UPDATE trips
+            SET priority_score = %s
+            WHERE trip_id = %s
+            """,
+            (score, trip_id),
+        )
 
-    Intentionally does not mutate the trip payload returned to clients and does
-    not write to the database.
+
+def _prepare_trip_priority_on_write(trip: dict[str, Any]) -> float:
     """
-    score_trip_priority(trip)
+    Compute and persist trip priority during create/update flows.
+
+    Intentionally does not mutate the trip payload returned to clients.
+    """
+    score_payload = score_trip_priority(trip)
+    score = float(score_payload["score"])
+    _persist_trip_priority_score(trip_id=int(trip["trip_id"]), score=score)
+    return score
 
 
 def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -274,7 +289,22 @@ def _fetch_trip_children_by_ids(
     return tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip
 
 
-def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
+def _fetch_trip_rows(
+    where_sql: str,
+    params: tuple[Any, ...],
+    *,
+    order_by_sql: str = "t.trip_id DESC",
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    if limit is not None and limit <= 0:
+        return []
+
+    limit_clause = ""
+    query_params = params
+    if limit is not None:
+        limit_clause = "LIMIT %s"
+        query_params = params + (limit,)
+
     with get_cursor() as cur:
         cur.execute(
             f"""
@@ -287,6 +317,7 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
                 ST_X(t.geo_location::geometry) AS longitude,
                 t.cost,
                 t.duration,
+                t.priority_score,
                 t.date,
                 t.visibility,
                 t.owner_user_id,
@@ -300,9 +331,10 @@ def _fetch_trip_rows(where_sql: str, params: tuple[Any, ...]) -> list[dict[str, 
             FROM trips t
             JOIN travelers o ON o.user_id = t.owner_user_id
             WHERE {where_sql}
-            ORDER BY t.trip_id DESC
+            ORDER BY {order_by_sql}
+            {limit_clause}
             """,
-            params,
+            query_params,
         )
         rows = cur.fetchall()
 
@@ -436,18 +468,20 @@ def list_trips(
                 is_fresh = (now - cached_at) <= TRIP_LIST_CACHE_TTL_SECONDS
                 if is_fresh and cache_version == _trip_list_cache_version:
                     return deepcopy(cached_value)
-
+                
+    
+    where_sql, params = _append_bounding_box_filter("t.visibility = 'public'", tuple(), bounding_box)
+    #TODO: I am not sure if a friends public trip will show if it is outside the limit set
     if viewer_user_id is None or public_only:
-        where_sql, params = _append_bounding_box_filter("t.visibility = 'public'", tuple(), bounding_box)
-        trips = _fetch_trip_rows(where_sql, params)
+        trips = _fetch_trip_rows(
+            where_sql,
+            params,
+            order_by_sql="t.priority_score DESC NULLS LAST, t.trip_id DESC",
+            limit=PUBLIC_TRIPS_LIMIT,
+        )
     else:
         # First pass: public trips only (fast path).
-        public_where_sql, public_params = _append_bounding_box_filter(
-            "t.visibility = 'public'",
-            tuple(),
-            bounding_box,
-        )
-        public_trips = _fetch_trip_rows(public_where_sql, public_params)
+        public_trips = _fetch_trip_rows(where_sql, params)
 
         # Second pass: non-public trips the viewer can see (owner/friends checks).
         extra_trip_ids = _list_non_public_visible_trip_ids(
@@ -886,7 +920,7 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
     if not created_trip:
         raise TripValidationError("failed to load created trip")
 
-    # Prepare quality scoring at write time without persisting or returning it yet.
+    # Compute and persist quality score at write time.
     _prepare_trip_priority_on_write(created_trip)
 
     invalidate_trip_list_cache()
@@ -1089,7 +1123,7 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
     if not updated_trip:
         raise TripValidationError("failed to load updated trip")
 
-    # Prepare quality scoring at write time without persisting or returning it yet.
+    # Compute and persist quality score at write time.
     _prepare_trip_priority_on_write(updated_trip)
 
     invalidate_trip_list_cache()

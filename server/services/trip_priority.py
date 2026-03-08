@@ -9,21 +9,22 @@ from services.auth_service import to_nullable_string
 # Priority scoring weights are intentionally explicit so product tuning is easy.
 # The total is normalized to 100 points.
 TRIP_PRIORITY_BASE_POINTS = {
-    "image": 8.0,
-    "coordinates": 8.0,
+    "image": 7.0,
+    "coordinates": 7.0,
     "title": 2.0,
-    "description_words": 10.0,
+    "description_words": 12.0,
     "cost": 2.0,
 }
 TRIP_PRIORITY_ITEM_POINTS = {
-    "count": 20.0,
-    "average_item_completeness": 25.0,
+    "count": 16.0,
+    "average_item_completeness": 29.0,
     "item_description_words": 10.0,
 }
 TRIP_PRIORITY_COVERAGE_POINTS = {
     "image_coverage": 7.5,
     "coordinate_coverage": 7.5,
 }
+TRIP_PRIORITY_ITEM_COUNT_CAP = 6
 
 
 def _as_float(value: Any) -> float | None:
@@ -110,11 +111,11 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
     # ----------------------------
     # Section A: Trip base (30 pts)
     # ----------------------------
-    # Description uses 0.10 points per word, capped at 100 words -> 10 max.
+    # Description uses 0.08 points per word, capped by configured max points.
     base_image_points = TRIP_PRIORITY_BASE_POINTS["image"] if trip_has_image else 0.0
     base_coordinate_points = TRIP_PRIORITY_BASE_POINTS["coordinates"] if trip_has_coordinates else 0.0
     base_title_points = TRIP_PRIORITY_BASE_POINTS["title"] if trip_title_words >= 2 else 0.0
-    base_description_points = min(float(trip_description_words) * 0.10, TRIP_PRIORITY_BASE_POINTS["description_words"])
+    base_description_points = min(float(trip_description_words) * 0.08, TRIP_PRIORITY_BASE_POINTS["description_words"])
     base_cost_points = TRIP_PRIORITY_BASE_POINTS["cost"] if trip_has_cost else 0.0
     base_total = base_image_points + base_coordinate_points + base_title_points + base_description_points + base_cost_points
 
@@ -123,9 +124,11 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
     # ----------------------------------------
     item_count = len(items)
 
-    # Count score: linear reward up to 4 total items, then capped.
-    # This is what enforces "4 activities == 2 activities + 2 lodgings".
-    item_count_points = min(float(item_count), 4.0) * 5.0
+    # Count score: linear reward up to a capped total item count.
+    # This keeps activity/lodging weighting pooled and symmetric.
+    item_count_points = min(float(item_count), float(TRIP_PRIORITY_ITEM_COUNT_CAP)) * (
+        TRIP_PRIORITY_ITEM_POINTS["count"] / float(TRIP_PRIORITY_ITEM_COUNT_CAP)
+    )
 
     # Per-item completeness:
     # We score each item out of 10 and then take the average so quality matters
@@ -137,7 +140,7 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
     # - image present:                 2.5
     # - coordinates present:           2.5
     # - cost present:                  1.0
-    # - description words (0.05/word): 1.0 max at 20+ words
+    # - description words (0.04/word): 1.0 max at 25+ words
     item_completeness_raw_scores: list[float] = []
     item_description_words_total = 0
     image_positive_count = 1 if trip_has_image else 0
@@ -157,7 +160,7 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
         if has_coords:
             coordinate_positive_count += 1
 
-        item_description_points = min(float(description_words) * 0.05, 1.0)
+        item_description_points = min(float(description_words) * 0.04, 1.0)
         raw_item_score = (
             (1.5 if has_title else 0.0)
             + (1.5 if has_place_text else 0.0)
@@ -177,9 +180,9 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
         (avg_item_raw_score / 10.0) * TRIP_PRIORITY_ITEM_POINTS["average_item_completeness"]
     )
 
-    # Combined item descriptions use fractional points too: 0.04 points/word,
-    # capped at 250 words total across all items -> 10 max.
-    item_description_points = min(float(item_description_words_total) * 0.04, TRIP_PRIORITY_ITEM_POINTS["item_description_words"])
+    # Combined item descriptions use fractional points too: ~0.033 points/word,
+    # capped by configured max points (about 300 words for full points).
+    item_description_points = min(float(item_description_words_total) * 0.033, TRIP_PRIORITY_ITEM_POINTS["item_description_words"])
 
     item_total = item_count_points + item_average_completeness_points + item_description_points
 

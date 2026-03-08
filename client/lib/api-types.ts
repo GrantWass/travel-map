@@ -77,6 +77,7 @@ export interface Trip {
   longitude: number;
   cost: number | null;
   duration: string | null;
+  priority_score?: number | null;
   date: string | null;
   visibility: TripVisibility;
   owner_user_id: number;

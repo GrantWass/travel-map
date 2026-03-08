@@ -205,5 +205,12 @@ export function buildSearchResults({
     }
   }
 
-  return results;
+  return results.sort((left, right) => {
+    const rightScore = right.trip.priority_score ?? 0;
+    const leftScore = left.trip.priority_score ?? 0;
+    if (rightScore !== leftScore) {
+      return rightScore - leftScore;
+    }
+    return right.trip.trip_id - left.trip.trip_id;
+  });
 }
