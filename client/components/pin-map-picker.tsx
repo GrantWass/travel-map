@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Loader2, MapPin, X } from "lucide-react";
@@ -31,6 +32,7 @@ export default function PinMapPicker({
 
   const [pendingPlace, setPendingPlace] = useState<PlaceOption | null>(initialValue);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const mapCenter = useMemo<[number, number]>(() => {
     if (initialValue) {
@@ -50,6 +52,24 @@ export default function PinMapPicker({
     }
     setPendingPlace(initialValue);
   }, [initialValue, open]);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    // Keep the background fixed while pin picker is open.
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !mapContainerRef.current) {
@@ -139,7 +159,11 @@ export default function PinMapPicker({
     return null;
   }
 
-  return (
+  if (!hasMounted) {
+    return null;
+  }
+
+  return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
       <div className="w-full max-w-3xl overflow-y-auto rounded-2xl border border-stone-200 bg-white shadow-2xl" style={{ maxHeight: "calc(100vh - 2rem)" }}>
         <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
@@ -198,6 +222,7 @@ export default function PinMapPicker({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

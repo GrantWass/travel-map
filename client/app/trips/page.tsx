@@ -347,11 +347,26 @@ function TripsPageContent() {
 
   function addStop(kind: "lodging" | "activity") {
     const stop = makeStopDraft();
+
+    const scrollToNewStop = () => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const target = document.getElementById(`stop-${kind}-${stop.id}`);
+          if (!target) {
+            return;
+          }
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      });
+    };
+
     if (kind === "lodging") {
       setLodgings((current) => [...current, stop]);
+      scrollToNewStop();
       return;
     }
     setActivities((current) => [...current, stop]);
+    scrollToNewStop();
   }
 
   function updateStop(
@@ -893,7 +908,7 @@ function TripsPageContent() {
 
                   <div className="space-y-4">
                     {lodgings.map((stop, index) => (
-                      <div key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+                      <div id={`stop-lodging-${stop.id}`} key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
                         <div className="mb-3 flex items-center justify-between">
                           <p className="text-sm font-semibold text-stone-700">Stay #{index + 1}</p>
                           <button
@@ -1019,7 +1034,7 @@ function TripsPageContent() {
 
                   <div className="space-y-4">
                     {activities.map((stop, index) => (
-                      <div key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+                      <div id={`stop-activity-${stop.id}`} key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
                         <div className="mb-3 flex items-center justify-between">
                           <p className="text-sm font-semibold text-stone-700">Activity #{index + 1}</p>
                           <button
