@@ -8,6 +8,8 @@ friends modal isn't mobile friendly
 need to zoom out on browser to see most content (it overflows horizonatlly?)
 
 Refactor when possible for readability
+-> Split up map store if possible? It's huge
+
 get a domain
 
 better auth work

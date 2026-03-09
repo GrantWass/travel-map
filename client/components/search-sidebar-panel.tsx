@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo } from "react";
-import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer, ChevronDown } from "lucide-react";
 
 function formatCityState(address: string | null | undefined): string | null {
     if (!address) return null;
@@ -71,6 +71,8 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
         [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost, tripTypeFilter],
     );
 
+    const [filtersOpen, setFiltersOpen] = useState(false);
+
     const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST || tripTypeFilter.length > 0;
     const noFiltersOrQuery = query.trim() === "" && !hasActiveFilters;
 
@@ -102,113 +104,130 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                 </button>
             </div>
             <ScrollArea className="flex-1 min-h-0">
-                <div className="flex flex-col gap-5 p-4">
+                <div className="flex flex-col px-4 pb-4 pt-2">
                     {/* Filters */}
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-0">
+                        <button
+                            type="button"
+                            onClick={() => setFiltersOpen((o) => !o)}
+                            className="group -mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-md px-2 py-3 transition-colors hover:bg-secondary/50 mb-2"
+                        >
                             <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                 <SlidersHorizontal className="h-3.5 w-3.5" />
                                 Filters
+                                {hasActiveFilters && !filtersOpen && (
+                                    <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                        {selectedTags.length + (maxCost < MAX_COST ? 1 : 0) + (tripTypeFilter.length > 0 ? 1 : 0)}
+                                    </span>
+                                )}
                             </div>
-                            {hasActiveFilters && (
-                                <button
-                                    onClick={() => {
-                                        clearFilters();
-                                    }}
-                                    className="text-xs text-primary hover:underline"
-                                >
-                                    Clear all
-                                </button>
-                            )}
-                        </div>
+                            <div className="flex items-center gap-2">
+                                {hasActiveFilters && filtersOpen && (
+                                    <span
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={(e) => { e.stopPropagation(); clearFilters(); }}
+                                        onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); clearFilters(); } }}
+                                        className="text-xs text-primary hover:underline"
+                                    >
+                                        Clear all
+                                    </span>
+                                )}
+                                <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-hover:text-foreground ${filtersOpen ? "rotate-180" : ""}`} />
+                            </div>
+                        </button>
 
-                        {/* Tags */}
-                        <div className="flex flex-col gap-2">
-                            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                <Tag className="h-3 w-3" />
-                                Tags
-                            </p>
-                            <div className="flex flex-wrap items-start gap-1.5 pr-1">
-                                {availableTags.map((tag) => {
-                                    const active = selectedTags.includes(tag);
-                                    return (
-                                        <button
-                                            key={tag}
-                                            onClick={() => toggleTag(tag)}
-                                            title={tag}
-                                            className={`inline-flex min-w-0 max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${
-                                                active
-                                                    ? "border-primary/40 bg-primary/10 text-primary"
-                                                    : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
-                                            }`}
-                                        >
-                                            <span className="truncate">{tag}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                        {filtersOpen && (
+                            <>
+                                {/* Tags */}
+                                <div className="flex flex-col gap-2 mt-0 mb-4">
+                                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                        <Tag className="h-3 w-3" />
+                                        Tags
+                                    </p>
+                                    <div className="flex flex-wrap items-start gap-1.5 pr-1">
+                                        {availableTags.map((tag) => {
+                                            const active = selectedTags.includes(tag);
+                                            return (
+                                                <button
+                                                    key={tag}
+                                                    onClick={() => toggleTag(tag)}
+                                                    title={tag}
+                                                    className={`inline-flex min-w-0 max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${
+                                                        active
+                                                            ? "border-primary/40 bg-primary/10 text-primary"
+                                                            : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
+                                                    }`}
+                                                >
+                                                    <span className="truncate">{tag}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
-                        {/* Trip Type / Duration */}
-                        <div className="flex flex-col gap-2">
-                            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                <Timer className="h-3 w-3" />
-                                Trip Type
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                                {TRIP_DURATION_OPTIONS.map(({ value, label }) => {
-                                    const active = tripTypeFilter.includes(value);
-                                    return (
-                                        <button
-                                            key={value}
-                                            onClick={() => toggleTripType(value)}
-                                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                                                active
-                                                    ? "border-primary/40 bg-primary/10 text-primary"
-                                                    : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
-                                            }`}
-                                        >
-                                            {label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                                {/* Trip Type / Duration */}
+                                <div className="flex flex-col gap-2 mt-0 mb-4">
+                                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                        <Timer className="h-3 w-3" />
+                                        Trip Type
+                                    </p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {TRIP_DURATION_OPTIONS.map(({ value, label }) => {
+                                            const active = tripTypeFilter.includes(value);
+                                            return (
+                                                <button
+                                                    key={value}
+                                                    onClick={() => toggleTripType(value)}
+                                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                                                        active
+                                                            ? "border-primary/40 bg-primary/10 text-primary"
+                                                            : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
+                                                    }`}
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
-                        {/* Cost */}
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                    <DollarSign className="h-3 w-3" />
-                                    Max Cost / Person
-                                </p>
-                                <span className="text-xs font-semibold text-foreground">
-                                    {maxCost >= MAX_COST ? "No limit" : `$${maxCost}`}
-                                </span>
-                            </div>
-                            <Slider
-                                min={0}
-                                max={MAX_COST}
-                                step={5}
-                                value={[maxCost]}
-                                onValueChange={([val]) => setMaxCost(val ?? MAX_COST)}
-                            />
-                        </div>
+                                {/* Cost */}
+                                <div className="flex flex-col gap-2 mt-0 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                            <DollarSign className="h-3 w-3" />
+                                            Max Cost / Person
+                                        </p>
+                                        <span className="text-xs font-semibold text-foreground">
+                                            {maxCost >= MAX_COST ? "No limit" : `$${maxCost}`}
+                                        </span>
+                                    </div>
+                                    <Slider
+                                        min={0}
+                                        max={MAX_COST}
+                                        step={5}
+                                        value={[maxCost]}
+                                        onValueChange={([val]) => setMaxCost(val ?? MAX_COST)}
+                                    />
+                                </div>
 
-                        {/* Visibility */}
-                        <div className="flex flex-col gap-2">
-                            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                <Eye className="h-3 w-3" />
-                                Visibility
-                            </p>
-                            <div className="flex justify-center">
-                                <OwnerFilterSlider value={ownerFilter} onChange={(v) => onOwnerFilterChange?.(v)} />
-                            </div>
-                        </div>
+                                {/* Visibility */}
+                                <div className="flex flex-col gap-2 mt-0 mb-4">
+                                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                        <Eye className="h-3 w-3" />
+                                        Visibility
+                                    </p>
+                                    <div className="flex justify-center">
+                                        <OwnerFilterSlider value={ownerFilter} onChange={(v) => onOwnerFilterChange?.(v)} />
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t border-border" />
+                    <div className="border-t border-border mb-4" />
 
                     {/* Results */}
                     <div className="flex flex-col gap-3">

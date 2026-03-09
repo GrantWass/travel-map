@@ -19,6 +19,8 @@ interface TripMapStoreState {
     searchQuery: string;
     searchPanelOpen: boolean;
     plansPanelOpen: boolean;
+    lastViewedPanelType: "search" | "trip" | "plans" | null;
+    lastViewedTrip: Trip | null;
     savedActivityIds: number[];
     savedLodgingIds: number[];
     isLoadingTrips: boolean;
@@ -133,6 +135,8 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     searchQuery: "",
     searchPanelOpen: false,
     plansPanelOpen: false,
+    lastViewedPanelType: null,
+    lastViewedTrip: null,
     savedActivityIds: [],
     savedLodgingIds: [],
     isLoadingTrips: true,
@@ -237,7 +241,12 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
             selectedActivity: null,
             selectedLodging: null,
         })),
-    setSelectedTrip: (selectedTrip) => set({ selectedTrip }),
+    setSelectedTrip: (selectedTrip) =>
+        set(
+            selectedTrip
+                ? { selectedTrip, lastViewedPanelType: "trip", lastViewedTrip: selectedTrip }
+                : { selectedTrip },
+        ),
     setSelectedActivity: (selectedActivity) =>
         set((state) => ({
             selectedActivity,
@@ -264,6 +273,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
             fullScreenTrip: null,
             selectedActivity: null,
             selectedLodging: null,
+            lastViewedPanelType: "search",
         }),
     closeSearchPanel: () => set({ searchPanelOpen: false, searchQuery: "" }),
     togglePlansPanel: () =>
@@ -281,6 +291,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                 fullScreenTrip: null,
                 selectedActivity: null,
                 selectedLodging: null,
+                lastViewedPanelType: "plans",
             };
         }),
     closePlansPanel: () => set({ plansPanelOpen: false }),
@@ -308,6 +319,8 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
             fullScreenTrip: null,
             selectedActivity: null,
             selectedLodging: null,
+            lastViewedPanelType: "trip",
+            lastViewedTrip: trip,
         }),
     setSavedActivityIds: (savedActivityIds) => set({ savedActivityIds }),
     setSavedLodgingIds: (savedLodgingIds) => set({ savedLodgingIds }),

@@ -112,6 +112,20 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const removeSavedActivityId = useTripMapStore((state) => state.removeSavedActivityId);
     const removeSavedLodgingId = useTripMapStore((state) => state.removeSavedLodgingId);
     const setIsLoadingTripById = useTripMapStore((state) => state.setIsLoadingTripById);
+    const lastViewedPanelType = useTripMapStore((state) => state.lastViewedPanelType);
+    const lastViewedTrip = useTripMapStore((state) => state.lastViewedTrip);
+    const [isQuickOpen, setIsQuickOpen] = useState(false);
+
+    // Frozen panel state: only updates when panels are open, so components stay mounted
+    // during the close animation (outer div animates width → 0, content stays visible).
+    const [frozenPanels, setFrozenPanels] = useState<{
+        showSidebar: boolean;
+        showSearchPanel: boolean;
+        showPlansPanel: boolean;
+        trip: Trip | null;
+        searchQuery: string;
+    }>({ showSidebar: false, showSearchPanel: false, showPlansPanel: false, trip: null, searchQuery: "" });
+
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
     const [mapContextMenu, setMapContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
 
@@ -165,6 +179,40 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             }),
         [selectedTrip, fullScreenTrip, searchPanelOpen, plansPanelOpen],
     );
+
+    // Keep frozen snapshot current while panels are open; stays stale while closing
+    // so components remain mounted throughout the width-to-0 CSS transition.
+    useEffect(() => {
+        if (!mapPanels.showAnyLeftSidebar) return;
+        setFrozenPanels({
+            showSidebar: mapPanels.showSidebar,
+            showSearchPanel: mapPanels.showSearchPanel,
+            showPlansPanel: mapPanels.showPlansPanel,
+            trip: selectedTrip,
+            searchQuery,
+        });
+    }, [mapPanels.showSidebar, mapPanels.showSearchPanel, mapPanels.showPlansPanel, mapPanels.showAnyLeftSidebar, selectedTrip, searchQuery]);
+
+    const handleIndicatorMouseEnter = useCallback(() => {
+        if (mapPanels.showAnyLeftSidebar) return;
+
+        setIsQuickOpen(true);
+        if (lastViewedPanelType === "plans") {
+            if (!plansPanelOpen) togglePlansPanel();
+        } else if (lastViewedPanelType === "trip" && lastViewedTrip) {
+            setSelectedTrip(lastViewedTrip);
+        } else {
+            if (!searchPanelOpen) openSearchPanel();
+        }
+    }, [mapPanels.showAnyLeftSidebar, lastViewedPanelType, lastViewedTrip, plansPanelOpen, searchPanelOpen, togglePlansPanel, setSelectedTrip, openSearchPanel]);
+
+    const handlePanelMouseLeave = useCallback(() => {
+        if (!isQuickOpen) return;
+        setIsQuickOpen(false);
+        clearSelections();
+        closeSearchPanel();
+        closePlansPanel();
+    }, [isQuickOpen, clearSelections, closeSearchPanel, closePlansPanel]);
 
     const openSignupPrompt = useCallback((intent: SignupPromptIntent) => {
         setSignupPromptIntent(intent);
@@ -692,6 +740,18 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 </div>
             </div>
 
+            {/* Panel indicator bar — shown when no panel is open, hover to quick-open */}
+            <div
+                className={cn(
+                    "absolute left-0 top-1/2 z-[999] hidden h-[50vh] w-14 -translate-y-1/2 cursor-pointer items-center justify-start sm:flex",
+                    "transition-opacity duration-300",
+                    mapPanels.showAnyLeftSidebar || mapPanels.showFullScreen ? "pointer-events-none opacity-0" : "opacity-100",
+                )}
+                onMouseEnter={handleIndicatorMouseEnter}
+            >
+                <div className="ml-2.5 h-[50vh] w-1.5 rounded-full bg-foreground/30" />
+            </div>
+
             <div className="flex h-full w-full">
                 <div
                     className="h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
@@ -699,10 +759,14 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         width:
                                 mapPanels.showSidebar || mapPanels.showSearchPanel || mapPanels.showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
                     }}
+
+                    onMouseLeave={handlePanelMouseLeave}
+                    onPointerDown={() => { if (isQuickOpen) setIsQuickOpen(false); }}
                 >
-                            {mapPanels.showSidebar && selectedTrip && (
+                    <div className="h-full" style={{ minWidth: REVIEW_PANEL_WIDTH }}>
+                        {frozenPanels.showSidebar && frozenPanels.trip && (
                         <SidebarPanel
-                            review={selectedTrip}
+                            review={frozenPanels.trip}
                             onClose={() => void openTripById(null)}
                             onOpenAuthorProfile={(profileUserId) => {
                                 requireAuth("profile", () => {
@@ -713,10 +777,10 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             onToggleSavedActivity={handleToggleSavedActivity}
                             onToggleSavedLodging={handleToggleSavedLodging}
                             onEditTrip={
-                                userId !== null && isStudent && selectedTrip.owner_user_id === userId
+                                userId !== null && isStudent && frozenPanels.trip.owner_user_id === userId
                                     ? () => {
-                                          const isPopup = Boolean(selectedTrip.event_start && selectedTrip.event_end);
-                                          const base = `/trips?edit=${selectedTrip.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
+                                          const isPopup = Boolean(frozenPanels.trip!.event_start && frozenPanels.trip!.event_end);
+                                          const base = `/trips?edit=${frozenPanels.trip!.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
                                           router.push(isPopup ? `${base}&mode=popup` : base);
                                       }
                                     : undefined
@@ -727,7 +791,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             onShowNextTripAtLocation={handleShowNextTripAtLocation}
                             canShowPreviousTripAtLocation={selectedLocationContext.hasPrevious}
                             canShowNextTripAtLocation={selectedLocationContext.hasNext}
-                            comments={selectedTrip.comments ?? []}
+                            comments={frozenPanels.trip.comments ?? []}
                             isAuthenticated={userId !== null}
                             isCommentSubmitting={isCommentSubmitting}
                             commentError={commentError}
@@ -740,9 +804,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             }}
                         />
                     )}
-                    {mapPanels.showSearchPanel && (
+                    {frozenPanels.showSearchPanel && (
                         <SearchSidebarPanel
-                            query={searchQuery}
+                            query={frozenPanels.searchQuery}
                             trips={trips}
                             ownerFilter={ownerFilter}
                             onOwnerFilterChange={setOwnerFilter}
@@ -758,7 +822,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             }}
                         />
                     )}
-                    {mapPanels.showPlansPanel && (
+                    {frozenPanels.showPlansPanel && (
                         <PlansSidebarPanel
                             savedActivities={savedActivities}
                             savedLodgings={savedLodgings}
@@ -793,6 +857,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             }}
                         />
                     )}
+                    </div>
                 </div>
 
                 <div data-spotlight="map" className="relative h-full min-w-0 flex-1">
