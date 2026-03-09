@@ -1,10 +1,16 @@
 import { create } from "zustand";
 
 import { getPublicTrips, getTripChildrenBatch, getTripsBatch } from "@/lib/api-client";
-import type { FriendshipRecord, Trip, TripActivity, TripLodging } from "@/lib/api-types";
+import type { FriendshipRecord, Trip, TripActivity, TripLodging, TripDuration } from "@/lib/api-types";
 
 export const MAX_COST = 500;
 export const MAX_VISIBLE_TAGS = 15;
+
+export const TRIP_DURATION_OPTIONS: { value: TripDuration; label: string }[] = [
+  { value: "day trip", label: "Day Trip" },
+  { value: "overnight trip", label: "Overnight" },
+  { value: "multiday trip", label: "Multi-Day" },
+];
 
 export type OwnerFilter = "all" | "friends" | "you";
 
@@ -18,9 +24,11 @@ interface TripSearchState {
   ownerFilter: OwnerFilter;
   selectedTags: string[];
   maxCost: number;
+  tripTypeFilter: TripDuration[];
   setOwnerFilter: (value: OwnerFilter) => void;
   toggleTag: (tag: string) => void;
   setMaxCost: (value: number) => void;
+  toggleTripType: (type: TripDuration) => void;
   clearFilters: () => void;
   syncTagsWithAvailability: (availableTags: string[]) => void;
 }
@@ -29,6 +37,7 @@ export const useTripSearchStore = create<TripSearchState>((set) => ({
   ownerFilter: "all",
   selectedTags: [],
   maxCost: MAX_COST,
+  tripTypeFilter: [],
   setOwnerFilter: (ownerFilter) => set({ ownerFilter }),
   toggleTag: (tag) =>
     set((state) => ({
@@ -37,7 +46,13 @@ export const useTripSearchStore = create<TripSearchState>((set) => ({
         : [...state.selectedTags, tag],
     })),
   setMaxCost: (maxCost) => set({ maxCost }),
-  clearFilters: () => set({ selectedTags: [], maxCost: MAX_COST }),
+  toggleTripType: (type) =>
+    set((state) => ({
+      tripTypeFilter: state.tripTypeFilter.includes(type)
+        ? state.tripTypeFilter.filter((t) => t !== type)
+        : [...state.tripTypeFilter, type],
+    })),
+  clearFilters: () => set({ selectedTags: [], maxCost: MAX_COST, tripTypeFilter: [] }),
   syncTagsWithAvailability: (availableTags) =>
     set((state) => ({
       selectedTags: state.selectedTags.filter((tag) => availableTags.includes(tag)),
@@ -109,6 +124,15 @@ export function getAvailableTags(trips: Trip[]): string[] {
     .map(([tag]) => tag);
 }
 
+export function filterTripsByDuration(trips: Trip[], tripTypeFilter: TripDuration[]): Trip[] {
+  if (tripTypeFilter.length === 0) return trips;
+  return trips.filter((trip) => {
+    if (!trip.duration) return false;
+    const duration = trip.duration.trim().toLowerCase();
+    return tripTypeFilter.some((f) => f === duration);
+  });
+}
+
 export function filterTripsByOwner(
   trips: Trip[],
   ownerFilter: OwnerFilter,
@@ -140,6 +164,7 @@ interface BuildSearchResultsArgs {
   friendIds: number[];
   selectedTags: string[];
   maxCost: number;
+  tripTypeFilter?: TripDuration[];
 }
 
 export function buildSearchResults({
@@ -150,13 +175,12 @@ export function buildSearchResults({
   friendIds,
   selectedTags,
   maxCost,
+  tripTypeFilter = [],
 }: BuildSearchResultsArgs): SearchResult[] {
   const textQuery = query.trim().toLowerCase();
-  const ownerFilteredTrips = filterTripsByOwner(
-    trips,
-    ownerFilter,
-    currentUserId,
-    friendIds,
+  const ownerFilteredTrips = filterTripsByDuration(
+    filterTripsByOwner(trips, ownerFilter, currentUserId, friendIds),
+    tripTypeFilter,
   );
 
   const results: SearchResult[] = [];

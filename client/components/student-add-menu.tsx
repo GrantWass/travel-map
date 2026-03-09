@@ -38,7 +38,7 @@ export default function StudentAddMenu({ visible, onAddTrip, onAddPopUp }: Stude
                         setOpen(false);
                     }}
                     className={cn(
-                        "flex h-10 items-center gap-2 rounded-full border border-border bg-card/95 px-4 text-sm font-medium text-foreground shadow-sm backdrop-blur-sm transition-all duration-[250ms] ease-out",
+                        "flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-all duration-[250ms] ease-out",
                         open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-2 scale-95 opacity-0",
                     )}
                     style={{ transitionDelay: open ? "0ms" : "80ms" }}
@@ -54,7 +54,7 @@ export default function StudentAddMenu({ visible, onAddTrip, onAddPopUp }: Stude
                         setOpen(false);
                     }}
                     className={cn(
-                        "flex h-10 items-center gap-2 rounded-full border border-border bg-card/95 px-4 text-sm font-medium text-foreground shadow-sm backdrop-blur-sm transition-all duration-[250ms] ease-out",
+                        "flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-all duration-[250ms] ease-out",
                         open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-2 scale-95 opacity-0",
                     )}
                     style={{ transitionDelay: open ? "40ms" : "40ms" }}

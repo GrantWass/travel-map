@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import type { Trip } from "@/lib/api-types";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import { formatTripDuration } from "@/lib/utils";
-import { buildSearchResults, getAvailableTags, MAX_COST, useTripSearchStore } from "@/stores/trip-search-store";
+import { buildSearchResults, getAvailableTags, MAX_COST, TRIP_DURATION_OPTIONS, useTripSearchStore } from "@/stores/trip-search-store";
 
 interface SearchSidebarPanelProps {
     query: string;
@@ -43,8 +43,10 @@ interface SearchSidebarPanelProps {
 export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", onOwnerFilterChange, currentUserId = null, friendIds = [] }: SearchSidebarPanelProps) {
     const selectedTags = useTripSearchStore((state) => state.selectedTags);
     const maxCost = useTripSearchStore((state) => state.maxCost);
+    const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
     const toggleTag = useTripSearchStore((state) => state.toggleTag);
     const setMaxCost = useTripSearchStore((state) => state.setMaxCost);
+    const toggleTripType = useTripSearchStore((state) => state.toggleTripType);
     const clearFilters = useTripSearchStore((state) => state.clearFilters);
     const syncTagsWithAvailability = useTripSearchStore((state) => state.syncTagsWithAvailability);
 
@@ -64,11 +66,12 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                 friendIds,
                 selectedTags,
                 maxCost,
+                tripTypeFilter,
             }),
-        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost],
+        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost, tripTypeFilter],
     );
 
-    const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST;
+    const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST || tripTypeFilter.length > 0;
     const noFiltersOrQuery = query.trim() === "" && !hasActiveFilters;
 
     return (
@@ -140,6 +143,32 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                             }`}
                                         >
                                             <span className="truncate">{tag}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Trip Type / Duration */}
+                        <div className="flex flex-col gap-2">
+                            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                <Timer className="h-3 w-3" />
+                                Trip Type
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                                {TRIP_DURATION_OPTIONS.map(({ value, label }) => {
+                                    const active = tripTypeFilter.includes(value);
+                                    return (
+                                        <button
+                                            key={value}
+                                            onClick={() => toggleTripType(value)}
+                                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                                                active
+                                                    ? "border-primary/40 bg-primary/10 text-primary"
+                                                    : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
+                                            }`}
+                                        >
+                                            {label}
                                         </button>
                                     );
                                 })}

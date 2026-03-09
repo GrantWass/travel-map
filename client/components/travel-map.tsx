@@ -18,10 +18,11 @@ import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
 import { toUserProfileFromApi, createTripComment, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getTripComments, getUserProfile, markTripCommentsRead, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
+import { cn } from "@/lib/utils";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
-import { filterTripsByOwner, getFriendIds, useTripSearchStore } from "@/stores/trip-search-store";
+import { filterTripsByDuration, filterTripsByOwner, getFriendIds, useTripSearchStore } from "@/stores/trip-search-store";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -121,6 +122,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const [commentError, setCommentError] = useState<string | null>(null);
     const ownerFilter = useTripSearchStore((state) => state.ownerFilter);
     const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
+    const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const [notifiedTripIds, setNotifiedTripIds] = useState<Set<number>>(new Set());
@@ -582,8 +584,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const friendIds = useMemo(() => getFriendIds(acceptedFriendships, userId), [acceptedFriendships, userId]);
 
     const filteredTrips = useMemo(
-        () => filterTripsByOwner(trips, ownerFilter, userId, friendIds),
-        [trips, ownerFilter, userId, friendIds],
+        () => filterTripsByDuration(filterTripsByOwner(trips, ownerFilter, userId, friendIds), tripTypeFilter),
+        [trips, ownerFilter, userId, friendIds, tripTypeFilter],
     );
 
     return (
@@ -592,9 +594,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 <>
                     <div className={`absolute left-4 top-3 z-[1000] hidden sm:block ${topLeftControlsWidthClass}`}>
                         <div className="flex items-center gap-2">
-                            <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border bg-card/95 px-5 shadow-sm backdrop-blur-sm">
+                            <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border px-5 shadow-sm bg-secondary/40 backdrop-blur-sm">
                                 <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                                
+
                                 <input
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -608,11 +610,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                 data-spotlight="plans"
                                 type="button"
                                 onClick={() => requireAuth("plans", togglePlansPanel)}
-                                className={`flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-colors ${
+                                className={cn(
+                                    "flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors",
                                     mapPanels.showPlansPanel
                                         ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                                        : "border-border bg-card/95 text-foreground hover:bg-card"
-                                }`}
+                                        : "border-border text-foreground hover:bg-secondary/60",
+                                )}
                                 aria-label="Open plans"
                                 title="Plans"
                             >
@@ -625,7 +628,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         <button
                             type="button"
                             onClick={openSearchPanel}
-                            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
                             aria-label="Open search"
                         >
                             <Search className="h-5 w-5 text-foreground" />
@@ -633,11 +636,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         <button
                             type="button"
                             onClick={() => requireAuth("plans", togglePlansPanel)}
-                            className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-colors ${
+                            className={cn(
+                                "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors",
                                 mapPanels.showPlansPanel
                                     ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                                    : "border-border bg-card/90 text-foreground hover:bg-card"
-                            }`}
+                                    : "border-border text-foreground hover:bg-secondary/60",
+                            )}
                             aria-label="Open plans"
                             title="Plans"
                         >
@@ -648,7 +652,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             )}
 
             <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${mapPanels.showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
-                <div className="hidden items-center gap-2 rounded-full border border-border bg-card/90 px-5 py-2.5 shadow-sm backdrop-blur-sm sm:flex">
+                <div className="hidden h-11 items-center gap-2 rounded-full border border-border px-5 shadow-sm bg-secondary/40 backdrop-blur-sm sm:flex">
                     <MapPin className="h-5 w-5 text-primary" />
                     <BrandNameButton
                         className="text-lg text-foreground"
@@ -661,7 +665,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         type="button"
                         aria-label="Open friends"
                         onClick={() => requireAuth("friends", () => setFriendsOpen(true))}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
                     >
                         <Users className="h-6 w-6 text-foreground" />
                     </button>
@@ -677,7 +681,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                 void openProfile(userId, "top-right");
                             });
                         }}
-                        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
                         aria-label="Open profile"
                     >
                         <CircleUser className="h-6 w-6 text-foreground" />
