@@ -862,7 +862,14 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 />
             )}
 
-            {friendsOpen && <FriendsModal onClose={() => setFriendsOpen(false)} />}
+            {friendsOpen && (
+                <FriendsModal
+                    onClose={() => setFriendsOpen(false)}
+                    onSelectTrip={(tripId) => {
+                        void openTripById(tripId);
+                    }}
+                />
+            )}
 
             <SignupRequiredModal
                 open={signupPromptIntent !== null}

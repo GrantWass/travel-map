@@ -12,3 +12,5 @@ get a domain
 
 better auth work
 revist SMS
+
+opening profile is slow

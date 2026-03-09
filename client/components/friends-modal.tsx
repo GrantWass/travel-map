@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { X, UserPlus, Phone, Check, Slash, Copy, Link as LinkIcon } from "lucide-react";
+import { X, UserPlus, Check, Slash, Copy, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  createSmsInvite,
   createInviteLink,
   createFriendRequest,
   respondFriendRequest,
@@ -17,14 +16,15 @@ import UserProfileModal from "./user-profile-modal";
 
 interface FriendsModalProps {
   onClose: () => void;
+  onSelectTrip?: (tripId: number) => void;
 }
 
-/* ----------------------------- Avatar ----------------------------- */
+/* ---------------- Avatar ---------------- */
 
 function UserAvatar({
   name,
   image,
-  size = 32,
+  size = 36,
 }: {
   name?: string | null;
   image?: string | null;
@@ -40,27 +40,32 @@ function UserAvatar({
 
   if (image) {
     return (
-      <Image
-        src={image}
-        alt={`${name} avatar`}
-        width={size}
-        height={size}
-        className="rounded-full object-cover"
-      />
+      <div
+        style={{ width: size, height: size }}
+        className="shrink-0 overflow-hidden rounded-full"
+      >
+        <Image
+          src={image}
+          alt={`${name} avatar`}
+          width={size}
+          height={size}
+          className="h-full w-full object-cover"
+        />
+      </div>
     );
   }
 
   return (
     <div
       style={{ width: size, height: size }}
-      className="rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold"
+      className="rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold"
     >
       {initials}
     </div>
   );
 }
 
-/* -------------------------- Search Result Row -------------------------- */
+/* ---------------- Search Result ---------------- */
 
 function SearchUserRow({
   user,
@@ -70,20 +75,20 @@ function SearchUserRow({
   onClick,
 }: any) {
   return (
-    <div className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
-      <div className="flex items-start gap-3">
-        <UserAvatar name={user.name} image={user.profile_image_url} size={40} />
+    <div className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <UserAvatar name={user.name} image={user.profile_image_url} />
 
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           <button
-            className="text-sm font-medium text-left hover:underline"
+            className="min-w-0 truncate text-left text-sm font-medium hover:underline"
             onClick={onClick}
           >
             {user.name}
           </button>
 
           {user.bio && (
-            <div className="text-xs text-muted-foreground mt-1 max-w-lg">
+            <div className="text-xs text-muted-foreground line-clamp-2">
               {user.bio}
             </div>
           )}
@@ -91,12 +96,17 @@ function SearchUserRow({
       </div>
 
       {isCurrentUser ? (
-        <Button size="sm" disabled>
+        <Button size="sm" disabled className="w-full sm:w-auto">
           You
         </Button>
       ) : (
-        <Button size="sm" onClick={onRequest} disabled={requestBusy}>
-          <UserPlus className="mr-2 h-3.5 w-3.5" />
+        <Button
+          size="sm"
+          onClick={onRequest}
+          disabled={requestBusy}
+          className="w-full sm:w-auto"
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
           Request
         </Button>
       )}
@@ -104,7 +114,7 @@ function SearchUserRow({
   );
 }
 
-/* -------------------------- Request Row -------------------------- */
+/* ---------------- Request Row ---------------- */
 
 function RequestRow({
   name,
@@ -115,24 +125,32 @@ function RequestRow({
   onDecline,
 }: any) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <UserAvatar name={name} image={image} />
 
-        <button className="text-sm hover:underline" onClick={onClick}>
+        <button
+          className="min-w-0 truncate text-left text-sm hover:underline"
+          onClick={onClick}
+        >
           {name ?? "Unknown"}
         </button>
       </div>
 
       {onAccept ? (
         <div className="flex gap-2">
-          <Button onClick={onAccept}>
-            <Check className="mr-2 h-3.5 w-3.5" />
+          <Button size="sm" onClick={onAccept} className="flex-1 sm:flex-none">
+            <Check className="mr-2 h-4 w-4" />
             Accept
           </Button>
 
-          <Button variant="outline" onClick={onDecline}>
-            <Slash className="mr-2 h-3.5 w-3.5" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onDecline}
+            className="flex-1 sm:flex-none"
+          >
+            <Slash className="mr-2 h-4 w-4" />
             Decline
           </Button>
         </div>
@@ -143,15 +161,18 @@ function RequestRow({
   );
 }
 
-/* ----------------------------- Friend Row ----------------------------- */
+/* ---------------- Friend Row ---------------- */
 
 function FriendRow({ name, image, onClick }: any) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <UserAvatar name={name} image={image} />
 
-        <button className="text-sm hover:underline" onClick={onClick}>
+        <button
+          className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
+          onClick={onClick}
+        >
           {name ?? "Unknown"}
         </button>
       </div>
@@ -161,244 +182,143 @@ function FriendRow({ name, image, onClick }: any) {
   );
 }
 
-/* ============================= MAIN MODAL ============================= */
+/* ================= Modal ================= */
 
-export default function FriendsModal({ onClose }: FriendsModalProps) {
+export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProps) {
   const { incoming, outgoing, accepted, loaded, refresh } = useFriendsStore();
-
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [phoneInput, setPhoneInput] = useState("");
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [inviteBusy, setInviteBusy] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
+
   const [inviteLink, setInviteLink] = useState("/signup");
   const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
-  const [copyInviteState, setCopyInviteState] = useState<"idle" | "copied" | "error">("idle");
+  const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
 
   const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
 
   const currentUserId = useAuthStore((s) => s.user?.user_id ?? null);
 
-  const load = async () => {
-    setError(null);
-    try {
-      await refresh();
-    } catch (err: any) {
-      setError(err?.message || "Could not load friends");
-    }
-  };
+  async function load() {
+    await refresh();
+  }
 
   useEffect(() => {
-    if (!loaded) {
-      setRefreshing(true);
-      void load().finally(() => setRefreshing(false));
-    } else {
-      void load();
-    }
+    if (!loaded) load();
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const baseSignupUrl = `${window.location.origin}/signup`;
-    setInviteLink(baseSignupUrl);
+    const base = `${window.location.origin}/signup`;
+    setInviteLink(base);
 
-    const loadInviteLink = async () => {
+    async function getLink() {
       setInviteLinkLoading(true);
       try {
-        const response = await createInviteLink();
-        const inviteToken = response?.invite?.invite_token;
-        if (typeof inviteToken === "string" && inviteToken.trim().length > 0) {
-          setInviteLink(`${baseSignupUrl}?invite=${encodeURIComponent(inviteToken)}`);
+        const r = await createInviteLink();
+        const token = r?.invite?.invite_token;
+
+        if (token) {
+          setInviteLink(`${base}?invite=${token}`);
         }
-      } catch {
-        // Keep fallback signup URL when token generation fails.
       } finally {
         setInviteLinkLoading(false);
       }
-    };
+    }
 
-    void loadInviteLink();
+    getLink();
   }, []);
 
-  async function handleSendInvite() {
-    setPhoneError(null);
-    const raw = phoneInput.trim();
-
-    if (!raw) {
-      setPhoneError("Phone number is required");
-      return;
-    }
-
-    setInviteBusy(true);
-
-    try {
-      const { parsePhoneNumberFromString } = await import("libphonenumber-js");
-      const parsed = parsePhoneNumberFromString(raw, "US");
-
-      if (!parsed || !parsed.isValid()) {
-        setPhoneError("Invalid phone number");
-        return;
-      }
-
-      const normalized = parsed.format("E.164");
-
-      await createSmsInvite(normalized);
-
-      setPhoneInput("");
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Could not send invite");
-    } finally {
-      setInviteBusy(false);
-    }
+  async function handleCopy() {
+    await navigator.clipboard.writeText(inviteLink);
+    setCopyState("copied");
+    setTimeout(() => setCopyState("idle"), 1500);
   }
 
-  async function handleSendRequestToId(id: number) {
+  async function handleSendRequest(id: number) {
     setRequestBusy(true);
-
-    try {
-      await createFriendRequest(id);
-
-      setSearchQuery("");
-      setSearchResults([]);
-
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Could not send friend request");
-    } finally {
-      setRequestBusy(false);
-    }
+    await createFriendRequest(id);
+    setSearchQuery("");
+    setSearchResults([]);
+    await load();
+    setRequestBusy(false);
   }
 
-  async function handleCopyInviteLink() {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopyInviteState("copied");
-      window.setTimeout(() => setCopyInviteState("idle"), 1600);
-    } catch {
-      setCopyInviteState("error");
-      window.setTimeout(() => setCopyInviteState("idle"), 2200);
-    }
-  }
+  /* -------- search -------- */
 
   useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length < 2) {
+    if (searchQuery.trim().length < 2) {
       setSearchResults([]);
       return;
     }
 
-    const id = window.setTimeout(async () => {
-      setSearchLoading(true);
-
-      try {
-        const res = await (await import("@/lib/api-client")).searchUsers(
-          searchQuery.trim()
-        );
-
-        setSearchResults(res.users || []);
-      } catch (err: any) {
-        setError(err?.message || "Search failed");
-      } finally {
-        setSearchLoading(false);
-      }
+    const id = setTimeout(async () => {
+      const res = await (await import("@/lib/api-client")).searchUsers(
+        searchQuery
+      );
+      setSearchResults(res.users || []);
     }, 300);
 
-    return () => window.clearTimeout(id);
+    return () => clearTimeout(id);
   }, [searchQuery]);
 
-  async function handleRespond(friendshipId: number, status: "accepted" | "declined") {
-    try {
-      await respondFriendRequest(friendshipId, status);
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Could not update request");
-    }
+  /* -------- respond -------- */
+
+  async function respond(id: number, status: "accepted" | "declined") {
+    await respondFriendRequest(id, status);
+    await load();
   }
 
   return (
     <>
       <div
-        className="backdrop-fade fixed inset-0 z-[1500] bg-foreground/10 backdrop-blur-sm"
+        className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm"
         onClick={onClose}
       >
         <div
-          className="modal-expand fixed left-1/2 top-1/2 z-[1600] w-[min(720px,96vw)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card border border-border shadow-2xl"
+          className="fixed inset-3 sm:left-1/2 sm:top-1/2 sm:w-[720px] sm:-translate-x-1/2 sm:-translate-y-1/2 flex flex-col rounded-2xl bg-card shadow-2xl border border-border max-h-[95vh]"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-border p-4">
+          {/* header */}
+
+          <div className="flex items-center justify-between border-b p-4">
             <h2 className="text-lg font-semibold">Friends</h2>
 
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-border"
+              className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted"
             >
-              <X className="h-4 w-4 text-muted-foreground" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="p-4 grid gap-6">
+          {/* body */}
+
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6">
+            {/* invite link */}
+
             <section>
               <h3 className="text-sm font-medium">Invite link</h3>
 
-              <div className="mt-2 flex gap-2">
-                <div className="flex h-10 flex-1 items-center gap-2 rounded-md border border-input px-3 text-sm text-muted-foreground">
-                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center mt-2">
+                <div className="flex flex-1 min-w-0 items-center gap-2 border rounded-md px-3 h-10 text-sm text-muted-foreground">
+                  <LinkIcon className="h-4 w-4 shrink-0" />
                   <span className="truncate">
-                    {inviteLinkLoading ? "Generating invite link..." : inviteLink}
+                    {inviteLinkLoading
+                      ? "Generating invite link..."
+                      : inviteLink}
                   </span>
                 </div>
-                <Button onClick={handleCopyInviteLink} disabled={inviteLinkLoading}>
+
+                <Button onClick={handleCopy} className="w-full sm:w-auto">
                   <Copy className="mr-2 h-4 w-4" />
-                  {copyInviteState === "copied"
-                    ? "Copied"
-                    : copyInviteState === "error"
-                    ? "Retry"
-                    : "Copy"}
+                  {copyState === "copied" ? "Copied" : "Copy"}
                 </Button>
               </div>
-
-              {copyInviteState === "error" && (
-                <div className="mt-2 text-sm text-red-600">
-                  Could not copy automatically. You can still copy the link above.
-                </div>
-              )}
             </section>
 
-            {/*
-            <section>
-              <h3 className="text-sm font-medium">Invite via SMS</h3>
-
-              <div className="mt-2 flex gap-2">
-                <input
-                  value={phoneInput}
-                  onChange={(e) => {
-                    setPhoneInput(e.target.value);
-                    setPhoneError(null);
-                  }}
-                  placeholder="+15551234567"
-                  className="h-10 flex-1 rounded-md border border-input px-3"
-                />
-
-                <Button onClick={handleSendInvite} disabled={inviteBusy}>
-                  <Phone className="mr-2 h-4 w-4" />
-                  Send
-                </Button>
-              </div>
-
-              {phoneError && (
-                <div className="text-sm text-red-600 mt-2">{phoneError}</div>
-              )}
-            </section>
-            */}
-
-            {/* Search */}
+            {/* search */}
 
             <section>
               <h3 className="text-sm font-medium">Find by name</h3>
@@ -406,24 +326,18 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search users by name"
-                className="mt-2 h-10 w-full rounded-md border border-input px-3"
+                placeholder="Search users"
+                className="mt-2 w-full h-10 border rounded-md px-3"
               />
 
-              {searchLoading && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Searching…
-                </p>
-              )}
-
-              <div className="mt-2 grid gap-2">
+              <div className="mt-3 space-y-2">
                 {searchResults.map((u) => (
                   <SearchUserRow
                     key={u.user_id}
                     user={u}
                     isCurrentUser={u.user_id === currentUserId}
                     requestBusy={requestBusy}
-                    onRequest={() => handleSendRequestToId(u.user_id)}
+                    onRequest={() => handleSendRequest(u.user_id)}
                     onClick={async () => {
                       const p = await getUserProfile(u.user_id);
                       setSelectedProfile({ ...p.user, trips: p.trips });
@@ -433,15 +347,15 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
               </div>
             </section>
 
-            {/* Incoming */}
+            {/* incoming */}
 
             <section>
               <h3 className="text-sm font-medium">Incoming requests</h3>
 
-              <div className="mt-2 grid gap-2">
+              <div className="mt-2 space-y-2">
                 {incoming.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No incoming requests.
+                    No incoming requests
                   </p>
                 )}
 
@@ -454,22 +368,22 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                       const p = await getUserProfile(req.requester_id);
                       setSelectedProfile({ ...p.user, trips: p.trips });
                     }}
-                    onAccept={() => handleRespond(req.id, "accepted")}
-                    onDecline={() => handleRespond(req.id, "declined")}
+                    onAccept={() => respond(req.id, "accepted")}
+                    onDecline={() => respond(req.id, "declined")}
                   />
                 ))}
               </div>
             </section>
 
-            {/* Pending */}
+            {/* pending */}
 
             <section>
               <h3 className="text-sm font-medium">Pending requests</h3>
 
-              <div className="mt-2 grid gap-2">
+              <div className="mt-2 space-y-2">
                 {outgoing.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No pending requests.
+                    No pending requests
                   </p>
                 )}
 
@@ -488,20 +402,20 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
               </div>
             </section>
 
-            {/* Friends */}
+            {/* friends */}
 
             <section>
               <h3 className="text-sm font-medium">Friends</h3>
 
-              <div className="mt-2 grid gap-2">
+              <div className="mt-2 space-y-2">
                 {accepted.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No friends yet.
+                    No friends yet
                   </p>
                 )}
 
                 {accepted.map((f) => {
-                  const me = useAuthStore.getState().user?.user_id ?? null;
+                  const me = currentUserId;
 
                   const otherId =
                     me === f.requester_id ? f.addressee_id : f.requester_id;
@@ -530,8 +444,6 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                 })}
               </div>
             </section>
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
         </div>
       </div>
@@ -540,6 +452,10 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
         <UserProfileModal
           profile={selectedProfile}
           onClose={() => setSelectedProfile(null)}
+          onSelectTrip={(tripId) => {
+            onSelectTrip?.(tripId);
+            onClose();
+          }}
           canEditProfile={false}
         />
       )}

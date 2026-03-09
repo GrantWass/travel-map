@@ -12,11 +12,11 @@ TRIP_PRIORITY_BASE_POINTS = {
     "image": 7.0,
     "coordinates": 7.0,
     "title": 2.0,
-    "description_words": 12.0,
+    "description_words": 8.0,
     "cost": 2.0,
 }
 TRIP_PRIORITY_ITEM_POINTS = {
-    "count": 16.0,
+    "count": 20.0,
     "average_item_completeness": 29.0,
     "item_description_words": 10.0,
 }
@@ -109,18 +109,18 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
             )
 
     # ----------------------------
-    # Section A: Trip base (30 pts)
+    # Section A: Trip base (26 pts)
     # ----------------------------
     # Description uses 0.08 points per word, capped by configured max points.
     base_image_points = TRIP_PRIORITY_BASE_POINTS["image"] if trip_has_image else 0.0
     base_coordinate_points = TRIP_PRIORITY_BASE_POINTS["coordinates"] if trip_has_coordinates else 0.0
     base_title_points = TRIP_PRIORITY_BASE_POINTS["title"] if trip_title_words >= 2 else 0.0
-    base_description_points = min(float(trip_description_words) * 0.08, TRIP_PRIORITY_BASE_POINTS["description_words"])
+    base_description_points = min(float(trip_description_words) * 0.24, TRIP_PRIORITY_BASE_POINTS["description_words"])
     base_cost_points = TRIP_PRIORITY_BASE_POINTS["cost"] if trip_has_cost else 0.0
     base_total = base_image_points + base_coordinate_points + base_title_points + base_description_points + base_cost_points
 
     # ----------------------------------------
-    # Section B: Combined item quality (55 pts)
+    # Section B: Combined item quality (59 pts)
     # ----------------------------------------
     item_count = len(items)
 
@@ -217,7 +217,7 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
         "breakdown": {
             "base": {
                 "total": round(base_total, 2),
-                "max": 30.0,
+                "max": 26.0,
                 "trip_image_points": round(base_image_points, 2),
                 "trip_coordinate_points": round(base_coordinate_points, 2),
                 "trip_title_points": round(base_title_points, 2),
@@ -227,7 +227,7 @@ def score_trip_priority(trip: dict[str, Any]) -> dict[str, Any]:
             },
             "items": {
                 "total": round(item_total, 2),
-                "max": 55.0,
+                "max": 59.0,
                 "combined_item_count": item_count,
                 "combined_item_count_points": round(item_count_points, 2),
                 "avg_item_raw_score_out_of_10": round(avg_item_raw_score, 2),
