@@ -386,4 +386,18 @@ export async function toggleSavedLodging(lodgeId: number): Promise<SavedPlans> {
   return requestJson<SavedPlans>(`/users/me/plans/lodgings/${lodgeId}`, { method: "POST" });
 }
 
+export async function getUnreadCommentCounts() {
+  return requestJson<{ unread_count: number; unread_count_by_trip: Record<string, number> }>(
+    "/users/me/notifications/comments/unread-count",
+    { method: "GET" },
+  );
+}
+
+export async function markTripCommentsRead() {
+  return requestJson<{ message: string; last_seen_at: string | null }>(
+    "/users/me/notifications/comments/mark-read",
+    { method: "POST" },
+  );
+}
+
 export { ApiError };

@@ -23,6 +23,7 @@ interface UserProfileModalProps {
     deletingTripId?: number | null;
     onDeleteTrip?: (tripId: number) => void;
     expandFrom?: "top-right" | "left";
+    notifiedTripIds?: Set<number>;
 }
 
 export default function UserProfileModal({
@@ -36,6 +37,7 @@ export default function UserProfileModal({
     deletingTripId = null,
     onDeleteTrip,
     expandFrom = "top-right",
+    notifiedTripIds,
 }: UserProfileModalProps) {
     const signOut = useAuthStore((state) => state.signOut);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
@@ -509,7 +511,7 @@ export default function UserProfileModal({
                         </h2>
                     )}
                     {canManageTrips || (profile.trips || []).length > 0 ? (
-                        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5">
                             {canManageTrips && (
                                 <button
                                     type="button"
@@ -528,6 +530,9 @@ export default function UserProfileModal({
                                     key={trip.trip_id}
                                     className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background hover:border-primary/30 transition-colors"
                                 >
+                                    {notifiedTripIds?.has(trip.trip_id) && (
+                                        <span className="absolute left-2 top-2 z-20 h-5 w-5 rounded-full bg-red-500 border-2 border-card" />
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => {

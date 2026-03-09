@@ -16,7 +16,7 @@ import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, createTripComment, deleteTrip, getSavedPlans, getTrip, getTripComments, getUserProfile, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, createTripComment, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getTripComments, getUserProfile, markTripCommentsRead, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -123,6 +123,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
+    const [notifiedTripIds, setNotifiedTripIds] = useState<Set<number>>(new Set());
     const activeTripRequestIdRef = useRef(0);
     const profileOpenRequestIdRef = useRef(0);
 
@@ -269,6 +270,51 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         const cached = toUserProfileFromApi(myProfile);
         setProfileCacheByUser((current) => ({ ...current, [cached.user_id]: cached }));
     }, [myProfile]);
+
+    // ── Notification helpers ─────────────────────────────────────────────────
+
+    const fetchNotifications = useCallback(async () => {
+        if (userId === null) return;
+        try {
+            const { unread_count_by_trip } = await getUnreadCommentCounts();
+            const ids = new Set(
+                Object.entries(unread_count_by_trip)
+                    .filter(([, count]) => count > 0)
+                    .map(([id]) => Number(id)),
+            );
+            setNotifiedTripIds(ids);
+        } catch {
+            // Ignore notification fetch failures.
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        if (userId === null) {
+            setNotifiedTripIds(new Set());
+            return;
+        }
+        void fetchNotifications();
+    }, [userId, fetchNotifications]);
+
+    // Clear notification when user views their own trip.
+    useEffect(() => {
+        if (!selectedTrip || userId === null) return;
+        if (selectedTrip.owner_user_id !== userId) return;
+
+        // Use functional update to read current state — avoids stale closure bug.
+        setNotifiedTripIds((prev) => {
+            if (!prev.has(selectedTrip.trip_id)) return prev;
+            const next = new Set(prev);
+            next.delete(selectedTrip.trip_id);
+            // Fire-and-forget: sync the read marker to the server.
+            // Don't refetch afterward — the server mark-read uses a global timestamp
+            // that would clear all other trips' local dots incorrectly.
+            void markTripCommentsRead().catch(() => undefined);
+            return next;
+        });
+    }, [selectedTrip?.trip_id, userId]);
+
+    // ────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {
         setCommentError(null);
@@ -631,10 +677,13 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                 void openProfile(userId, "top-right");
                             });
                         }}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
+                        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
                         aria-label="Open profile"
                     >
                         <CircleUser className="h-6 w-6 text-foreground" />
+                        {notifiedTripIds.size > 0 && (
+                            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-red-500 border-2 border-card" />
+                        )}
                     </button>
                 </div>
             </div>
@@ -838,6 +887,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                     canManageTrips={profileState.canManageTrips}
                     canEditProfile={profileState.canEditProfile}
                     deletingTripId={deletingTripId}
+                    notifiedTripIds={profileState.canEditProfile ? notifiedTripIds : undefined}
                     onDeleteTrip={(tripId) => {
                         void handleDeleteTrip(tripId);
                     }}
