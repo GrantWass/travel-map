@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
-import { filterTripsByDuration, filterTripsByOwner, getFriendIds, useTripSearchStore } from "@/stores/trip-search-store";
+import { buildSearchResults, getFriendIds, useTripSearchStore } from "@/stores/trip-search-store";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -137,6 +137,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const ownerFilter = useTripSearchStore((state) => state.ownerFilter);
     const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
     const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
+    const selectedTags = useTripSearchStore((state) => state.selectedTags);
+    const maxCost = useTripSearchStore((state) => state.maxCost);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const [notifiedTripIds, setNotifiedTripIds] = useState<Set<number>>(new Set());
@@ -631,10 +633,21 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
     const friendIds = useMemo(() => getFriendIds(acceptedFriendships, userId), [acceptedFriendships, userId]);
 
-    const filteredTrips = useMemo(
-        () => filterTripsByDuration(filterTripsByOwner(trips, ownerFilter, userId, friendIds), tripTypeFilter),
-        [trips, ownerFilter, userId, friendIds, tripTypeFilter],
-    );
+    const filteredTrips = useMemo(() => {
+        const results = buildSearchResults({
+            trips,
+            query: searchQuery,
+            ownerFilter,
+            currentUserId: userId,
+            friendIds,
+            selectedTags,
+            maxCost,
+            tripTypeFilter,
+        });
+
+        const visibleTripIds = new Set(results.map((result) => result.trip.trip_id));
+        return trips.filter((trip) => visibleTripIds.has(trip.trip_id));
+    }, [trips, searchQuery, ownerFilter, userId, friendIds, selectedTags, maxCost, tripTypeFilter]);
 
     return (
         <div className="relative h-screen w-screen overflow-hidden">

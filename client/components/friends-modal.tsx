@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { X, UserPlus, Check, Slash, Copy, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -165,7 +165,7 @@ function RequestRow({
 
 function FriendRow({ name, image, onClick }: any) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border p-3">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <UserAvatar name={name} image={image} />
 
@@ -177,7 +177,7 @@ function FriendRow({ name, image, onClick }: any) {
         </button>
       </div>
 
-      <div className="text-xs text-muted-foreground">Friends</div>
+      <div className="shrink-0 text-xs text-muted-foreground">Friends</div>
     </div>
   );
 }
@@ -196,6 +196,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
 
   const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
+  const activeProfileRequestIdRef = useRef(0);
 
   const currentUserId = useAuthStore((s) => s.user?.user_id ?? null);
 
@@ -270,6 +271,47 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
     await load();
   }
 
+  async function openProfileOptimistic(
+    userId: number,
+    seed: { name?: string | null; profile_image_url?: string | null; bio?: string | null } = {}
+  ) {
+    const requestId = activeProfileRequestIdRef.current + 1;
+    activeProfileRequestIdRef.current = requestId;
+
+    const fallbackName = (seed.name || "Traveler").trim() || "Traveler";
+    const initials =
+      fallbackName
+        .split(" ")
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "TR";
+
+    // Open profile modal immediately with known row data, then hydrate full profile.
+    setSelectedProfile({
+      user_id: userId,
+      name: fallbackName,
+      email: "",
+      bio: seed.bio ?? "",
+      verified: false,
+      college: null,
+      profile_image_url: seed.profile_image_url ?? null,
+      trips: [],
+      initials,
+    });
+
+    try {
+      const profileResponse = await getUserProfile(userId);
+      if (requestId !== activeProfileRequestIdRef.current) {
+        return;
+      }
+      setSelectedProfile({ ...profileResponse.user, trips: profileResponse.trips });
+    } catch {
+      // Keep optimistic profile shown if hydration fails.
+    }
+  }
+
   return (
     <>
       <div
@@ -277,7 +319,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
         onClick={onClose}
       >
         <div
-          className="fixed inset-3 sm:left-1/2 sm:top-1/2 sm:w-[720px] sm:-translate-x-1/2 sm:-translate-y-1/2 flex flex-col rounded-2xl bg-card shadow-2xl border border-border max-h-[95vh]"
+          className="fixed inset-3 flex max-h-[calc(100dvh-1.5rem)] flex-col rounded-2xl border border-border bg-card shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[720px] sm:max-h-[96dvh] sm:-translate-x-1/2 sm:-translate-y-1/2 lg:max-h-[98dvh]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* header */}
@@ -338,9 +380,12 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                     isCurrentUser={u.user_id === currentUserId}
                     requestBusy={requestBusy}
                     onRequest={() => handleSendRequest(u.user_id)}
-                    onClick={async () => {
-                      const p = await getUserProfile(u.user_id);
-                      setSelectedProfile({ ...p.user, trips: p.trips });
+                    onClick={() => {
+                      void openProfileOptimistic(u.user_id, {
+                        name: u.name,
+                        profile_image_url: u.profile_image_url,
+                        bio: u.bio,
+                      });
                     }}
                   />
                 ))}
@@ -364,9 +409,11 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                     key={req.id}
                     name={req.requester_name}
                     image={(req as any).requester_profile_image_url}
-                    onClick={async () => {
-                      const p = await getUserProfile(req.requester_id);
-                      setSelectedProfile({ ...p.user, trips: p.trips });
+                    onClick={() => {
+                      void openProfileOptimistic(req.requester_id, {
+                        name: req.requester_name,
+                        profile_image_url: (req as any).requester_profile_image_url,
+                      });
                     }}
                     onAccept={() => respond(req.id, "accepted")}
                     onDecline={() => respond(req.id, "declined")}
@@ -393,9 +440,11 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                     name={req.addressee_name}
                     image={(req as any).addressee_profile_image_url}
                     status={req.status}
-                    onClick={async () => {
-                      const p = await getUserProfile(req.addressee_id);
-                      setSelectedProfile({ ...p.user, trips: p.trips });
+                    onClick={() => {
+                      void openProfileOptimistic(req.addressee_id, {
+                        name: req.addressee_name,
+                        profile_image_url: (req as any).addressee_profile_image_url,
+                      });
                     }}
                   />
                 ))}
@@ -435,9 +484,11 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                       key={f.id}
                       name={otherName}
                       image={otherImage}
-                      onClick={async () => {
-                        const p = await getUserProfile(otherId);
-                        setSelectedProfile({ ...p.user, trips: p.trips });
+                      onClick={() => {
+                        void openProfileOptimistic(otherId, {
+                          name: otherName,
+                          profile_image_url: otherImage,
+                        });
                       }}
                     />
                   );
@@ -451,7 +502,10 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
       {selectedProfile && (
         <UserProfileModal
           profile={selectedProfile}
-          onClose={() => setSelectedProfile(null)}
+          onClose={() => {
+            activeProfileRequestIdRef.current += 1;
+            setSelectedProfile(null);
+          }}
           onSelectTrip={(tripId) => {
             onSelectTrip?.(tripId);
             onClose();
