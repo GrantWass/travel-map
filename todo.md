@@ -10,6 +10,10 @@
   - Need to zoom out on browser to see most content (it overflows horizonatlly?)
 - Create more solid global styles for colors, fonts, shapes, etc.?
 - Animate friends modal and maybe reorganize it
+- Named collections for plans
+- Feed? shows new and trending activities
+- Collaborative trips?
+- Likes on a trip?
 
 ### Optimization
 

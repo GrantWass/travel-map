@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer, ChevronDown } from "lucide-react";
+import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer, ChevronDown, CalendarRange } from "lucide-react";
 
 function formatCityState(address: string | null | undefined): string | null {
     if (!address) return null;
@@ -44,9 +44,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     const selectedTags = useTripSearchStore((state) => state.selectedTags);
     const maxCost = useTripSearchStore((state) => state.maxCost);
     const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
+    const dateFrom = useTripSearchStore((state) => state.dateFrom);
+    const dateTo = useTripSearchStore((state) => state.dateTo);
     const toggleTag = useTripSearchStore((state) => state.toggleTag);
     const setMaxCost = useTripSearchStore((state) => state.setMaxCost);
     const toggleTripType = useTripSearchStore((state) => state.toggleTripType);
+    const setDateFrom = useTripSearchStore((state) => state.setDateFrom);
+    const setDateTo = useTripSearchStore((state) => state.setDateTo);
     const clearFilters = useTripSearchStore((state) => state.clearFilters);
     const syncTagsWithAvailability = useTripSearchStore((state) => state.syncTagsWithAvailability);
 
@@ -67,13 +71,16 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                 selectedTags,
                 maxCost,
                 tripTypeFilter,
+                dateFrom,
+                dateTo,
             }),
-        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost, tripTypeFilter],
+        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost, tripTypeFilter, dateFrom, dateTo],
     );
 
     const [filtersOpen, setFiltersOpen] = useState(false);
 
-    const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST || tripTypeFilter.length > 0;
+    const hasDateFilter = Boolean(dateFrom || dateTo);
+    const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST || tripTypeFilter.length > 0 || hasDateFilter;
     const noFiltersOrQuery = query.trim() === "" && !hasActiveFilters;
 
     return (
@@ -117,7 +124,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                 Filters
                                 {hasActiveFilters && !filtersOpen && (
                                     <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                        {selectedTags.length + (maxCost < MAX_COST ? 1 : 0) + (tripTypeFilter.length > 0 ? 1 : 0)}
+                                        {selectedTags.length + (maxCost < MAX_COST ? 1 : 0) + (tripTypeFilter.length > 0 ? 1 : 0) + (hasDateFilter ? 1 : 0)}
                                     </span>
                                 )}
                             </div>
@@ -210,6 +217,30 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                         value={[maxCost]}
                                         onValueChange={([val]) => setMaxCost(val ?? MAX_COST)}
                                     />
+                                </div>
+
+                                {/* Date */}
+                                <div className="flex flex-col gap-2 mt-0 mb-4">
+                                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                        <CalendarRange className="h-3 w-3" />
+                                        Date
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input
+                                            type="month"
+                                            value={dateFrom}
+                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none"
+                                            aria-label="Filter trips from month"
+                                        />
+                                        <input
+                                            type="month"
+                                            value={dateTo}
+                                            onChange={(e) => setDateTo(e.target.value)}
+                                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none"
+                                            aria-label="Filter trips through month"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Visibility */}

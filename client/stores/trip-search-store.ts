@@ -25,10 +25,14 @@ interface TripSearchState {
   selectedTags: string[];
   maxCost: number;
   tripTypeFilter: TripDuration[];
+  dateFrom: string;
+  dateTo: string;
   setOwnerFilter: (value: OwnerFilter) => void;
   toggleTag: (tag: string) => void;
   setMaxCost: (value: number) => void;
   toggleTripType: (type: TripDuration) => void;
+  setDateFrom: (value: string) => void;
+  setDateTo: (value: string) => void;
   clearFilters: () => void;
   syncTagsWithAvailability: (availableTags: string[]) => void;
 }
@@ -38,6 +42,8 @@ export const useTripSearchStore = create<TripSearchState>((set) => ({
   selectedTags: [],
   maxCost: MAX_COST,
   tripTypeFilter: [],
+  dateFrom: "",
+  dateTo: "",
   setOwnerFilter: (ownerFilter) => set({ ownerFilter }),
   toggleTag: (tag) =>
     set((state) => ({
@@ -52,12 +58,47 @@ export const useTripSearchStore = create<TripSearchState>((set) => ({
         ? state.tripTypeFilter.filter((t) => t !== type)
         : [...state.tripTypeFilter, type],
     })),
-  clearFilters: () => set({ selectedTags: [], maxCost: MAX_COST, tripTypeFilter: [] }),
+  setDateFrom: (dateFrom) => set({ dateFrom }),
+  setDateTo: (dateTo) => set({ dateTo }),
+  clearFilters: () =>
+    set({
+      selectedTags: [],
+      maxCost: MAX_COST,
+      tripTypeFilter: [],
+      dateFrom: "",
+      dateTo: "",
+    }),
   syncTagsWithAvailability: (availableTags) =>
     set((state) => ({
       selectedTags: state.selectedTags.filter((tag) => availableTags.includes(tag)),
     })),
 }));
+
+function normalizeMonthValue(value: string | null | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) {
+    return null;
+  }
+  const match = /^(\d{4})-(\d{2})$/.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) {
+    return null;
+  }
+  return `${match[1]}-${match[2]}`;
+}
+
+function getTripMonthValue(trip: Trip): string | null {
+  const fromDate = normalizeMonthValue((trip.date ?? "").slice(0, 7));
+  if (fromDate) {
+    return fromDate;
+  }
+
+  const eventStart = normalizeMonthValue((trip.event_start ?? "").slice(0, 7));
+  return eventStart;
+}
 
 export async function hydrateTripsWithChildren(tripIds: number[]): Promise<Trip[]> {
   if (tripIds.length === 0) {
@@ -165,6 +206,8 @@ interface BuildSearchResultsArgs {
   selectedTags: string[];
   maxCost: number;
   tripTypeFilter?: TripDuration[];
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export function buildSearchResults({
@@ -176,8 +219,12 @@ export function buildSearchResults({
   selectedTags,
   maxCost,
   tripTypeFilter = [],
+  dateFrom = "",
+  dateTo = "",
 }: BuildSearchResultsArgs): SearchResult[] {
   const textQuery = query.trim().toLowerCase();
+  const fromMonth = normalizeMonthValue(dateFrom);
+  const toMonth = normalizeMonthValue(dateTo);
   const ownerFilteredTrips = filterTripsByDuration(
     filterTripsByOwner(trips, ownerFilter, currentUserId, friendIds),
     tripTypeFilter,
@@ -199,6 +246,19 @@ export function buildSearchResults({
 
     if (maxCost < MAX_COST && trip.cost !== null && trip.cost > maxCost) {
       continue;
+    }
+
+    if (fromMonth || toMonth) {
+      const tripMonth = getTripMonthValue(trip);
+      if (!tripMonth) {
+        continue;
+      }
+      if (fromMonth && tripMonth < fromMonth) {
+        continue;
+      }
+      if (toMonth && tripMonth > toMonth) {
+        continue;
+      }
     }
 
     if (!textQuery) {

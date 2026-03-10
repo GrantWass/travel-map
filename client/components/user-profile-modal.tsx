@@ -511,7 +511,7 @@ export default function UserProfileModal({
                         </h2>
                     )}
                     {canManageTrips || (profile.trips || []).length > 0 ? (
-                        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                             {canManageTrips && (
                                 <button
                                     type="button"
@@ -551,10 +551,10 @@ export default function UserProfileModal({
                                             />
                                         </div>
                                         <div className="px-3 py-2.5">
-                                            <p className="text-sm font-semibold text-foreground truncate">
+                                            <p className="truncate text-sm font-semibold text-foreground">
                                                 {trip.title}
                                             </p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            <p className="mt-0.5 text-xs text-muted-foreground">
                                                 {formatTripDate(trip.date || "")}
                                             </p>
                                             <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">

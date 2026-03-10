@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
-import { buildSearchResults, getFriendIds, useTripSearchStore } from "@/stores/trip-search-store";
+import { buildSearchResults, getFriendIds, MAX_COST, useTripSearchStore } from "@/stores/trip-search-store";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
@@ -139,6 +139,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
     const selectedTags = useTripSearchStore((state) => state.selectedTags);
     const maxCost = useTripSearchStore((state) => state.maxCost);
+    const dateFrom = useTripSearchStore((state) => state.dateFrom);
+    const dateTo = useTripSearchStore((state) => state.dateTo);
+    const clearFilters = useTripSearchStore((state) => state.clearFilters);
     const [deletingTripId, setDeletingTripId] = useState<number | null>(null);
     const [profileCacheByUser, setProfileCacheByUser] = useState<Record<number, User>>({});
     const [notifiedTripIds, setNotifiedTripIds] = useState<Set<number>>(new Set());
@@ -643,17 +646,27 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             selectedTags,
             maxCost,
             tripTypeFilter,
+            dateFrom,
+            dateTo,
         });
 
         const visibleTripIds = new Set(results.map((result) => result.trip.trip_id));
         return trips.filter((trip) => visibleTripIds.has(trip.trip_id));
-    }, [trips, searchQuery, ownerFilter, userId, friendIds, selectedTags, maxCost, tripTypeFilter]);
+    }, [trips, searchQuery, ownerFilter, userId, friendIds, selectedTags, maxCost, tripTypeFilter, dateFrom, dateTo]);
+
+    const hasActiveSearchFilters =
+        searchQuery.trim().length > 0 ||
+        ownerFilter !== "all" ||
+        selectedTags.length > 0 ||
+        maxCost < MAX_COST ||
+        tripTypeFilter.length > 0 ||
+        Boolean(dateFrom || dateTo);
 
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {mapPanels.showTopLeftControls && (
                 <>
-                    <div className={`absolute left-4 top-3 z-[1000] hidden sm:block ${topLeftControlsWidthClass}`}>
+                    <div className={`absolute left-4 top-3 z-[1000] hidden md:block ${topLeftControlsWidthClass}`}>
                         <div className="flex items-center gap-2">
                             <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border px-5 shadow-sm bg-secondary/40 backdrop-blur-sm">
                                 <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
@@ -667,6 +680,19 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                     aria-label="Search trips"
                                 />
                             </div>
+                            {hasActiveSearchFilters && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        clearFilters();
+                                        setOwnerFilter("all");
+                                        setSearchQuery("");
+                                    }}
+                                    className="flex h-12 items-center justify-center rounded-full border border-border px-4 text-xs font-medium text-foreground shadow-sm bg-card/95 backdrop-blur-sm transition-colors hover:bg-secondary"
+                                >
+                                    Clear filters
+                                </button>
+                            )}
                             <button
                                 data-spotlight="plans"
                                 type="button"
@@ -681,11 +707,11 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                 title="Plans"
                             >
                                 <Notebook className="h-5 w-5" />
-                                <span className="hidden sm:inline">Plans</span>
+                                <span className="hidden md:inline">Plans</span>
                             </button>
                         </div>
                     </div>
-                    <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 sm:hidden">
+                    <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 md:hidden">
                         <button
                             type="button"
                             onClick={openSearchPanel}
@@ -694,6 +720,19 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         >
                             <Search className="h-5 w-5 text-foreground" />
                         </button>
+                        {hasActiveSearchFilters && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    clearFilters();
+                                    setOwnerFilter("all");
+                                    setSearchQuery("");
+                                }}
+                                className="flex h-11 items-center justify-center rounded-full border border-border px-3 text-xs font-medium text-foreground shadow-sm bg-card/95 backdrop-blur-sm transition-colors hover:bg-secondary"
+                            >
+                                Clear
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => requireAuth("plans", togglePlansPanel)}
