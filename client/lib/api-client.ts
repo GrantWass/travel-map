@@ -285,6 +285,18 @@ export async function createTripComment(tripId: number, body: string): Promise<T
   return data.comment;
 }
 
+export async function likeTrip(tripId: number): Promise<{ trip_id: number; like_count: number }> {
+  return requestJson<{ trip_id: number; like_count: number }>(`/trips/${tripId}/likes`, {
+    method: "POST",
+  });
+}
+
+export async function unlikeTrip(tripId: number): Promise<{ trip_id: number; like_count: number }> {
+  return requestJson<{ trip_id: number; like_count: number }>(`/trips/${tripId}/likes`, {
+    method: "DELETE",
+  });
+}
+
 export async function deleteTrip(tripId: number) {
   return requestJson<{ message: string }>(`/trips/${tripId}`, {
     method: "DELETE",

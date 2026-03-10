@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal } from "lucide-react";
+import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal, Heart } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,10 @@ interface SidebarPanelProps {
     canShowPreviousTripAtLocation: boolean;
     canShowNextTripAtLocation: boolean;
     comments: TripComment[];
+    isLiked: boolean;
+    isLikeSubmitting: boolean;
+    likeError: string | null;
+    onToggleLike: () => void;
     isAuthenticated: boolean;
     isCommentSubmitting: boolean;
     commentError: string | null;
@@ -74,6 +78,10 @@ export default function SidebarPanel({
     canShowPreviousTripAtLocation,
     canShowNextTripAtLocation,
     comments,
+    isLiked,
+    isLikeSubmitting,
+    likeError,
+    onToggleLike,
     isAuthenticated,
     isCommentSubmitting,
     commentError,
@@ -487,14 +495,32 @@ export default function SidebarPanel({
                                 <MessageCircle className="h-3.5 w-3.5" />
                                 Comments ({sortedComments.length})
                             </h3>
-                            <button
-                                type="button"
-                                onClick={onLoadComments}
-                                className="text-xs font-medium text-primary transition-opacity hover:opacity-80"
-                            >
-                                Refresh
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={onToggleLike}
+                                    disabled={isLikeSubmitting}
+                                    className={cn(
+                                        "h-7 px-2 text-xs text-muted-foreground",
+                                        isLiked ? "text-foreground" : "hover:text-foreground",
+                                    )}
+                                >
+                                    <Heart className={cn("mr-1 h-3.5 w-3.5", isLiked ? "fill-current" : "")} />
+                                    {review.like_count}
+                                </Button>
+                                <button
+                                    type="button"
+                                    onClick={onLoadComments}
+                                    className="text-xs font-medium text-primary transition-opacity hover:opacity-80"
+                                >
+                                    Refresh
+                                </button>
+                            </div>
                         </div>
+
+                        {likeError && <p className="text-xs text-destructive">{likeError}</p>}
 
                         {isAuthenticated ? (
                             <div className="rounded-xl border border-border bg-secondary/40 p-2">

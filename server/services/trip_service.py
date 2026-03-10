@@ -61,6 +61,26 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _as_int(value: Any, *, default: int = 0) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, Decimal):
+        return int(value)
+
+    text = str(value).strip()
+    if not text:
+        return default
+
+    try:
+        return int(text)
+    except ValueError:
+        return default
+
+
 def _as_datetime_iso(value: Any) -> str | None:
     if isinstance(value, datetime):
         return value.isoformat()
@@ -77,6 +97,7 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
         "longitude": _as_float(row.get("longitude")),
         "cost": _as_float(row.get("cost")),
         "duration": row.get("duration"),
+        "like_count": max(_as_int(row.get("like_count"), default=0), 0),
         "priority_score": _as_float(row.get("priority_score")),
         "date": row.get("date"),
         "visibility": row.get("visibility") or "public",
@@ -317,6 +338,7 @@ def _fetch_trip_rows(
                 ST_X(t.geo_location::geometry) AS longitude,
                 t.cost,
                 t.duration,
+                COALESCE(t.like_count, 0) AS like_count,
                 t.priority_score,
                 t.date,
                 t.visibility,
@@ -1277,6 +1299,33 @@ def create_trip_comment(*, trip_id: int, user_id: int, body: Any) -> dict[str, A
         "user_name": author_row.get("name") if author_row else None,
         "user_profile_image_url": author_row.get("profile_image_url") if author_row else None,
     }
+
+
+def update_trip_like_count(*, trip_id: int, viewer_user_id: int | None, delta: int) -> int:
+    if delta not in (-1, 1):
+        raise TripValidationError("delta must be 1 or -1")
+
+    trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id)
+    if not trip:
+        raise TripNotFoundError("trip not found")
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            UPDATE trips
+            SET like_count = GREATEST(COALESCE(like_count, 0) + %s, 0)
+            WHERE trip_id = %s
+            RETURNING like_count
+            """,
+            (delta, trip_id),
+        )
+        updated = cur.fetchone()
+
+    if not updated:
+        raise TripNotFoundError("trip not found")
+
+    invalidate_trip_list_cache()
+    return max(_as_int(updated.get("like_count"), default=0), 0)
 
 def get_unread_trip_comment_count_by_trip(*, user_id: int) -> dict[int, int]:
     with get_cursor() as cur:

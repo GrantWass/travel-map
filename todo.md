@@ -14,6 +14,7 @@
 - Feed? shows new and trending activities
 - Collaborative trips?
 - Likes on a trip?
+- AI trip builder based on activites/lodges we have saved?? 
 
 ### Optimization
 

@@ -16,9 +16,10 @@ import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, createTripComment, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getTripComments, getUserProfile, markTripCommentsRead, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
+import { useTripEngagement } from "@/hooks/use-trip-engagement";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
@@ -40,7 +41,7 @@ interface ProfileState {
     canEditProfile: boolean;
 }
 
-type SignupPromptIntent = "add-trip" | "friends" | "plans" | "profile" | "save-to-plans" | "comment";
+type SignupPromptIntent = "add-trip" | "friends" | "plans" | "profile" | "save-to-plans" | "comment" | "like";
 
 const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; description: string }> = {
     "add-trip": {
@@ -66,6 +67,10 @@ const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; descriptio
     comment: {
         title: "Create an account to comment",
         description: "Sign up or sign in to join the conversation on this trip.",
+    },
+    like: {
+        title: "Create an account to like trips",
+        description: "Sign up or sign in to like and support trip ideas from other travelers.",
     },
 };
 
@@ -132,8 +137,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
     const [signupPromptIntent, setSignupPromptIntent] = useState<SignupPromptIntent | null>(null);
-    const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
-    const [commentError, setCommentError] = useState<string | null>(null);
     const ownerFilter = useTripSearchStore((state) => state.ownerFilter);
     const setOwnerFilter = useTripSearchStore((state) => state.setOwnerFilter);
     const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
@@ -371,9 +374,23 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
     // ────────────────────────────────────────────────────────────────────────
 
-    useEffect(() => {
-        setCommentError(null);
-    }, [selectedTrip?.trip_id]);
+    const {
+        isCommentSubmitting,
+        commentError,
+        isLikeSubmitting,
+        likeError,
+        isTripLiked,
+        handleLoadComments,
+        handleCreateComment,
+        handleToggleTripLike,
+    } = useTripEngagement({
+        selectedTrip,
+        userId,
+        tripLookup,
+        upsertTrip,
+        onRequireCommentAuth: () => openSignupPrompt("comment"),
+        onRequireLikeAuth: () => openSignupPrompt("like"),
+    });
 
     const openTripById = useCallback(
         async (tripId: number | null) => {
@@ -591,47 +608,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         [refreshMyProfile, removeTripById, userId],
     );
 
-        const handleLoadComments = useCallback(async () => {
-            if (!selectedTrip) {
-                return;
-            }
-
-            try {
-                const comments = await getTripComments(selectedTrip.trip_id);
-                upsertTrip({ ...selectedTrip, comments });
-                setCommentError(null);
-            } catch {
-                setCommentError("Could not load comments right now.");
-            }
-        }, [selectedTrip, upsertTrip]);
-
-        const handleCreateComment = useCallback(
-            async (body: string) => {
-                if (!selectedTrip) {
-                    return;
-                }
-                if (userId === null) {
-                    openSignupPrompt("comment");
-                    return;
-                }
-
-                setIsCommentSubmitting(true);
-                setCommentError(null);
-                try {
-                    const createdComment = await createTripComment(selectedTrip.trip_id, body);
-                    upsertTrip({
-                        ...selectedTrip,
-                        comments: [createdComment, ...(selectedTrip.comments ?? [])],
-                    });
-                } catch {
-                    setCommentError("Could not post comment right now.");
-                } finally {
-                    setIsCommentSubmitting(false);
-                }
-            },
-            [openSignupPrompt, selectedTrip, upsertTrip, userId],
-        );
-
     const topLeftControlsWidthClass = "w-[min(506px,calc(100vw-2rem))]";
 
     const friendIds = useMemo(() => getFriendIds(acceptedFriendships, userId), [acceptedFriendships, userId]);
@@ -844,6 +820,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             canShowPreviousTripAtLocation={selectedLocationContext.hasPrevious}
                             canShowNextTripAtLocation={selectedLocationContext.hasNext}
                             comments={frozenPanels.trip.comments ?? []}
+                            isLiked={isTripLiked(frozenPanels.trip.trip_id)}
+                            isLikeSubmitting={isLikeSubmitting}
+                            likeError={likeError}
+                            onToggleLike={() => {
+                                void handleToggleTripLike();
+                            }}
                             isAuthenticated={userId !== null}
                             isCommentSubmitting={isCommentSubmitting}
                             commentError={commentError}
