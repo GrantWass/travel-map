@@ -14,7 +14,8 @@
 - Feed? shows new and trending activities
 - Collaborative trips?
 - Likes on a trip?
-- AI trip builder based on activites/lodges we have saved?? 
+- AI trip builder based on activites/lodges we have saved??
+- Add "Hometown" to user profile, to understand where to reccommend trips
 
 ### Optimization
 
