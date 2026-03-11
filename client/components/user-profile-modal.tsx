@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Image from "next/image";
-import { X, Mail, GraduationCap, Trash2, Plus, Settings, Upload, Loader2, Pencil, Timer } from "lucide-react";
+import { X, Mail, GraduationCap, Trash2, Plus, Settings, Upload, Loader2, Pencil, Timer, Users } from "lucide-react";
 import { ApiError, updateProfileSettings, uploadImage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { User } from "@/lib/api-types";
@@ -39,10 +39,12 @@ export default function UserProfileModal({
     expandFrom = "top-right",
     notifiedTripIds,
 }: UserProfileModalProps) {
+    const userId = useAuthStore((state) => state.user?.user_id);
     const signOut = useAuthStore((state) => state.signOut);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const refreshSession = useAuthStore((state) => state.refreshSession);
     const animClass = expandFrom === "left" ? "modal-expand-left" : "modal-expand";
+    console.log(profile, userId)
 
     const [displayState, setDisplayState] = useState(() => ({
         name: profile.name || "Traveler",
@@ -557,10 +559,18 @@ export default function UserProfileModal({
                                             <p className="mt-0.5 text-xs text-muted-foreground">
                                                 {formatTripDate(trip.date || "")}
                                             </p>
-                                            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                                                <Timer className="h-3 w-3" />
-                                                {formatTripDuration(trip.duration)}
-                                            </p>
+                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                <p className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                                    <Timer className="h-3 w-3" />
+                                                    {formatTripDuration(trip.duration)}
+                                                </p>
+                                                {profile.user_id && trip.owner_user_id !== profile.user_id && trip.collaborators?.some((c) => c.user_id === profile.user_id) && (
+                                                    <p className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600">
+                                                        <Users className="h-3 w-3" />
+                                                        Collaborator
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                     </button>
                                     {canManageTrips ? (
@@ -577,18 +587,20 @@ export default function UserProfileModal({
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onDeleteTrip?.(trip.trip_id);
-                                                }}
-                                                disabled={deletingTripId === trip.trip_id}
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 disabled:cursor-not-allowed disabled:opacity-70"
-                                                aria-label={`Delete ${trip.title}`}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            {userId === trip.owner_user_id && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        onDeleteTrip?.(trip.trip_id);
+                                                    }}
+                                                    disabled={deletingTripId === trip.trip_id}
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 disabled:cursor-not-allowed disabled:opacity-70"
+                                                    aria-label={`Delete ${trip.title}`}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     ) : null}
                                 </div>

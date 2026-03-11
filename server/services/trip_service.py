@@ -1353,7 +1353,8 @@ def get_user_profile(*, user_id: int, viewer_user_id: int | None) -> dict[str, A
             "longitude": trip["longitude"],
             "duration": trip["duration"],
             "cost": trip["cost"],
-            "visibility": trip["visibility"]
+            "visibility": trip["visibility"],
+            "owner_user_id": trip["owner_user_id"]
         }
         for trip in trips
     ]
