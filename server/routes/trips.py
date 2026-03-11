@@ -11,6 +11,7 @@ from services.trip_service import (
     TripValidationError,
     create_trip_comment,
     add_activity,
+    add_trip_collaborator,
     add_lodging,
     create_trip,
     delete_trip,
@@ -386,3 +387,40 @@ def remove_trip_like_route(trip_id: int):
     except Exception as error:
         current_app.logger.exception("Remove trip like failed")
         return jsonify({"error": f"remove trip like failed: {str(error)}"}), 500
+
+
+@trips_bp.route("/trips/<int:trip_id>/collaborators", methods=["POST", "OPTIONS"])
+def add_trip_collaborator_route(trip_id: int):
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "authentication required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    collaborator_user_id_raw = payload.get("collaborator_user_id")
+    try:
+        collaborator_user_id = int(str(collaborator_user_id_raw))
+    except (TypeError, ValueError):
+        return jsonify({"error": "collaborator_user_id must be a valid integer"}), 400
+
+    if collaborator_user_id <= 0:
+        return jsonify({"error": "collaborator_user_id must be greater than zero"}), 400
+
+    try:
+        result = add_trip_collaborator(
+            trip_id=trip_id,
+            owner_user_id=user["user_id"],
+            collaborator_user_id=collaborator_user_id,
+        )
+        return jsonify({"message": "collaborator added", **result}), 201
+    except TripValidationError as error:
+        return jsonify({"error": str(error)}), 400
+    except TripNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    except TripForbiddenError as error:
+        return jsonify({"error": str(error)}), 403
+    except Exception as error:
+        current_app.logger.exception("Add trip collaborator failed")
+        return jsonify({"error": f"add trip collaborator failed: {str(error)}"}), 500

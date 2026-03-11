@@ -7,6 +7,7 @@ import type {
   TripComment,
   User,
   Trip,
+  TripCollaborator,
   UserProfileResponse,
 } from "@/lib/api-types";
 
@@ -295,6 +296,19 @@ export async function unlikeTrip(tripId: number): Promise<{ trip_id: number; lik
   return requestJson<{ trip_id: number; like_count: number }>(`/trips/${tripId}/likes`, {
     method: "DELETE",
   });
+}
+
+export async function addTripCollaborator(
+  tripId: number,
+  collaboratorUserId: number,
+): Promise<{ message: string; trip_id: number; collaborator: TripCollaborator }> {
+  return requestJson<{ message: string; trip_id: number; collaborator: TripCollaborator }>(
+    `/trips/${tripId}/collaborators`,
+    {
+      method: "POST",
+      body: JSON.stringify({ collaborator_user_id: collaboratorUserId }),
+    },
+  );
 }
 
 export async function deleteTrip(tripId: number) {

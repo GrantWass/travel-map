@@ -114,6 +114,7 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
         "lodgings": [],
         "activities": [],
         "comments": [],
+        "collaborators": [],
         "event_start": _as_datetime_iso(row.get("event_start")),
         "event_end": _as_datetime_iso(row.get("event_end")),
     }
@@ -149,7 +150,7 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     trip_ids = [trip["trip_id"] for trip in trips]
 
-    tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip = _fetch_trip_children_by_ids(trip_ids)
+    tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip, collaborators_by_trip = _fetch_trip_children_by_ids(trip_ids)
 
     for trip in trips:
         trip_id = trip["trip_id"]
@@ -157,6 +158,7 @@ def _hydrate_trip_children(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
         trip["lodgings"] = lodgings_by_trip[trip_id]
         trip["activities"] = activities_by_trip[trip_id]
         trip["comments"] = comments_by_trip[trip_id]
+        trip["collaborators"] = collaborators_by_trip[trip_id]
 
     return trips
 
@@ -168,14 +170,16 @@ def _fetch_trip_children_by_ids(
     dict[int, list[dict[str, Any]]],
     dict[int, list[dict[str, Any]]],
     dict[int, list[dict[str, Any]]],
+    dict[int, list[dict[str, Any]]],
 ]:
     if not trip_ids:
-        return defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
+        return defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
 
     tags_by_trip: dict[int, list[str]] = defaultdict(list)
     lodgings_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
     activities_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
     comments_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    collaborators_by_trip: dict[int, list[dict[str, Any]]] = defaultdict(list)
 
     with get_cursor() as cur:
         cur.execute(
@@ -188,7 +192,8 @@ def _fetch_trip_children_by_ids(
                 COALESCE(tags.tags, '[]'::jsonb) AS tags,
                 COALESCE(lodgings.lodgings, '[]'::jsonb) AS lodgings,
                 COALESCE(activities.activities, '[]'::jsonb) AS activities,
-                COALESCE(comments.comments, '[]'::jsonb) AS comments
+                COALESCE(comments.comments, '[]'::jsonb) AS comments,
+                COALESCE(collaborators.collaborators, '[]'::jsonb) AS collaborators
             FROM ids
             LEFT JOIN LATERAL (
                 SELECT jsonb_agg(tt.tag ORDER BY tt.tag) AS tags
@@ -249,6 +254,22 @@ def _fetch_trip_children_by_ids(
                 JOIN travelers u ON u.user_id = c.user_id
                 WHERE c.trip_id = ids.trip_id
             ) comments ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'user_id', u.user_id,
+                        'name', u.name,
+                        'bio', u.bio,
+                        'verified', u.verified,
+                        'college', u.college,
+                        'profile_image_url', u.profile_image_url
+                    )
+                    ORDER BY tc.created_at ASC, u.user_id ASC
+                ) AS collaborators
+                FROM trip_collaborators tc
+                JOIN travelers u ON u.user_id = tc.user_id
+                WHERE tc.trip_id = ids.trip_id
+            ) collaborators ON TRUE
             ORDER BY ids.trip_id DESC
             """,
             (trip_ids,),
@@ -307,7 +328,20 @@ def _fetch_trip_children_by_ids(
                 for comment in raw_comments
             ]
 
-    return tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip
+            raw_collaborators = row.get("collaborators") or []
+            collaborators_by_trip[trip_id] = [
+                {
+                    "user_id": int(collaborator["user_id"]),
+                    "name": collaborator.get("name"),
+                    "bio": collaborator.get("bio"),
+                    "verified": bool(collaborator.get("verified")),
+                    "college": collaborator.get("college"),
+                    "profile_image_url": collaborator.get("profile_image_url"),
+                }
+                for collaborator in raw_collaborators
+            ]
+
+    return tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip, collaborators_by_trip
 
 
 def _fetch_trip_rows(
@@ -395,12 +429,31 @@ def _are_friends(user_id_a: int, user_id_b: int) -> bool:
         return cur.fetchone() is not None
 
 
+def _is_trip_collaborator(*, trip_id: int, user_id: int) -> bool:
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1
+            FROM trip_collaborators
+            WHERE trip_id = %s AND user_id = %s
+            LIMIT 1
+            """,
+            (trip_id, user_id),
+        )
+        return cur.fetchone() is not None
+
+
 def _filter_trips_by_visibility(trips: list[dict[str, Any]], viewer_user_id: int | None) -> list[dict[str, Any]]:
     """Filter trips based on visibility rules and viewer permissions."""
     visible_trips = []
     for trip in trips:
         visibility = trip["visibility"]
+        trip_id = trip["trip_id"]
         owner_id = trip["owner_user_id"]
+
+        if viewer_user_id is not None and _is_trip_collaborator(trip_id=trip_id, user_id=viewer_user_id):
+            visible_trips.append(trip)
+            continue
         
         if visibility == "public":
             visible_trips.append(trip)
@@ -433,6 +486,11 @@ def _list_non_public_visible_trip_ids(
     where_sql, params = _append_bounding_box_filter(
         """(
             (t.owner_user_id = %s AND t.visibility <> 'public')
+            OR EXISTS (
+                SELECT 1 FROM trip_collaborators tc
+                WHERE tc.trip_id = t.trip_id
+                AND tc.user_id = %s
+            )
             OR (
                 t.visibility = 'friends'
                 AND t.owner_user_id <> %s
@@ -446,7 +504,7 @@ def _list_non_public_visible_trip_ids(
                 )
             )
         )""",
-        (viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id),
+        (viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id),
         bounding_box,
     )
 
@@ -545,6 +603,11 @@ def get_trips_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[di
             AND (
                 t.visibility = 'public'
                 OR t.owner_user_id = %s
+                OR EXISTS (
+                    SELECT 1 FROM trip_collaborators tc
+                    WHERE tc.trip_id = t.trip_id
+                    AND tc.user_id = %s
+                )
                 OR (
                     t.visibility = 'friends'
                     AND EXISTS (
@@ -558,7 +621,7 @@ def get_trips_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[di
                 )
             )
         )"""
-        params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id)
+        params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id)
 
     trips = _fetch_trip_rows(where_sql, params)
     return _maybe_hydrate_trips(trips, include_children=True)
@@ -578,6 +641,11 @@ def get_trip_children_by_ids(trip_ids: list[int], viewer_user_id: int | None) ->
             AND (
                 t.visibility = 'public'
                 OR t.owner_user_id = %s
+                OR EXISTS (
+                    SELECT 1 FROM trip_collaborators tc
+                    WHERE tc.trip_id = t.trip_id
+                    AND tc.user_id = %s
+                )
                 OR (
                     t.visibility = 'friends'
                     AND EXISTS (
@@ -591,14 +659,14 @@ def get_trip_children_by_ids(trip_ids: list[int], viewer_user_id: int | None) ->
                 )
             )
         )"""
-        params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id)
+        params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id)
 
     visible_trip_rows = _fetch_trip_rows(where_sql, params)
     visible_trip_ids = [trip["trip_id"] for trip in visible_trip_rows]
     if not visible_trip_ids:
         return []
 
-    tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip = _fetch_trip_children_by_ids(visible_trip_ids)
+    tags_by_trip, lodgings_by_trip, activities_by_trip, comments_by_trip, collaborators_by_trip = _fetch_trip_children_by_ids(visible_trip_ids)
 
     return [
         {
@@ -607,6 +675,7 @@ def get_trip_children_by_ids(trip_ids: list[int], viewer_user_id: int | None) ->
             "lodgings": lodgings_by_trip[trip_id],
             "activities": activities_by_trip[trip_id],
             "comments": comments_by_trip[trip_id],
+            "collaborators": collaborators_by_trip[trip_id],
         }
         for trip_id in visible_trip_ids
     ]
@@ -621,6 +690,11 @@ def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dic
                 t.owner_user_id = %s
                 AND (
                     t.visibility = 'public'
+                    OR EXISTS (
+                        SELECT 1 FROM trip_collaborators tc
+                        WHERE tc.trip_id = t.trip_id
+                        AND tc.user_id = %s
+                    )
                     OR (
                         t.visibility = 'friends'
                         AND EXISTS (
@@ -634,7 +708,7 @@ def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dic
                     )
                 )
             )""",
-            (target_user_id, viewer_user_id, target_user_id, target_user_id, viewer_user_id),
+            (target_user_id, viewer_user_id, viewer_user_id, target_user_id, target_user_id, viewer_user_id),
         )
     return _maybe_hydrate_trips(trips, include_children=True)
 
@@ -644,6 +718,7 @@ def get_trip(trip_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
     if not trips:
         return None
 
+    # TODO: do we even need this here???
     # Apply visibility filtering
     visible_trips = _filter_trips_by_visibility(trips, viewer_user_id)
     if not visible_trips:
@@ -963,8 +1038,33 @@ def _require_trip_owner(*, trip_id: int, user_id: int):
         raise TripForbiddenError("only the trip owner can edit this trip")
 
 
+def _require_trip_editor(*, trip_id: int, user_id: int):
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT owner_user_id
+            FROM trips
+            WHERE trip_id = %s
+            """,
+            (trip_id,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise TripNotFoundError("trip not found")
+
+    owner_user_id = int(row["owner_user_id"])
+    if owner_user_id == user_id:
+        return
+
+    if _is_trip_collaborator(trip_id=trip_id, user_id=user_id):
+        return
+
+    raise TripForbiddenError("only the trip owner or collaborator can edit this trip")
+
+
 def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-    _require_trip_owner(trip_id=trip_id, user_id=owner_user_id)
+    _require_trip_editor(trip_id=trip_id, user_id=owner_user_id)
 
     title = to_nullable_string(payload.get("title"))
     if not title:
@@ -1013,7 +1113,7 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
 
 
 def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-    _require_trip_owner(trip_id=trip_id, user_id=owner_user_id)
+    _require_trip_editor(trip_id=trip_id, user_id=owner_user_id)
 
     title = to_nullable_string(payload.get("title"))
     if not title:
@@ -1064,7 +1164,7 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
 
 
 def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-    _require_trip_owner(trip_id=trip_id, user_id=owner_user_id)
+    _require_trip_editor(trip_id=trip_id, user_id=owner_user_id)
 
     title = to_nullable_string(payload.get("title"))
     if not title:
@@ -1162,6 +1262,67 @@ def delete_trip(*, trip_id: int, owner_user_id: int):
             raise TripNotFoundError("trip not found")
 
     invalidate_trip_list_cache()
+
+
+def add_trip_collaborator(*, trip_id: int, owner_user_id: int, collaborator_user_id: int) -> dict[str, Any]:
+    _require_trip_owner(trip_id=trip_id, user_id=owner_user_id)
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT owner_user_id
+            FROM trips
+            WHERE trip_id = %s
+            """,
+            (trip_id,),
+        )
+        trip_row = cur.fetchone()
+
+    if not trip_row:
+        raise TripNotFoundError("trip not found")
+
+    if int(trip_row["owner_user_id"]) == collaborator_user_id:
+        raise TripValidationError("trip owner is already an editor")
+
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT user_id, name, bio, verified, college, profile_image_url
+            FROM travelers
+            WHERE user_id = %s
+            LIMIT 1
+            """,
+            (collaborator_user_id,),
+        )
+        collaborator_row = cur.fetchone()
+
+    if not collaborator_row:
+        raise TripValidationError("collaborator user not found")
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            INSERT INTO trip_collaborators (trip_id, user_id, added_by_user_id)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (trip_id, user_id)
+            DO UPDATE SET added_by_user_id = EXCLUDED.added_by_user_id
+            """,
+            (trip_id, collaborator_user_id, owner_user_id),
+        )
+
+    invalidate_trip_list_cache()
+
+    return {
+        "trip_id": trip_id,
+        "collaborator": {
+            "user_id": int(collaborator_row["user_id"]),
+            "name": collaborator_row.get("name"),
+            "bio": collaborator_row.get("bio"),
+            "verified": bool(collaborator_row.get("verified")),
+            "college": collaborator_row.get("college"),
+            "profile_image_url": collaborator_row.get("profile_image_url"),
+        },
+    }
 
 
 def get_user_profile(*, user_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:

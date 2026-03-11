@@ -68,6 +68,15 @@ export interface TripActivity {
   cost: number | null;
 }
 
+export interface TripCollaborator {
+  user_id: number;
+  name: string | null;
+  bio: string | null;
+  verified: boolean;
+  college: string | null;
+  profile_image_url: string | null;
+}
+
 export interface Trip {
   trip_id: number;
   thumbnail_url: string;
@@ -83,6 +92,7 @@ export interface Trip {
   visibility: TripVisibility;
   owner_user_id: number;
   owner: User;
+  collaborators: TripCollaborator[];
   tags: string[];
   lodgings: TripLodging[];
   activities: TripActivity[];

@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
-import { ApiError, createTrip, getTripFull, updateTrip, uploadImage } from "@/lib/api-client";
+import { ApiError, addTripCollaborator, createTrip, getTripFull, searchUsers, updateTrip, uploadImage } from "@/lib/api-client";
 import type { PlaceOption } from "@/lib/client-types";
 import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
-import type { TripDuration, TripVisibility } from "@/lib/api-types";
+import type { TripCollaborator, TripDuration, TripVisibility } from "@/lib/api-types";
 import { formatTripDuration } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -157,6 +157,12 @@ function TripsPageContent() {
   const [error, setError] = useState("");
   const [isLoadingEditTrip, setIsLoadingEditTrip] = useState(isEditMode);
   const [editLoadError, setEditLoadError] = useState("");
+  const [collaborators, setCollaborators] = useState<TripCollaborator[]>([]);
+  const [collaboratorQuery, setCollaboratorQuery] = useState("");
+  const [collaboratorResults, setCollaboratorResults] = useState<Array<{ user_id: number; name: string; profile_image_url?: string; bio?: string }>>([]);
+  const [isSearchingCollaborators, setIsSearchingCollaborators] = useState(false);
+  const [collaboratorError, setCollaboratorError] = useState("");
+  const [addingCollaboratorUserId, setAddingCollaboratorUserId] = useState<number | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -262,6 +268,7 @@ function TripsPageContent() {
         setDateMonth(tripMonth ?? "");
         setVisibility(trip.visibility);
         setSelectedTags(trip.tags);
+        setCollaborators(trip.collaborators || []);
 
         if (isPopup && trip.event_start && trip.event_end) {
           setEventStart(toLocalDatetimeInput(new Date(trip.event_start)));
@@ -321,6 +328,94 @@ function TripsPageContent() {
     // Only run once when editTripId and auth status are ready.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, editTripId, status]);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
+
+    const q = collaboratorQuery.trim();
+    if (!q) {
+      setCollaboratorResults([]);
+      setIsSearchingCollaborators(false);
+      return;
+    }
+
+    setCollaboratorError("");
+    setIsSearchingCollaborators(true);
+    const timeoutId = window.setTimeout(() => {
+      void searchUsers(q)
+        .then((response) => {
+          setCollaboratorResults(response.users);
+        })
+        .catch(() => {
+          setCollaboratorError("Could not search users right now.");
+          setCollaboratorResults([]);
+        })
+        .finally(() => {
+          setIsSearchingCollaborators(false);
+        });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [collaboratorQuery, status]);
+
+  function toDraftCollaborator(
+    candidate: { user_id: number; name: string; profile_image_url?: string; bio?: string } | undefined,
+    collaboratorUserId: number,
+  ): TripCollaborator {
+    return {
+      user_id: collaboratorUserId,
+      name: candidate?.name ?? null,
+      bio: candidate?.bio ?? null,
+      verified: false,
+      college: null,
+      profile_image_url: candidate?.profile_image_url ?? null,
+    };
+  }
+
+  async function handleAddCollaborator(collaboratorUserId: number) {
+    setCollaboratorError("");
+    setAddingCollaboratorUserId(collaboratorUserId);
+    const candidate = collaboratorResults.find((item) => item.user_id === collaboratorUserId);
+
+    try {
+      if (!isEditMode || !editTripId) {
+        setCollaborators((current) => {
+          if (current.some((item) => item.user_id === collaboratorUserId)) {
+            return current;
+          }
+          return [...current, toDraftCollaborator(candidate, collaboratorUserId)];
+        });
+      } else {
+        const response = await addTripCollaborator(editTripId, collaboratorUserId);
+        setCollaborators((current) => {
+          if (current.some((item) => item.user_id === response.collaborator.user_id)) {
+            return current;
+          }
+          return [...current, response.collaborator];
+        });
+      }
+    } catch (addError) {
+      if (addError instanceof ApiError) {
+        setCollaboratorError(addError.message);
+      } else {
+        setCollaboratorError("Could not add collaborator right now.");
+      }
+    } finally {
+      setAddingCollaboratorUserId(null);
+    }
+  }
+
+  const filteredCollaboratorResults = collaboratorResults.filter((candidate) => {
+    if (candidate.user_id === userId) {
+      return false;
+    }
+    if (collaborators.some((item) => item.user_id === candidate.user_id)) {
+      return false;
+    }
+    return true;
+  });
 
   if (status !== "authenticated" || !isStudent) {
     return null;
@@ -532,6 +627,18 @@ function TripsPageContent() {
       const savedTrip = isEditMode && editTripId
         ? await updateTrip(editTripId, tripPayload)
         : await createTrip(tripPayload);
+
+      if (!isEditMode && collaborators.length > 0) {
+        const collaboratorIds = collaborators
+          .map((collaborator) => collaborator.user_id)
+          .filter((collaboratorId) => collaboratorId !== userId);
+
+        if (collaboratorIds.length > 0) {
+          await Promise.allSettled(
+            collaboratorIds.map((collaboratorId) => addTripCollaborator(savedTrip.trip_id, collaboratorId)),
+          );
+        }
+      }
 
       const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/";
       const [pathnamePart, queryPart] = safeReturnTo.split("?");
@@ -1145,6 +1252,84 @@ function TripsPageContent() {
                   </div>
                 </div>
               </>
+            )}
+
+            {!isLoadingEditTrip && !editLoadError && (
+              <div className="space-y-3 rounded-xl border border-stone-200/80 bg-stone-50/70 p-3.5">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-stone-600">Collaborators</h2>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {isEditMode
+                      ? "Collaborators can edit this trip."
+                      : "Choose collaborators now. They will be added when you post this trip."}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {collaborators.length > 0 ? (
+                    collaborators.map((collaborator) => (
+                      <div
+                        key={collaborator.user_id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-stone-700"
+                      >
+                        <span className="h-5 w-5 overflow-hidden rounded-full bg-stone-200">
+                          {collaborator.profile_image_url ? (
+                            <Image
+                              src={collaborator.profile_image_url}
+                              alt={collaborator.name || "Collaborator"}
+                              width={20}
+                              height={20}
+                              className="h-5 w-5 object-cover"
+                            />
+                          ) : null}
+                        </span>
+                        <span>{collaborator.name || `User #${collaborator.user_id}`}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-stone-500">No collaborators yet.</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Input
+                    value={collaboratorQuery}
+                    onChange={(event) => setCollaboratorQuery(event.target.value)}
+                    placeholder="Search users"
+                    className={`${READABLE_INPUT_CLASS} h-9 text-sm`}
+                  />
+                  {isSearchingCollaborators && <p className="text-xs text-stone-500">Searching...</p>}
+                  {collaboratorError && <p className="text-xs font-medium text-red-600">{collaboratorError}</p>}
+
+                  {filteredCollaboratorResults.length > 0 && (
+                    <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-lg border border-stone-200/80 bg-white/70 p-1.5">
+                      {filteredCollaboratorResults.map((candidate) => (
+                        <div
+                          key={candidate.user_id}
+                          className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium text-stone-800">{candidate.name || `User #${candidate.user_id}`}</p>
+                            {candidate.bio ? <p className="truncate text-xs text-stone-500">{candidate.bio}</p> : null}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-full px-3 text-xs"
+                            disabled={addingCollaboratorUserId === candidate.user_id}
+                            onClick={() => {
+                              void handleAddCollaborator(candidate.user_id);
+                            }}
+                          >
+                            {addingCollaboratorUserId === candidate.user_id ? "Adding..." : "Add"}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {editLoadError ? <p className="text-sm font-medium text-red-600">{editLoadError}</p> : null}

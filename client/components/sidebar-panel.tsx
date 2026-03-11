@@ -235,6 +235,37 @@ export default function SidebarPanel({
                         )}
                     </div>
 
+                    {review.collaborators.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Collaborators</p>
+                            <div className="flex flex-wrap gap-2">
+                                {review.collaborators.map((collaborator) => (
+                                    <button
+                                        key={collaborator.user_id}
+                                        type="button"
+                                        onClick={() => onOpenAuthorProfile(collaborator.user_id)}
+                                        className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-2.5 py-1 text-xs text-foreground/85 transition-colors hover:bg-secondary"
+                                    >
+                                        {collaborator.profile_image_url ? (
+                                            <Image
+                                                src={collaborator.profile_image_url}
+                                                alt={collaborator.name || "Collaborator"}
+                                                width={18}
+                                                height={18}
+                                                className="h-[18px] w-[18px] rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                                                {(collaborator.name || "?").slice(0, 1).toUpperCase()}
+                                            </span>
+                                        )}
+                                        <span>{collaborator.name || `User #${collaborator.user_id}`}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Description */}
                     {review.description && (
                         <p className="text-sm leading-relaxed text-foreground/80">{review.description}</p>

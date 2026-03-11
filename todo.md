@@ -13,7 +13,6 @@
 - Named collections for plans
 - Feed? shows new and trending activities
 - Collaborative trips?
-- Likes on a trip?
 - AI trip builder based on activites/lodges we have saved?? 
 
 ### Optimization
@@ -21,6 +20,7 @@
 ### Code
 - Refactor when possible for readability
 - Split up map store if possible? It's huge
+- ^^^ same with trip_service.py
 
 ### Platform
 - Get a domain
