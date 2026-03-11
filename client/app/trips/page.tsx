@@ -1358,8 +1358,8 @@ function TripsPageContent() {
           </div>
         </section>
 
-        <aside className="w-full lg:w-1/3 lg:self-start">
-          <div className="rounded-3xl border border-stone-200/80 bg-white/90 p-4 shadow-xl shadow-stone-200/30 backdrop-blur-sm lg:sticky lg:top-0">
+        <aside className="w-full lg:w-1/3 lg:sticky lg:top-0 lg:self-start">
+          <div className="rounded-3xl border border-stone-200/80 bg-white/90 p-4 shadow-xl shadow-stone-200/30 backdrop-blur-sm">
             <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
               <Sparkles className="h-3.5 w-3.5" />
               Live Preview
