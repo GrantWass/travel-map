@@ -411,12 +411,17 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
             const cached = tripLookup.get(tripId);
             if (cached) {
+                clearSelections();
                 setSelectedTrip(cached);
+                closeSearchPanel();
+                closePlansPanel();
+                setIsLoadingTripById(false);
+                return;
             }
 
+            // Trips should mostly be cached at this point
             setIsLoadingTripById(true);
             try {
-                // TODO: See if trip is already in store with full details to avoid unnecessary fetch.
                 const trip = await getTrip(tripId);
                 if (!trip) {
                     return;
@@ -811,7 +816,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             onToggleSavedActivity={handleToggleSavedActivity}
                             onToggleSavedLodging={handleToggleSavedLodging}
                             onEditTrip={
-                                userId !== null && isStudent && frozenPanels.trip.owner_user_id === userId
+                                userId !== null &&
+                                isStudent &&
+                                (
+                                    frozenPanels.trip.owner_user_id === userId ||
+                                    frozenPanels.trip.collaborators.some((collaborator) => collaborator.user_id === userId)
+                                )
                                     ? () => {
                                           const isPopup = Boolean(frozenPanels.trip!.event_start && frozenPanels.trip!.event_end);
                                           const base = `/trips?edit=${frozenPanels.trip!.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;

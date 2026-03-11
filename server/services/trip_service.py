@@ -490,6 +490,7 @@ def _list_non_public_visible_trip_ids(
                 SELECT 1 FROM trip_collaborators tc
                 WHERE tc.trip_id = t.trip_id
                 AND tc.user_id = %s
+                AND t.visibility <> 'public'
             )
             OR (
                 t.visibility = 'friends'
