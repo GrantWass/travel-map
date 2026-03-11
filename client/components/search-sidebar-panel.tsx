@@ -286,7 +286,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                             className="flex w-full items-center gap-3 rounded-lg bg-secondary/40 p-3 text-left transition-colors hover:bg-secondary/70 active:bg-secondary"
                                         >
                                             <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                <Image src={trip.thumbnail_url} alt={trip.title} fill sizes="48px" className="object-cover" />
+                                                <Image src={trip.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={trip.title} fill sizes="48px" className="object-cover" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-foreground">{trip.title}</p>

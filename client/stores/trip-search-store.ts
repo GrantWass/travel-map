@@ -231,8 +231,11 @@ export function buildSearchResults({
   );
 
   const results: SearchResult[] = [];
+  const seenTripIds = new Set<number>();
 
   for (const trip of ownerFilteredTrips) {
+    if (seenTripIds.has(trip.trip_id)) continue;
+    seenTripIds.add(trip.trip_id);
     const normalizedTripTags = new Set(
       trip.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
     );

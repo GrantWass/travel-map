@@ -669,7 +669,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                         setOwnerFilter("all");
                                         setSearchQuery("");
                                     }}
-                                    className="flex h-12 items-center justify-center rounded-full border border-border px-4 text-xs font-medium text-foreground shadow-sm bg-card/95 backdrop-blur-sm transition-colors hover:bg-secondary"
+                                    className="flex h-12 items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
                                 >
                                     Clear filters
                                 </button>
@@ -709,7 +709,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                     setOwnerFilter("all");
                                     setSearchQuery("");
                                 }}
-                                className="flex h-11 items-center justify-center rounded-full border border-border px-3 text-xs font-medium text-foreground shadow-sm bg-card/95 backdrop-blur-sm transition-colors hover:bg-secondary"
+                                className="flex h-11 items-center justify-center rounded-full border border-border px-3 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
                             >
                                 Clear
                             </button>
