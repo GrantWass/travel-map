@@ -37,8 +37,6 @@ Columns:
 * college
 * profile_image_url
 * password_hash
-* saved_activity_ids (array of activity ids)
-* saved_lodging_ids (array of lodging ids)
 * completed_onboarding_tours (json)
 * phone
 

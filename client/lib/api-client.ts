@@ -206,6 +206,7 @@ export interface TripChildrenBatchEntry {
   lodgings: Trip["lodgings"];
   activities: Trip["activities"];
   comments: Trip["comments"];
+  collaborators: Trip["collaborators"];
 }
 
 export async function getTripChildrenBatch(tripIds: number[]): Promise<TripChildrenBatchEntry[]> {

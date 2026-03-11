@@ -244,7 +244,11 @@ function TripsPageContent() {
 
     getTripFull(editTripId)
       .then((trip) => {
-        if (userId !== null && trip.owner_user_id !== userId) {
+        console.log("Fetched trip for editing:", trip);
+        const isOwner = userId !== null && trip.owner_user_id === userId;
+        const isCollaborator = userId !== null && (trip.collaborators || []).some((collaborator) => collaborator.user_id === userId);
+
+        if (userId !== null && !isOwner && !isCollaborator) {
           setEditLoadError("You don't have permission to edit this trip.");
           return;
         }

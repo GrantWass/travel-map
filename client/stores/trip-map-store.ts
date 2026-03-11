@@ -187,6 +187,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                                 lodgings: children.lodgings,
                                 activities: children.activities,
                                 comments: children.comments,
+                                collaborators: children.collaborators,
                             };
                         });
 

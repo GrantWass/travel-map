@@ -282,15 +282,15 @@ def create_friendship():
 
     try:
         payload = request.get_json(silent=True) or {}
-        addressee_id = payload.get("addressee_id")
+        addressee_id_raw = payload.get("addressee_id")
         try:
-            addressee_id = int(addressee_id)
+            addressee_id = int(str(addressee_id_raw))
         except Exception:
             return jsonify({"error": "addressee_id must be an integer"}), 400
 
         friendship = svc_create_friend_request(requester_id=user["user_id"], addressee_id=addressee_id)
         if not friendship:
-            return jsonify({"error": "invalid friend request"}), 400
+            return jsonify({"error": "friend request already exists or users are already friends"}), 409
 
         return jsonify({"message": "friend request created", "friendship": friendship}), 201
     except Exception as error:

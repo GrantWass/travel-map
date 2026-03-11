@@ -411,12 +411,17 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
             const cached = tripLookup.get(tripId);
             if (cached) {
+                clearSelections();
                 setSelectedTrip(cached);
+                closeSearchPanel();
+                closePlansPanel();
+                setIsLoadingTripById(false);
+                return;
             }
 
+            // Trips should mostly be cached at this point
             setIsLoadingTripById(true);
             try {
-                // TODO: See if trip is already in store with full details to avoid unnecessary fetch.
                 const trip = await getTrip(tripId);
                 if (!trip) {
                     return;
@@ -496,6 +501,29 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         previewTripAtLocation(nextTrip);
     }, [previewTripAtLocation, selectedLocationContext]);
 
+    // TODO: this may break if not all trips are loaded, may need to explicitly get collaborated trips
+    const mergeCollaboratorTripsIntoProfile = useCallback(
+        (profile: User): User => {
+            const existingTrips = profile.trips ?? [];
+            const existingTripIds = new Set(existingTrips.map((trip) => trip.trip_id));
+            const collaboratorTrips = trips.filter(
+                (trip) =>
+                    !existingTripIds.has(trip.trip_id) &&
+                    trip.collaborators.some((collaborator) => collaborator.user_id === profile.user_id),
+            );
+
+            if (collaboratorTrips.length === 0) {
+                return profile;
+            }
+
+            return {
+                ...profile,
+                trips: [...existingTrips, ...collaboratorTrips].sort((left, right) => right.trip_id - left.trip_id),
+            };
+        },
+        [trips],
+    );
+
     const openProfile = useCallback(
         async (targetUserId: number, expandFrom: "top-right" | "left") => {
             const requestId = profileOpenRequestIdRef.current + 1;
@@ -505,7 +533,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
             if (userId !== null && targetUserId === userId && myProfile) {
                 setProfileState({
-                    profile: toUserProfileFromApi(myProfile),
+                    profile: mergeCollaboratorTripsIntoProfile(toUserProfileFromApi(myProfile)),
                     expandFrom,
                     canManageTrips,
                     canEditProfile,
@@ -515,7 +543,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             const cachedProfile = profileCacheByUser[targetUserId];
             if (cachedProfile) {
                 setProfileState({
-                    profile: cachedProfile,
+                    profile: mergeCollaboratorTripsIntoProfile(cachedProfile),
                     expandFrom,
                     canManageTrips,
                     canEditProfile,
@@ -532,7 +560,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         return;
                     }
 
-                    const mappedOwnProfile = toUserProfileFromApi(refreshedOwnProfile);
+                    const mappedOwnProfile = mergeCollaboratorTripsIntoProfile(toUserProfileFromApi(refreshedOwnProfile));
                     setProfileCacheByUser((current) => ({ ...current, [mappedOwnProfile.user_id]: mappedOwnProfile }));
                     setProfileState({
                         profile: mappedOwnProfile,
@@ -547,7 +575,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 if (profileOpenRequestIdRef.current !== requestId) {
                     return;
                 }
-                const mappedProfile = toUserProfileFromApi(profileResponse);
+                const mappedProfile = mergeCollaboratorTripsIntoProfile(toUserProfileFromApi(profileResponse));
 
                 setProfileCacheByUser((current) => ({ ...current, [mappedProfile.user_id]: mappedProfile }));
                 setProfileState({
@@ -560,7 +588,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 // Ignore profile lookup failures for now.
             }
         },
-        [isStudent, myProfile, profileCacheByUser, refreshMyProfile, userId],
+        [isStudent, mergeCollaboratorTripsIntoProfile, myProfile, profileCacheByUser, refreshMyProfile, userId],
     );
 
     const handleDeleteTrip = useCallback(
@@ -811,7 +839,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             onToggleSavedActivity={handleToggleSavedActivity}
                             onToggleSavedLodging={handleToggleSavedLodging}
                             onEditTrip={
-                                userId !== null && isStudent && frozenPanels.trip.owner_user_id === userId
+                                userId !== null &&
+                                isStudent &&
+                                (
+                                    frozenPanels.trip.owner_user_id === userId ||
+                                    frozenPanels.trip.collaborators.some((collaborator) => collaborator.user_id === userId)
+                                )
                                     ? () => {
                                           const isPopup = Boolean(frozenPanels.trip!.event_start && frozenPanels.trip!.event_end);
                                           const base = `/trips?edit=${frozenPanels.trip!.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
