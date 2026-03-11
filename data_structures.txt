@@ -253,6 +253,35 @@ Relationships:
 
 ---
 
+## TABLE: saved_plan_items
+
+Individual activities or lodgings saved by a user to their plans, optionally organized into named collections.
+
+Columns:
+
+* id (PK)
+* user_id (FK → travelers.user_id)
+* item_type ("activity" | "lodging" | "collection_anchor")
+* item_id (FK → activities.activity_id or lodgings.lodge_id; MD5-derived integer for collection_anchor rows)
+* collection_name (nullable — name of the collection this item belongs to)
+* saved_at (timestamp)
+
+Constraints:
+
+* UNIQUE (user_id, item_type, item_id)
+
+Notes:
+
+* Collections are represented by a "collection_anchor" row whose item_id is derived from an MD5 hash of the collection name
+* Deleting a collection nullifies collection_name on associated items rather than deleting them
+
+Relationships:
+
+* many saved items per user
+* item references an activity or lodging
+
+---
+
 ## TABLE: user_comment_read_state
 
 Tracks comment-notification read cursor for each user.
@@ -318,7 +347,8 @@ travelers
 │       └── user_favorite_travelers
 │
 ├── planning
-│       └── user_planned_trips
+│       ├── user_planned_trips
+│       └── saved_plan_items (activities/lodgings in collections)
 │
 └── sms_invites
 
@@ -339,7 +369,8 @@ Users interact with trips by:
 
 * commenting
 * favoriting
-* planning
+* planning trips (user_planned_trips)
+* saving activities/lodgings into named collections (saved_plan_items)
 
 Users interact with other users by:
 
