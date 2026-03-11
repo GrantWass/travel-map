@@ -12,8 +12,8 @@
 - Animate friends modal and maybe reorganize it
 - Named collections for plans
 - Feed? shows new and trending activities
-- Collaborative trips?
-- AI trip builder based on activites/lodges we have saved?? 
+- AI trip builder based on activites/lodges we have saved??
+- Add "Hometown" to user profile, to understand where to reccommend trips
 
 ### Optimization
 
