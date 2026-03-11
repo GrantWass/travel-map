@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer, ChevronDown, CalendarRange } from "lucide-react";
 
 function formatCityState(address: string | null | undefined): string | null {
@@ -38,9 +38,10 @@ interface SearchSidebarPanelProps {
     onOwnerFilterChange?: (value: "all" | "friends" | "you") => void;
     currentUserId?: number | null;
     friendIds?: number[];
+    autoFocus?: boolean;
 }
 
-export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", onOwnerFilterChange, currentUserId = null, friendIds = [] }: SearchSidebarPanelProps) {
+export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", onOwnerFilterChange, currentUserId = null, friendIds = [], autoFocus = true }: SearchSidebarPanelProps) {
     const selectedTags = useTripSearchStore((state) => state.selectedTags);
     const maxCost = useTripSearchStore((state) => state.maxCost);
     const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
@@ -55,6 +56,14 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     const syncTagsWithAvailability = useTripSearchStore((state) => state.syncTagsWithAvailability);
 
     const availableTags = useMemo(() => getAvailableTags(trips), [trips]);
+
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (autoFocus) {
+            searchInputRef.current?.focus({ preventScroll: true });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         syncTagsWithAvailability(availableTags);
@@ -89,8 +98,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
             <div className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-border px-4">
                 <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <input
-                    // eslint-disable-next-line jsx-a11y/no-autofocus
-                    autoFocus
+                    ref={searchInputRef}
                     value={query}
                     onChange={(e) => onQueryChange(e.target.value)}
                     placeholder="Search trips, activities, or places"

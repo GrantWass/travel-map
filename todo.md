@@ -37,3 +37,8 @@
   - Reduce costs a little
   - Keeps prod data safe
   - No more test data on prod
+
+### Testing
+- A few E2E playwright tests
+- API tests
+- DB tests (ideally with dev database ^^^)

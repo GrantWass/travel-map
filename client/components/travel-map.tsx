@@ -886,6 +886,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             currentUserId={userId}
                             friendIds={friendIds}
                             onQueryChange={setSearchQuery}
+                            autoFocus={!isQuickOpen}
                             onClose={() => {
                                 closeSearchPanel();
                             }}
