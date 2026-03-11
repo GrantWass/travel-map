@@ -21,10 +21,6 @@
 
 ### Database
 - Enable account deletion. Require email verification?
-- Cleanup for plans migration
-  - travelers.saved_activity_ids and travelers.saved_lodging_ids are no longer written to
-    - ALTER TABLE travelers DROP COLUMN saved_activity_ids;
-    - ALTER TABLE travelers DROP COLUMN saved_lodging_ids;
 
 ### Code
 - Refactor when possible for readability
