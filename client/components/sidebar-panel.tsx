@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { X, MapPin, Calendar, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal, Heart } from "lucide-react";
+import { X, MapPin, Calendar, FolderOpen, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal, Heart } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,12 @@ import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 
 interface SidebarPanelProps {
     review: Trip;
+    collections: string[];
     onClose: () => void;
     onOpenAuthorProfile: (userId: number) => void;
     onExpandImage: (image: { src: string; alt: string }) => void;
-    onToggleSavedActivity: (tripId: number, activity: TripActivity) => void;
-    onToggleSavedLodging: (tripId: number, lodging: TripLodging) => void;
+    onToggleSavedActivity: (tripId: number, activity: TripActivity, collectionName?: string | null) => void;
+    onToggleSavedLodging: (tripId: number, lodging: TripLodging, collectionName?: string | null) => void;
     onEditTrip?: () => void;
     locationTripCount: number;
     locationTripPosition: number;
@@ -65,6 +66,7 @@ function formatAddress(address: string | null | undefined): string | null {
 
 export default function SidebarPanel({
     review,
+    collections,
     onClose,
     onOpenAuthorProfile,
     onExpandImage,
@@ -108,13 +110,28 @@ export default function SidebarPanel({
           : false;
 
     const fabVisible = fabActivity !== null || fabLodging !== null;
+    const [showCollectionPicker, setShowCollectionPicker] = useState(false);
 
     function handleFabClick() {
-        if (fabActivity) {
-            onToggleSavedActivity(review.trip_id, fabActivity);
-        } else if (fabLodging) {
-            onToggleSavedLodging(review.trip_id, fabLodging);
+        if (fabSaved) {
+            // Already saved — toggle off immediately
+            if (fabActivity) onToggleSavedActivity(review.trip_id, fabActivity);
+            else if (fabLodging) onToggleSavedLodging(review.trip_id, fabLodging);
+        } else {
+            // Not saved — show collection picker if there are collections, else save directly
+            if (collections.length > 0) {
+                setShowCollectionPicker((v) => !v);
+            } else {
+                if (fabActivity) onToggleSavedActivity(review.trip_id, fabActivity, null);
+                else if (fabLodging) onToggleSavedLodging(review.trip_id, fabLodging, null);
+            }
         }
+    }
+
+    function handleSaveToCollection(collectionName: string | null) {
+        if (fabActivity) onToggleSavedActivity(review.trip_id, fabActivity, collectionName);
+        else if (fabLodging) onToggleSavedLodging(review.trip_id, fabLodging, collectionName);
+        setShowCollectionPicker(false);
     }
 
     const isPopupEvent = Boolean(review.event_start && review.event_end);
@@ -645,19 +662,47 @@ export default function SidebarPanel({
 
             {/* Floating save FAB — appears when an activity or lodging is expanded */}
             {fabVisible && (
-                <button
-                    type="button"
-                    onClick={handleFabClick}
-                    className={cn(
-                        "absolute bottom-5 right-5 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-colors",
-                        fabSaved
-                            ? "bg-primary text-primary-foreground hover:opacity-90"
-                            : "border border-border bg-card text-foreground hover:bg-secondary",
+                <div className="absolute bottom-5 right-5 flex flex-col items-end gap-2">
+                    {/* Collection picker popover */}
+                    {showCollectionPicker && !fabSaved && (
+                        <div className="rounded-xl border border-border bg-card py-1.5 shadow-lg">
+                            <p className="px-3 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                Save to collection
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => handleSaveToCollection(null)}
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-secondary"
+                            >
+                                No collection
+                            </button>
+                            {collections.map((col) => (
+                                <button
+                                    key={col}
+                                    type="button"
+                                    onClick={() => handleSaveToCollection(col)}
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-secondary"
+                                >
+                                    <FolderOpen className="h-3.5 w-3.5 text-primary" />
+                                    {col}
+                                </button>
+                            ))}
+                        </div>
                     )}
-                >
-                    <Notebook className="h-4 w-4" />
-                    {fabSaved ? "Saved" : "Save to Plans"}
-                </button>
+                    <button
+                        type="button"
+                        onClick={handleFabClick}
+                        className={cn(
+                            "flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-colors",
+                            fabSaved
+                                ? "bg-primary text-primary-foreground hover:opacity-90"
+                                : "border border-border bg-card text-foreground hover:bg-secondary",
+                        )}
+                    >
+                        <Notebook className="h-4 w-4" />
+                        {fabSaved ? "Saved" : "Save to Plans"}
+                    </button>
+                </div>
             )}
         </div>
     );

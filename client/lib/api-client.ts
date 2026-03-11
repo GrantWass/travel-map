@@ -395,21 +395,79 @@ export function toUserProfileFromApi(profileResponse: UserProfileResponse): User
   return user;
 }
 
+export interface SavedPlanItem {
+  item_type: "activity" | "lodging";
+  item_id: number;
+  collection_name: string | null;
+}
+
 export interface SavedPlans {
   saved_activity_ids: number[];
   saved_lodging_ids: number[];
+  saved_items: SavedPlanItem[];
+  collections: string[];
 }
 
 export async function getSavedPlans(): Promise<SavedPlans> {
   return requestJson<SavedPlans>("/users/me/plans", { method: "GET" });
 }
 
-export async function toggleSavedActivity(activityId: number): Promise<SavedPlans> {
-  return requestJson<SavedPlans>(`/users/me/plans/activities/${activityId}`, { method: "POST" });
+export async function toggleSavedActivity(
+  activityId: number,
+  collectionName?: string | null,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/activities/${activityId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ collection_name: collectionName ?? null }),
+  });
 }
 
-export async function toggleSavedLodging(lodgeId: number): Promise<SavedPlans> {
-  return requestJson<SavedPlans>(`/users/me/plans/lodgings/${lodgeId}`, { method: "POST" });
+export async function toggleSavedLodging(
+  lodgeId: number,
+  collectionName?: string | null,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/lodgings/${lodgeId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ collection_name: collectionName ?? null }),
+  });
+}
+
+export async function createPlanCollection(name: string): Promise<SavedPlans> {
+  return requestJson<SavedPlans>("/users/me/plans/collections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deletePlanCollection(name: string): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/collections/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function moveActivityToCollection(
+  activityId: number,
+  collectionName: string | null,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/activities/${activityId}/collection`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ collection_name: collectionName }),
+  });
+}
+
+export async function moveLodgingToCollection(
+  lodgeId: number,
+  collectionName: string | null,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/lodgings/${lodgeId}/collection`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ collection_name: collectionName }),
+  });
 }
 
 export async function getUnreadCommentCounts() {

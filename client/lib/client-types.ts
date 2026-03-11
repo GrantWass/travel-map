@@ -15,6 +15,7 @@ export interface SavedActivityEntry {
   tripTitle: string;
   tripThumbnail: string;
   activity: TripActivity;
+  collectionName: string | null;
 }
 
 export interface SavedLodgingEntry {
@@ -22,4 +23,5 @@ export interface SavedLodgingEntry {
   tripTitle: string;
   tripThumbnail: string;
   lodging: TripLodging;
+  collectionName: string | null;
 }

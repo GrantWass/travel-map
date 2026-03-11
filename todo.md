@@ -17,6 +17,12 @@
 
 ### Optimization
 
+### Database
+- Cleanup for plans migration
+  - travelers.saved_activity_ids and travelers.saved_lodging_ids are no longer written to
+    - ALTER TABLE travelers DROP COLUMN saved_activity_ids;
+    - ALTER TABLE travelers DROP COLUMN saved_lodging_ids;
+
 ### Code
 - Refactor when possible for readability
 - Split up map store if possible? It's huge
@@ -26,3 +32,7 @@
 - Get a domain
 - Better auth work
 - Revist SMS
+- Copy current data to create local mock database for development
+  - Reduce costs a little
+  - Keeps prod data safe
+  - No more test data on prod

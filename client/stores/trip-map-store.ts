@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
+import type { SavedPlanItem } from "@/lib/api-client";
 import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 import {
     fetchDeferredTripsWithChildren,
@@ -23,6 +24,8 @@ interface TripMapStoreState {
     lastViewedTrip: Trip | null;
     savedActivityIds: number[];
     savedLodgingIds: number[];
+    savedItems: SavedPlanItem[];
+    collections: string[];
     isLoadingTrips: boolean;
     isLoadingTripById: boolean;
     loadTrips: (initialPublicTrips?: Trip[]) => Promise<void>;
@@ -43,6 +46,8 @@ interface TripMapStoreState {
     previewTripAtLocation: (trip: Trip) => void;
     setSavedActivityIds: (ids: number[]) => void;
     setSavedLodgingIds: (ids: number[]) => void;
+    setSavedItems: (items: SavedPlanItem[]) => void;
+    setCollections: (collections: string[]) => void;
     toggleSavedActivityId: (id: number) => void;
     toggleSavedLodgingId: (id: number) => void;
     removeSavedActivityId: (id: number) => void;
@@ -139,6 +144,8 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     lastViewedTrip: null,
     savedActivityIds: [],
     savedLodgingIds: [],
+    savedItems: [],
+    collections: [],
     isLoadingTrips: true,
     isLoadingTripById: false,
     loadTrips: async (initialPublicTrips?: Trip[]) => {
@@ -324,6 +331,8 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         }),
     setSavedActivityIds: (savedActivityIds) => set({ savedActivityIds }),
     setSavedLodgingIds: (savedLodgingIds) => set({ savedLodgingIds }),
+    setSavedItems: (savedItems) => set({ savedItems }),
+    setCollections: (collections) => set({ collections }),
     toggleSavedActivityId: (id) =>
         set((state) => ({
             savedActivityIds: state.savedActivityIds.includes(id)
@@ -351,6 +360,11 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     getSavedActivities: () => {
         const state = get();
         const savedActivityIds = new Set(state.savedActivityIds);
+        const collectionByActivityId = new Map(
+            state.savedItems
+                .filter((item) => item.item_type === "activity")
+                .map((item) => [item.item_id, item.collection_name]),
+        );
 
         return state.trips.flatMap((trip) =>
             trip.activities
@@ -360,12 +374,18 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                     tripTitle: trip.title || "",
                     tripThumbnail: trip.thumbnail_url,
                     activity,
+                    collectionName: collectionByActivityId.get(activity.activity_id) ?? null,
                 })),
         );
     },
     getSavedLodgings: () => {
         const state = get();
         const savedLodgingIds = new Set(state.savedLodgingIds);
+        const collectionByLodgingId = new Map(
+            state.savedItems
+                .filter((item) => item.item_type === "lodging")
+                .map((item) => [item.item_id, item.collection_name]),
+        );
 
         return state.trips.flatMap((trip) =>
             trip.lodgings
@@ -375,6 +395,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                     tripTitle: trip.title || "",
                     tripThumbnail: trip.thumbnail_url,
                     lodging,
+                    collectionName: collectionByLodgingId.get(lodging.lodge_id) ?? null,
                 })),
         );
     },

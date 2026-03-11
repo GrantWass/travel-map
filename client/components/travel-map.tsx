@@ -16,7 +16,7 @@ import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, createPlanCollection, deletePlanCollection, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveLodgingToCollection, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { useTripEngagement } from "@/hooks/use-trip-engagement";
@@ -112,6 +112,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const previewTripAtLocation = useTripMapStore((state) => state.previewTripAtLocation);
     const setSavedActivityIds = useTripMapStore((state) => state.setSavedActivityIds);
     const setSavedLodgingIds = useTripMapStore((state) => state.setSavedLodgingIds);
+    const setSavedItems = useTripMapStore((state) => state.setSavedItems);
+    const setCollections = useTripMapStore((state) => state.setCollections);
+    const collections = useTripMapStore((state) => state.collections);
     const toggleSavedActivityId = useTripMapStore((state) => state.toggleSavedActivityId);
     const toggleSavedLodgingId = useTripMapStore((state) => state.toggleSavedLodgingId);
     const removeSavedActivityId = useTripMapStore((state) => state.removeSavedActivityId);
@@ -160,7 +163,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const applySavedPlans = useCallback((plans: Awaited<ReturnType<typeof getSavedPlans>>) => {
         setSavedActivityIds(plans.saved_activity_ids);
         setSavedLodgingIds(plans.saved_lodging_ids);
-    }, [setSavedActivityIds, setSavedLodgingIds]);
+        setSavedItems(plans.saved_items ?? []);
+        setCollections(plans.collections ?? []);
+    }, [setSavedActivityIds, setSavedLodgingIds, setSavedItems, setCollections]);
 
     const tripLookup = useMemo(() => {
         return new Map(trips.map((trip) => [trip.trip_id, trip]));
@@ -260,26 +265,26 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         [openSignupPrompt, userId],
     );
 
-    const handleToggleSavedActivity = useCallback((_tripId: number, activity: TripActivity) => {
+    const handleToggleSavedActivity = useCallback((_tripId: number, activity: TripActivity, collectionName?: string | null) => {
         if (userId === null) {
             openSignupPrompt("save-to-plans");
             return;
         }
 
         toggleSavedActivityId(activity.activity_id);
-        void toggleSavedActivityApi(activity.activity_id).then((plans) => {
+        void toggleSavedActivityApi(activity.activity_id, collectionName).then((plans) => {
             applySavedPlans(plans);
         });
     }, [applySavedPlans, openSignupPrompt, toggleSavedActivityId, userId]);
 
-    const handleToggleSavedLodging = useCallback((_tripId: number, lodging: TripLodging) => {
+    const handleToggleSavedLodging = useCallback((_tripId: number, lodging: TripLodging, collectionName?: string | null) => {
         if (userId === null) {
             openSignupPrompt("save-to-plans");
             return;
         }
 
         toggleSavedLodgingId(lodging.lodge_id);
-        void toggleSavedLodgingApi(lodging.lodge_id).then((plans) => {
+        void toggleSavedLodgingApi(lodging.lodge_id, collectionName).then((plans) => {
             applySavedPlans(plans);
         });
     }, [applySavedPlans, openSignupPrompt, toggleSavedLodgingId, userId]);
@@ -795,6 +800,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         {frozenPanels.showSidebar && frozenPanels.trip && (
                         <SidebarPanel
                             review={frozenPanels.trip}
+                            collections={collections}
                             onClose={() => void openTripById(null)}
                             onOpenAuthorProfile={(profileUserId) => {
                                 requireAuth("profile", () => {
@@ -860,6 +866,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         <PlansSidebarPanel
                             savedActivities={savedActivities}
                             savedLodgings={savedLodgings}
+                            collections={collections}
                             onClose={() => {
                                 closePlansPanel();
                             }}
@@ -872,7 +879,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                     openSignupPrompt("save-to-plans");
                                     return;
                                 }
-
                                 removeSavedActivityId(activityId);
                                 void toggleSavedActivityApi(activityId).then((plans) => {
                                     applySavedPlans(plans);
@@ -883,9 +889,28 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                     openSignupPrompt("save-to-plans");
                                     return;
                                 }
-
                                 removeSavedLodgingId(lodgingId);
                                 void toggleSavedLodgingApi(lodgingId).then((plans) => {
+                                    applySavedPlans(plans);
+                                });
+                            }}
+                            onCreateCollection={(name) => {
+                                void createPlanCollection(name).then((plans) => {
+                                    applySavedPlans(plans);
+                                });
+                            }}
+                            onDeleteCollection={(name) => {
+                                void deletePlanCollection(name).then((plans) => {
+                                    applySavedPlans(plans);
+                                });
+                            }}
+                            onMoveActivity={(activityId, collectionName) => {
+                                void moveActivityToCollection(activityId, collectionName).then((plans) => {
+                                    applySavedPlans(plans);
+                                });
+                            }}
+                            onMoveLodging={(lodgingId, collectionName) => {
+                                void moveLodgingToCollection(lodgingId, collectionName).then((plans) => {
                                     applySavedPlans(plans);
                                 });
                             }}
