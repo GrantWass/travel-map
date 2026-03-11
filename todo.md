@@ -18,6 +18,7 @@
 - Declining a friend requesst doesn't seem to work
 - Can't see collaborated trips on profile
 - I am friends with Joey twice
+- When in a collection, show activities/lodgings on map?
 
 ### Database
 - Enable account deletion. Require email verification?
