@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request
 
-from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_profile, update_user_settings
+from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_user_settings
 from services.trip_service import (
     get_unread_trip_comment_count_by_trip,
     get_user_profile,
@@ -37,7 +37,7 @@ def profile_setup():
         profile_image_url = to_nullable_string(payload.get("profile_image_url"))
         verified = account_type == "student"
 
-        updated_user = update_profile(
+        updated_user = update_user_settings(
             user_id=user["user_id"],
             bio=bio,
             college=college,

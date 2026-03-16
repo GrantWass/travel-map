@@ -4,16 +4,21 @@ import type {
   CreateTripPayload,
   UpdateTripPayload,
   SessionResponse,
+  SmsInvite,
   TripComment,
   User,
   Trip,
   TripCollaborator,
+  FriendshipRecord,
+  FriendshipsResponse,
   UserProfileResponse,
 } from "@/lib/api-types";
 import { supabase } from "@/lib/supabase";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 const AUTH_TOKEN_KEY = "travel-map.auth-token.v1";
+
+// --- Auth token helpers ---
 
 function readAuthToken(): string | null {
   if (typeof window === "undefined") {
@@ -32,6 +37,11 @@ export function setAuthToken(token: string | null) {
     return;
   }
 
+  // Invalidate the Supabase session cache on logout.
+  if (!token) {
+    _cachedToken = null;
+  }
+
   try {
     if (!token) {
       window.sessionStorage.removeItem(AUTH_TOKEN_KEY);
@@ -44,6 +54,37 @@ export function setAuthToken(token: string | null) {
   }
 }
 
+// --- Perf: cache Supabase session to avoid an async SDK call on every request ---
+
+let _cachedToken: { value: string; expiresAt: number } | null = null;
+
+async function resolveAuthToken(): Promise<string | null> {
+  const now = Date.now();
+  if (_cachedToken && now < _cachedToken.expiresAt) {
+    return _cachedToken.value;
+  }
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      // Cache for 50 s — well within the 1-hour Supabase token lifetime.
+      _cachedToken = { value: session.access_token, expiresAt: now + 50_000 };
+      return session.access_token;
+    }
+  } catch {
+    // Supabase unavailable (e.g. SSR) — fall through to legacy token.
+  }
+
+  _cachedToken = null;
+  return readAuthToken();
+}
+
+// --- Perf: deduplicate concurrent GET requests ---
+
+const _inflight = new Map<string, Promise<unknown>>();
+
+// --- Core fetch wrapper ---
+
 class ApiError extends Error {
   status: number;
 
@@ -53,24 +94,13 @@ class ApiError extends Error {
   }
 }
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function _doRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  // Prefer Supabase session token; fall back to legacy sessionStorage token.
-  let authToken: string | null = null;
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    authToken = session?.access_token ?? null;
-  } catch {
-    // Supabase unavailable (e.g. SSR) — use legacy token.
-  }
-  if (!authToken) {
-    authToken = readAuthToken();
-  }
-
+  const authToken = await resolveAuthToken();
   if (authToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${authToken}`);
   }
@@ -96,6 +126,30 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+
+  if (method === "GET") {
+    const existing = _inflight.get(path);
+    if (existing) return existing as Promise<T>;
+  }
+
+  const promise = _doRequest<T>(path, init);
+
+  if (method === "GET") {
+    _inflight.set(path, promise);
+    promise.finally(() => _inflight.delete(path));
+  }
+
+  return promise;
+}
+
+// --- Public placeholder image (local asset — no external dependency) ---
+
+export const PLACEHOLDER_TRIP_IMAGE = "/placeholder-trip.svg";
+
+// --- Session ---
+
 export async function getSession(): Promise<SessionResponse> {
   try {
     return await requestJson<SessionResponse>("/me", { method: "GET" });
@@ -110,6 +164,8 @@ export async function getSession(): Promise<SessionResponse> {
 export async function logoutSession(): Promise<void> {
   await requestJson<{ message: string }>("/logout", { method: "POST" });
 }
+
+// --- Profile ---
 
 export async function createProfileSetup(payload: {
   account_type: "student" | "traveler";
@@ -135,6 +191,8 @@ export async function updateProfileSettings(payload: {
   });
 }
 
+// --- Trips ---
+
 export async function getPublicTrips(): Promise<Trip[]> {
   const params = new URLSearchParams();
   params.set("include_children", "false");
@@ -151,19 +209,14 @@ export async function getDeferredTripIds(): Promise<number[]> {
   return data.trip_ids;
 }
 
-const PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1488085061387-422e29b40080?auto=format&fit=crop&w=1200&q=80";
-
 export async function getTrip(tripId: number): Promise<Trip> {
   const data = await requestJson<{ trip: Trip }>(`/trips/${tripId}`, { method: "GET" });
 
-  const trip = {
+  return {
     ...data.trip,
     description: data.trip.description || "No trip description yet.",
-    thumbnail_url: data.trip.thumbnail_url || PLACEHOLDER_IMAGE,
+    thumbnail_url: data.trip.thumbnail_url || PLACEHOLDER_TRIP_IMAGE,
   };
-  return trip;
-
 }
 
 export async function getMyTrips(): Promise<Trip[]> {
@@ -234,13 +287,16 @@ export async function getTripChildrenBatch(tripIds: number[]): Promise<TripChild
   return data.children;
 }
 
+// --- Uploads ---
+
 export async function uploadImage(file: File, folder = "trips"): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("folder", folder);
 
   const headers = new Headers();
-  const authToken = readAuthToken();
+  // Use Supabase token first (same logic as requestJson), fall back to legacy token.
+  const authToken = await resolveAuthToken();
   if (authToken) {
     headers.set("Authorization", `Bearer ${authToken}`);
   }
@@ -269,6 +325,8 @@ export async function uploadImage(file: File, folder = "trips"): Promise<string>
 
   return payload.url;
 }
+
+// --- Trip details ---
 
 export async function addTripLodging(tripId: number, payload: AddLodgingPayload) {
   return requestJson<{ message: string }>(`/trips/${tripId}/lodgings`, {
@@ -330,6 +388,8 @@ export async function deleteTrip(tripId: number) {
   });
 }
 
+// --- Onboarding ---
+
 export async function markOnboardingComplete(stepIds: string[]): Promise<void> {
   await requestJson<{ message: string }>("/users/me/onboarding", {
     method: "PATCH",
@@ -337,46 +397,74 @@ export async function markOnboardingComplete(stepIds: string[]): Promise<void> {
   });
 }
 
+// --- User profiles ---
+
 export async function getUserProfile(userId: number): Promise<UserProfileResponse> {
   return requestJson<UserProfileResponse>(`/users/${userId}/profile`, { method: "GET" });
 }
 
+export function toUserProfileFromApi(profileResponse: UserProfileResponse): User {
+  // Fix: parentheses required so .split() runs on the name string, not on "".
+  const initials = (profileResponse.user.name || "")
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  return {
+      user_id: profileResponse.user.user_id,
+      name: profileResponse.user.name || "Traveler",
+      email: profileResponse.user.email,
+      bio: profileResponse.user.bio || "Traveler sharing experiences from the road.",
+      verified: profileResponse.user.verified,
+      college: profileResponse.user.college || "—",
+      profile_image_url: profileResponse.user.profile_image_url,
+      trips: profileResponse.trips || null,
+      initials,
+  };
+}
+
+// --- SMS invites ---
+
 export async function createSmsInvite(phoneNumber: string) {
-  return requestJson<{ message: string; invite: any }>("/sms-invites", {
+  return requestJson<{ message: string; invite: SmsInvite }>("/sms-invites", {
     method: "POST",
     body: JSON.stringify({ phone_number: phoneNumber }),
   });
 }
 
 export async function createInviteLink() {
-  return requestJson<{ message: string; invite: { invite_token?: string | null } }>("/sms-invites/link", {
+  return requestJson<{ message: string; invite: Pick<SmsInvite, "invite_token"> }>("/sms-invites/link", {
     method: "POST",
   });
 }
 
 export async function claimSmsInvite(inviteToken: string) {
-  return requestJson<{ message: string; invite: any }>("/sms-invites/claim", {
+  return requestJson<{ message: string; invite: SmsInvite }>("/sms-invites/claim", {
     method: "POST",
     body: JSON.stringify({ invite_token: inviteToken }),
   });
 }
 
+// --- Friendships ---
+
 export async function createFriendRequest(addresseeId: number) {
-  return requestJson<{ message: string; friendship: any }>("/friendships", {
+  return requestJson<{ message: string; friendship: FriendshipRecord }>("/friendships", {
     method: "POST",
     body: JSON.stringify({ addressee_id: addresseeId }),
   });
 }
 
 export async function respondFriendRequest(friendshipId: number, status: "accepted" | "declined" | "pending") {
-  return requestJson<{ message: string; friendship: any }>(`/friendships/${friendshipId}/respond`, {
+  return requestJson<{ message: string; friendship: FriendshipRecord }>(`/friendships/${friendshipId}/respond`, {
     method: "POST",
     body: JSON.stringify({ status }),
   });
 }
 
 export async function getFriendships() {
-  return requestJson<{ incoming: any[]; outgoing: any[]; accepted: any[] }>("/friendships", { method: "GET" });
+  return requestJson<FriendshipsResponse>("/friendships", { method: "GET" });
 }
 
 export async function searchUsers(q: string) {
@@ -385,28 +473,7 @@ export async function searchUsers(q: string) {
   return requestJson<{ users: { user_id: number; name: string; profile_image_url?: string; bio?: string }[] }>(`/users/search?${params.toString()}`, { method: "GET" });
 }
 
-export function toUserProfileFromApi(profileResponse: UserProfileResponse): User {
-  const initials = profileResponse.user.name || ""
-      .split(" ")
-      .filter(Boolean)
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-  const user = {
-      user_id: profileResponse.user.user_id,
-      name: profileResponse.user.name || "Traveler", 
-      email: profileResponse.user.email,
-      bio: profileResponse.user.bio || "Traveler sharing experiences from the road.",
-      verified: profileResponse.user.verified,
-      college: profileResponse.user.college || "—",
-      profile_image_url: profileResponse.user.profile_image_url,
-      trips: profileResponse.trips || null,
-      initials: initials,
-  };
-
-  return user;
-}
+// --- Plans ---
 
 export interface SavedPlanItem {
   item_type: "activity" | "lodging";
@@ -482,6 +549,8 @@ export async function moveLodgingToCollection(
     body: JSON.stringify({ collection_name: collectionName }),
   });
 }
+
+// --- Notifications ---
 
 export async function getUnreadCommentCounts() {
   return requestJson<{ unread_count: number; unread_count_by_trip: Record<string, number> }>(

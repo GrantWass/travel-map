@@ -163,3 +163,13 @@ export interface AddActivityPayload {
   longitude?: string;
   cost?: string;
 }
+
+export interface SmsInvite {
+  id: number;
+  inviter_id: number;
+  phone_number: string | null;
+  invite_token: string | null;
+  status: "sent" | "claimed" | "failed";
+  claimed_user_id: number | null;
+  created_at: string | null;
+}

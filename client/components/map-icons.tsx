@@ -88,6 +88,56 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
     });
 }
 
+const CLUSTER_SIZE = 72;
+
+export function createClusterIcon(trip: Trip, count: number): L.DivIcon {
+    const safeAltTitle = escapeHtml(trip.title);
+    const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
+    const imageUrl = sanitizeImageUrl(trip.thumbnail_url || "");
+    const hasImage = imageUrl.length > 0;
+    const size = CLUSTER_SIZE;
+
+    const countBadge = `<div style="
+        position:absolute;top:-6px;right:-6px;
+        min-width:20px;height:20px;padding:0 5px;border-radius:10px;
+        background:${MARKER_POPUP_BADGE_COLOR};border:2px solid ${MARKER_PRIMARY_COLOR};
+        display:flex;align-items:center;justify-content:center;
+        font-size:10px;font-weight:700;color:${MARKER_PRIMARY_COLOR};font-family:system-ui,sans-serif;
+        box-shadow:0 1px 4px ${MARKER_SHADOW};line-height:1;box-sizing:border-box;
+    ">${count}</div>`;
+
+    return L.divIcon({
+        className: "cluster-photo-marker",
+        html: `
+<div style="width:${size}px;height:${size}px;position:relative;cursor:pointer;">
+    <div style="
+        position:relative;width:100%;height:100%;border-radius:12px;overflow:hidden;
+        border:2.5px solid ${MARKER_POPUP_BADGE_COLOR};
+        box-shadow:0 4px 20px ${MARKER_SHADOW};
+        background:${MARKER_PRIMARY_COLOR};
+    ">
+        ${hasImage
+            ? `<img src="${imageUrl}" alt="${safeAltTitle}" style="display:block;width:100%;height:100%;object-fit:cover;" />
+               <div style="
+                   position:absolute;left:0;right:0;bottom:0;padding:4px 6px;
+                   background:${MARKER_GRADIENT_OVERLAY};
+                   color:${MARKER_PRIMARY_COLOR};font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
+               ">${safeLabelTitle}</div>`
+            : `<div style="
+                   display:flex;align-items:center;justify-content:center;
+                   width:100%;height:100%;padding:4px;
+                   color:#6b7280;font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
+                   text-align:center;
+               ">${safeLabelTitle}</div>`
+        }
+    </div>
+    ${countBadge}
+</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+    });
+}
+
 export function createActivityIcon(activity: TripActivity, isActive: boolean): L.DivIcon {
     const safeTitle = escapeHtml(activity.title || "Activity");
     const imageUrl = sanitizeImageUrl(activity.thumbnail_url || "");

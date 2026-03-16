@@ -3,10 +3,13 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
-import { createTripIcon, createActivityIcon, createLodgingIcon } from "@/components/map-icons";
+import { createTripIcon, createClusterIcon, createActivityIcon, createLodgingIcon } from "@/components/map-icons";
 
 interface MapViewProps {
     onSelectTripById: (tripId: number | null) => void;
@@ -124,7 +127,7 @@ function focusMapOnTrip(map: L.Map, trip: Trip) {
         return;
     }
 
-    map.flyToBounds(bounds, { padding: [56, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+    map.flyToBounds(bounds, { padding: [100, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
 }
 
 export default function MapView({
@@ -145,12 +148,16 @@ export default function MapView({
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const onRightClickRef = useRef(onRightClick);
     useEffect(() => { onRightClickRef.current = onRightClick; }, [onRightClick]);
+    const onSelectTripByIdRef = useRef(onSelectTripById);
+    useEffect(() => { onSelectTripByIdRef.current = onSelectTripById; }, [onSelectTripById]);
+    const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
     const tripMarkersRef = useRef<L.Marker[]>([]);
     const detailMarkersRef = useRef<L.Marker[]>([]);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
     const lastFocusedDetailKeyRef = useRef<string | null>(null);
     const lastFocusedTripCoordsRef = useRef<[number, number] | null>(null);
     const selectedTripRef = useRef<Trip | null>(null);
+    const deselectedByZoomRef = useRef(false);
     const fullScreenTripRef = useRef<Trip | null>(null);
     const selectedActivityRef = useRef<TripActivity | null>(null);
     const selectedLodgingRef = useRef<TripLodging | null>(null);
@@ -277,10 +284,16 @@ export default function MapView({
             return;
         }
 
+        // Remove previous cluster group and markers.
+        if (clusterGroupRef.current) {
+            map.removeLayer(clusterGroupRef.current);
+            clusterGroupRef.current = null;
+        }
         clearMarkers(tripMarkersRef.current);
         tripMarkersRef.current = [];
 
         const mostRecentTrips = getMostRecentTripsByLocation(trips);
+
         if (fullScreenTrip) {
             const fullScreenKey = getLocationKey(fullScreenTrip.latitude, fullScreenTrip.longitude);
             const representative =
@@ -292,15 +305,38 @@ export default function MapView({
             return;
         }
 
+        // Use a cluster group in overview mode so dense areas don't overlap.
+        const clusterGroup = (L as unknown as { markerClusterGroup: (opts: object) => L.MarkerClusterGroup })
+            .markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 40,
+                disableClusteringAtZoom: 11,
+                iconCreateFunction: (cluster: L.MarkerCluster) => {
+                    const childMarkers = cluster.getAllChildMarkers();
+                    const clusterTrips = childMarkers
+                        .map((m: L.Marker) => (m as unknown as { _trip: Trip })._trip)
+                        .filter(Boolean);
+                    // Pick the highest-priority trip; fall back to most recent date.
+                    const best = clusterTrips.reduce((a: Trip, b: Trip) => {
+                        const sa = a.priority_score ?? -1;
+                        const sb = b.priority_score ?? -1;
+                        if (sb !== sa) return sb > sa ? b : a;
+                        return getTripTimestamp(b.date) > getTripTimestamp(a.date) ? b : a;
+                    });
+                    return createClusterIcon(best, cluster.getChildCount());
+                },
+            });
+        clusterGroupRef.current = clusterGroup;
+
         const selectedLocationKey = selectedTrip ? getLocationKey(selectedTrip.latitude, selectedTrip.longitude) : null;
         for (const trip of mostRecentTrips) {
             const tripLocationKey = getLocationKey(trip.latitude, trip.longitude);
             const isActive = selectedLocationKey !== null && selectedLocationKey === tripLocationKey;
             const marker = L.marker([trip.latitude, trip.longitude], {
                 icon: createTripIcon(trip, isActive),
-            })
-                .addTo(map)
-                .on("click", () => {
+            });
+            (marker as unknown as { _trip: Trip })._trip = trip;
+            marker.on("click", () => {
                     const currentTrip = selectedTripRef.current;
                     const currentMap = mapRef.current;
                     if (currentTrip && currentTrip.trip_id === trip.trip_id && currentMap) {
@@ -315,8 +351,11 @@ export default function MapView({
                         onSelectTripById(trip.trip_id);
                     }
                 });
+            clusterGroup.addLayer(marker);
             tripMarkersRef.current.push(marker);
         }
+
+        map.addLayer(clusterGroup);
     }, [trips, selectedTrip, fullScreenTrip, onSelectTripById, setSelectedActivity, setSelectedLodging]);
 
     useEffect(() => {
@@ -380,9 +419,14 @@ export default function MapView({
         }
 
         if (!selectedTrip) {
-            // Zoom back to city level when the panel closes.
-            if (lastFocusedTripCoordsRef.current) {
-                map.flyTo(lastFocusedTripCoordsRef.current, CITY_LEVEL_ZOOM, { duration: 1.0 });
+            if (deselectedByZoomRef.current) {
+                // User zoomed out past the threshold — stay at current zoom.
+                deselectedByZoomRef.current = false;
+            } else {
+                // Panel closed manually — fly back to city level.
+                if (lastFocusedTripCoordsRef.current) {
+                    map.flyTo(lastFocusedTripCoordsRef.current, CITY_LEVEL_ZOOM, { duration: 1.0 });
+                }
             }
             lastFocusedLocationKeyRef.current = null;
             return;
@@ -431,6 +475,37 @@ export default function MapView({
 
         lastFocusedDetailKeyRef.current = null;
     }, [selectedActivity, selectedLodging]);
+
+    // Auto-deselect when the user zooms out far enough that the selected trip
+    // no longer makes sense at the current scale.
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !selectedTrip) return;
+
+        const points = getTripPoints(selectedTrip);
+        const bounds = L.latLngBounds(points.length > 1 ? points : [[selectedTrip.latitude, selectedTrip.longitude]]);
+
+        // The zoom level that would naturally fit this trip. Cap at TRIP_MAX_ZOOM
+        // so a single-point trip (which would return maxZoom) doesn't set an
+        // absurdly high threshold.
+        const fitZoom = Math.min(
+            map.getBoundsZoom(bounds, false, L.point(100, 56)),
+            TRIP_MAX_ZOOM,
+        );
+
+        function onZoomEnd() {
+            // Don't interfere when the user is viewing fullscreen trip detail.
+            if (fullScreenTripRef.current) return;
+            const currentZoom = mapRef.current?.getZoom() ?? Infinity;
+            if (currentZoom < fitZoom - 4) {
+                deselectedByZoomRef.current = true;
+                onSelectTripByIdRef.current(null);
+            }
+        }
+
+        map.on("zoomend", onZoomEnd);
+        return () => { map.off("zoomend", onZoomEnd); };
+    }, [selectedTrip]);
 
     useEffect(() => {
         const map = mapRef.current;

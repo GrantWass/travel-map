@@ -84,7 +84,11 @@ def get_trips():
             public_only=public_only,
         )
         response_payload: dict[str, Any] = {"trips": trips}
-        return jsonify(response_payload), 200
+        resp = jsonify(response_payload)
+        # Cache public-only unauthenticated responses at the CDN/browser for 30 s.
+        if public_only and viewer_user_id is None:
+            resp.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=10"
+        return resp, 200
     except TripValidationError as error:
         return jsonify({"error": str(error)}), 400
     except Exception as error:
@@ -103,7 +107,10 @@ def get_deferred_trip_ids():
     try:
         bounding_box = _parse_optional_bounding_box(request.args)
         trip_ids = list_non_public_visible_trip_ids(viewer_user_id=viewer_user_id, bounding_box=bounding_box)
-        return jsonify({"trip_ids": trip_ids}), 200
+        resp = jsonify({"trip_ids": trip_ids})
+        if viewer_user_id is None:
+            resp.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=10"
+        return resp, 200
     except TripValidationError as error:
         return jsonify({"error": str(error)}), 400
     except Exception as error:

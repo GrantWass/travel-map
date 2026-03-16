@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f5ede0"/>
+  <rect width="1200" height="480" fill="#d4c4a8" y="320"/>
+  <!-- Sky gradient suggestion -->
+  <rect width="1200" height="320" fill="#e8dcc8"/>
+  <!-- Distant mountains -->
+  <polygon points="0,320 200,180 400,320" fill="#c4b090"/>
+  <polygon points="300,320 550,140 800,320" fill="#b8a47e"/>
+  <polygon points="700,320 900,160 1100,320" fill="#c4b090"/>
+  <polygon points="950,320 1100,200 1200,320" fill="#b8a47e"/>
+  <!-- Path / road -->
+  <path d="M480,800 Q560,560 600,320" stroke="#a89060" stroke-width="28" fill="none" stroke-linecap="round"/>
+  <path d="M720,800 Q640,560 600,320" stroke="#a89060" stroke-width="28" fill="none" stroke-linecap="round"/>
+  <rect x="585" y="320" width="30" height="480" fill="#b8a070" opacity="0.4"/>
+  <!-- Map pin icon centered -->
+  <g transform="translate(560, 90)">
+    <circle cx="40" cy="36" r="36" fill="#d97706" opacity="0.15"/>
+    <path d="M40 6 C24 6 11 19 11 35 C11 54 40 74 40 74 C40 74 69 54 69 35 C69 19 56 6 40 6 Z" fill="#d97706"/>
+    <circle cx="40" cy="35" r="12" fill="#fdf8f0"/>
+  </g>
+</svg>

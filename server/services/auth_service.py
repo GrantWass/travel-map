@@ -215,21 +215,6 @@ def get_authenticated_user() -> dict[str, Any] | None:
     return get_user_by_id(token_user_id)
 
 
-def update_profile(*, user_id: int, bio: str | None, college: str | None, profile_image_url: str | None, verified: bool):
-    with get_cursor(commit=True) as cur:
-        cur.execute(
-            """
-            UPDATE travelers
-            SET bio = %s,
-                college = %s,
-                profile_image_url = %s,
-                verified = %s
-            WHERE user_id = %s
-            """,
-            (bio, college, profile_image_url, verified, user_id),
-        )
-
-    return get_user_by_id(user_id)
 
 
 def mark_onboarding_steps_complete(*, user_id: int, step_ids: list[str]) -> dict[str, Any] | None:
@@ -266,6 +251,7 @@ def update_user_settings(
     bio: str | None | object = UNSET,
     college: str | None | object = UNSET,
     profile_image_url: str | None | object = UNSET,
+    verified: bool | object = UNSET,
 ) -> dict[str, Any] | None:
     assignments: list[str] = []
     values: list[Any] = []
@@ -286,6 +272,10 @@ def update_user_settings(
         assignments.append("profile_image_url = %s")
         values.append(profile_image_url)
 
+    if verified is not UNSET:
+        assignments.append("verified = %s")
+        values.append(bool(verified))
+
     if not assignments:
         return get_user_by_id(user_id)
 
@@ -303,18 +293,24 @@ def update_user_settings(
     return get_user_by_id(user_id)
 
 
+def _escape_like(q: str) -> str:
+    """Escape PostgreSQL LIKE/ILIKE wildcard characters to treat them as literals."""
+    return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def search_users(q: str, limit: int = 20) -> list[dict[str, Any]]:
     """Search users by name (case-insensitive). Returns list of dicts with user_id, name, email, profile_image_url."""
     if not q or not str(q).strip():
         return []
 
-    pattern = f"%{str(q).strip()}%"
+    escaped = _escape_like(str(q).strip())
+    pattern = f"%{escaped}%"
     with get_cursor() as cur:
         cur.execute(
-            """
+            r"""
             SELECT user_id, name, email, profile_image_url, bio
             FROM travelers
-            WHERE name ILIKE %s
+            WHERE name ILIKE %s ESCAPE '\'
             ORDER BY name ASC
             LIMIT %s
             """,
