@@ -52,7 +52,7 @@ export function formatPopupTimeRange(startIso: string, endIso: string): string {
     const startTime = start.toLocaleTimeString("en-US", timeOpts);
     const endTime = end.toLocaleTimeString("en-US", timeOpts);
 
-    const now = new Date();
+    const now = new Date(); 
     const isToday = start.toDateString() === now.toDateString();
     if (isToday) return `Today · ${startTime} – ${endTime}`;
 
