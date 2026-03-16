@@ -15,8 +15,10 @@ from services.plans_service import (
 plans_bp = Blueprint("plans", __name__)
 
 
-@plans_bp.route("/users/me/plans", methods=["GET"])
+@plans_bp.route("/users/me/plans", methods=["GET", "OPTIONS"])
 def get_plans():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
@@ -29,8 +31,10 @@ def get_plans():
         return jsonify({"error": f"get plans failed: {str(error)}"}), 500
 
 
-@plans_bp.route("/users/me/plans/activities/<int:activity_id>", methods=["POST"])
+@plans_bp.route("/users/me/plans/activities/<int:activity_id>", methods=["POST", "OPTIONS"])
 def toggle_activity(activity_id: int):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
@@ -45,8 +49,10 @@ def toggle_activity(activity_id: int):
         return jsonify({"error": f"toggle activity failed: {str(error)}"}), 500
 
 
-@plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>", methods=["POST"])
+@plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>", methods=["POST", "OPTIONS"])
 def toggle_lodging(lodge_id: int):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
@@ -61,8 +67,10 @@ def toggle_lodging(lodge_id: int):
         return jsonify({"error": f"toggle lodging failed: {str(error)}"}), 500
 
 
-@plans_bp.route("/users/me/plans/collections", methods=["POST"])
+@plans_bp.route("/users/me/plans/collections", methods=["POST", "OPTIONS"])
 def add_collection():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
@@ -82,8 +90,10 @@ def add_collection():
         return jsonify({"error": f"create collection failed: {str(error)}"}), 500
 
 
-@plans_bp.route("/users/me/plans/collections/<string:name>", methods=["DELETE"])
+@plans_bp.route("/users/me/plans/collections/<string:name>", methods=["DELETE", "OPTIONS"])
 def remove_collection(name: str):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
@@ -96,8 +106,10 @@ def remove_collection(name: str):
         return jsonify({"error": f"delete collection failed: {str(error)}"}), 500
 
 
-@plans_bp.route("/users/me/plans/activities/<int:activity_id>/collection", methods=["PATCH"])
+@plans_bp.route("/users/me/plans/activities/<int:activity_id>/collection", methods=["PATCH", "OPTIONS"])
 def move_activity_collection(activity_id: int):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401
@@ -112,8 +124,10 @@ def move_activity_collection(activity_id: int):
         return jsonify({"error": f"move item failed: {str(error)}"}), 500
 
 
-@plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>/collection", methods=["PATCH"])
+@plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>/collection", methods=["PATCH", "OPTIONS"])
 def move_lodging_collection(lodge_id: int):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "authentication required"}), 401

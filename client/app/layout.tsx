@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Pacifico } from "next/font/google";
 import AuthBootstrap from "@/components/auth-bootstrap";
 import { APP_NAME, APP_NAME_DESCRIPTION } from "@/lib/branding";
 import "./globals.css";
+import { Ultron } from "@/components/ultron";
 
 const _geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const _geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
@@ -67,6 +68,7 @@ export default function RootLayout({
         <html lang="en">
             <body className={`${_geist.variable} ${_geistMono.variable} ${_brandDisplay.variable} font-sans antialiased overflow-hidden`}>
                 <AuthBootstrap>{children}</AuthBootstrap>
+                <Ultron />
             </body>
         </html>
     );
