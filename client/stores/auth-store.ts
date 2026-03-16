@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { ApiError, getSession, getUserProfile, logoutSession, setAuthToken } from "@/lib/api-client";
 import type { User, UserProfileResponse } from "@/lib/api-types";
 import { useFriendsStore } from "@/stores/friends-store";
+import { supabase } from "@/lib/supabase";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -142,6 +143,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }
     },
     signOut: async () => {
+        try {
+            await supabase.auth.signOut();
+        } catch {
+            // Continue regardless.
+        }
         try {
             await logoutSession();
         } catch {

@@ -10,6 +10,7 @@ import type {
   TripCollaborator,
   UserProfileResponse,
 } from "@/lib/api-types";
+import { supabase } from "@/lib/supabase";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 const AUTH_TOKEN_KEY = "travel-map.auth-token.v1";
@@ -58,7 +59,18 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const authToken = readAuthToken();
+  // Prefer Supabase session token; fall back to legacy sessionStorage token.
+  let authToken: string | null = null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    authToken = session?.access_token ?? null;
+  } catch {
+    // Supabase unavailable (e.g. SSR) — use legacy token.
+  }
+  if (!authToken) {
+    authToken = readAuthToken();
+  }
+
   if (authToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${authToken}`);
   }

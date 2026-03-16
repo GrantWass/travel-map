@@ -11,15 +11,19 @@ CLIENT_APP_URLS = [
     if origin.strip()
 ]
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")  # Project Settings → API → JWT Secret
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 PORT = int(os.getenv("PORT", "5001"))
 
 DB_CONFIG = {
-    "host": os.getenv("POSTGRES_HOST"),
-    "port": int(os.getenv("POSTGRES_PORT", "5432")),
-    "dbname": os.getenv("POSTGRES_DB"),
-    "user": os.getenv("POSTGRES_USER"),
-    "password": os.getenv("POSTGRES_PASSWORD"),
-    "sslmode": os.getenv("POSTGRES_SSLMODE", "require"),
+    # Prefer Supabase-specific names; keep POSTGRES_* as fallback for compatibility.
+    "host": os.getenv("SUPABASE_DB_HOST") or os.getenv("POSTGRES_HOST"),
+    "port": int(os.getenv("SUPABASE_DB_PORT") or os.getenv("POSTGRES_PORT", "5432")),
+    "dbname": os.getenv("SUPABASE_DB_NAME") or os.getenv("POSTGRES_DB"),
+    "user": os.getenv("SUPABASE_DB_USER") or os.getenv("POSTGRES_USER"),
+    "password": os.getenv("SUPABASE_DB_PASSWORD") or os.getenv("POSTGRES_PASSWORD"),
+    "sslmode": os.getenv("SUPABASE_DB_SSLMODE") or os.getenv("POSTGRES_SSLMODE", "require"),
 }
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")

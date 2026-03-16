@@ -11,6 +11,7 @@ import { getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation"
 import { API_BASE_URL, setAuthToken, claimSmsInvite } from "@/lib/api-client";
 import type { User } from "@/lib/api-types";
 import { useAuthStore } from "@/stores/auth-store";
+import { supabase } from "@/lib/supabase";
 
 type AccountType = "traveler" | "student";
 type Mode = "signup" | "signin";
@@ -55,6 +56,20 @@ function SignUpContent() {
     }
 
     async function loginWithCredentials(email: string, password: string): Promise<User | null> {
+        // Try Supabase auth first
+        const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({ email, password });
+        if (!sbError && sbData.session) {
+            const meResp = await fetch(`${API_BASE_URL}/me`, {
+                headers: { "Authorization": `Bearer ${sbData.session.access_token}` },
+                credentials: "include",
+            });
+            const meData = await meResp.json();
+            if (meResp.ok && meData.user && typeof meData.user.user_id === "number") {
+                return meData.user as User;
+            }
+        }
+
+        // Fall back to legacy login (for users not yet migrated to Supabase)
         const response = await fetch(`${API_BASE_URL}/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -85,24 +100,35 @@ function SignUpContent() {
             const token = inviteToken;
 
             if (isSignup) {
+                // 1. Create Supabase auth user
+                const { data: sbSignUp, error: sbSignUpError } = await supabase.auth.signUp({
+                    email: form.email,
+                    password: form.password,
+                });
+                if (sbSignUpError || !sbSignUp.session) {
+                    setError(sbSignUpError?.message || "Could not create account");
+                    return;
+                }
+
+                // 2. Create travelers profile row in our backend
                 const response = await fetch(`${API_BASE_URL}/create-user`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${sbSignUp.session.access_token}`,
+                    },
                     credentials: "include",
                     body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
                 });
                 const data = await response.json();
                 if (!response.ok) {
+                    // Clean up the Supabase auth user since our DB insert failed
+                    await supabase.auth.signOut();
                     setError(data.error || "Could not create account");
                     return;
                 }
-                if (typeof data?.auth_token === "string" && data.auth_token.trim()) {
-                    setAuthToken(data.auth_token);
-                }
-                // Login to obtain and store the auth token, but do NOT hydrate
-                // the Zustand store yet — that would race with AuthBootstrap and
-                // briefly flash the map. The /setup page will populate the store
-                // via refreshSession once it mounts.
+
+                // Do NOT hydrate the Zustand store yet — /setup will call refreshSession.
                 const loggedInUser = await loginWithCredentials(form.email, form.password);
                 if (!loggedInUser) return;
                 if (token) {
