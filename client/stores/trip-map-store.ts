@@ -20,6 +20,7 @@ interface TripMapStoreState {
     searchQuery: string;
     searchPanelOpen: boolean;
     plansPanelOpen: boolean;
+    selectedCollection: string | null; // null = none, "" = unsorted, "name" = named collection
     lastViewedPanelType: "search" | "trip" | "plans" | null;
     lastViewedTrip: Trip | null;
     savedActivityIds: number[];
@@ -48,6 +49,7 @@ interface TripMapStoreState {
     setSavedLodgingIds: (ids: number[]) => void;
     setSavedItems: (items: SavedPlanItem[]) => void;
     setCollections: (collections: string[]) => void;
+    setSelectedCollection: (name: string | null) => void;
     toggleSavedActivityId: (id: number) => void;
     toggleSavedLodgingId: (id: number) => void;
     removeSavedActivityId: (id: number) => void;
@@ -140,6 +142,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     searchQuery: "",
     searchPanelOpen: false,
     plansPanelOpen: false,
+    selectedCollection: null,
     lastViewedPanelType: null,
     lastViewedTrip: null,
     savedActivityIds: [],
@@ -252,7 +255,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     setSelectedTrip: (selectedTrip) =>
         set(
             selectedTrip
-                ? { selectedTrip, lastViewedPanelType: "trip", lastViewedTrip: selectedTrip }
+                ? { selectedTrip, lastViewedPanelType: "trip", lastViewedTrip: selectedTrip, selectedCollection: null }
                 : { selectedTrip },
         ),
     setSelectedActivity: (selectedActivity) =>
@@ -288,7 +291,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         set((state) => {
             const nextPlansPanelOpen = !state.plansPanelOpen;
             if (!nextPlansPanelOpen) {
-                return { plansPanelOpen: false };
+                return { plansPanelOpen: false, selectedCollection: null };
             }
 
             return {
@@ -302,7 +305,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                 lastViewedPanelType: "plans",
             };
         }),
-    closePlansPanel: () => set({ plansPanelOpen: false }),
+    closePlansPanel: () => set({ plansPanelOpen: false, selectedCollection: null }),
     showTripInFullScreen: (trip) =>
         set({
             selectedTrip: null,
@@ -312,6 +315,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
             searchPanelOpen: false,
             searchQuery: "",
             plansPanelOpen: false,
+            selectedCollection: null,
         }),
     showFullScreenTripInSidebar: () =>
         set((state) => ({
@@ -334,6 +338,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     setSavedLodgingIds: (savedLodgingIds) => set({ savedLodgingIds }),
     setSavedItems: (savedItems) => set({ savedItems }),
     setCollections: (collections) => set({ collections }),
+    setSelectedCollection: (selectedCollection) => set({ selectedCollection }),
     toggleSavedActivityId: (id) =>
         set((state) => ({
             savedActivityIds: state.savedActivityIds.includes(id)

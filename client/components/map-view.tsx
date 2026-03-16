@@ -15,6 +15,8 @@ interface MapViewProps {
     onSelectTripById: (tripId: number | null) => void;
     visibleTrips?: Trip[];
     onRightClick?: (lat: number, lng: number, clientX: number, clientY: number) => void;
+    collectionActivities?: TripActivity[];
+    collectionLodgings?: TripLodging[];
 }
 
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
@@ -134,6 +136,8 @@ export default function MapView({
     onSelectTripById,
     visibleTrips,
     onRightClick,
+    collectionActivities,
+    collectionLodgings,
 }: MapViewProps) {
     const storeTrips = useTripMapStore((state) => state.trips);
     const trips = visibleTrips ?? storeTrips;
@@ -153,6 +157,7 @@ export default function MapView({
     const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
     const tripMarkersRef = useRef<L.Marker[]>([]);
     const detailMarkersRef = useRef<L.Marker[]>([]);
+    const collectionMarkersRef = useRef<L.Marker[]>([]);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
     const lastFocusedDetailKeyRef = useRef<string | null>(null);
     const lastFocusedTripCoordsRef = useRef<[number, number] | null>(null);
@@ -475,6 +480,45 @@ export default function MapView({
 
         lastFocusedDetailKeyRef.current = null;
     }, [selectedActivity, selectedLodging]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        collectionMarkersRef.current.forEach((m) => m.remove());
+        collectionMarkersRef.current = [];
+
+        const activities = collectionActivities ?? [];
+        const lodgings = collectionLodgings ?? [];
+        if (activities.length === 0 && lodgings.length === 0) return;
+
+        const points: [number, number][] = [];
+
+        for (const activity of activities) {
+            if (!hasCoordinates(activity)) continue;
+            const marker = L.marker([activity.latitude, activity.longitude], {
+                icon: createActivityIcon(activity, false),
+            }).addTo(map);
+            collectionMarkersRef.current.push(marker);
+            points.push([activity.latitude, activity.longitude]);
+        }
+
+        for (const lodging of lodgings) {
+            if (!hasCoordinates(lodging)) continue;
+            const marker = L.marker([lodging.latitude, lodging.longitude], {
+                icon: createLodgingIcon(lodging, false),
+            }).addTo(map);
+            collectionMarkersRef.current.push(marker);
+            points.push([lodging.latitude, lodging.longitude]);
+        }
+
+        if (points.length > 0) {
+            const bounds = L.latLngBounds(points);
+            if (bounds.isValid()) {
+                map.flyToBounds(bounds, { padding: [80, 80], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+            }
+        }
+    }, [collectionActivities, collectionLodgings]);
 
     // Auto-deselect when the user zooms out far enough that the selected trip
     // no longer makes sense at the current scale.

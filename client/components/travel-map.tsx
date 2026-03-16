@@ -115,6 +115,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const setSavedItems = useTripMapStore((state) => state.setSavedItems);
     const setCollections = useTripMapStore((state) => state.setCollections);
     const collections = useTripMapStore((state) => state.collections);
+    const selectedCollection = useTripMapStore((state) => state.selectedCollection);
+    const setSelectedCollection = useTripMapStore((state) => state.setSelectedCollection);
     const toggleSavedActivityId = useTripMapStore((state) => state.toggleSavedActivityId);
     const toggleSavedLodgingId = useTripMapStore((state) => state.toggleSavedLodgingId);
     const removeSavedActivityId = useTripMapStore((state) => state.removeSavedActivityId);
@@ -176,6 +178,20 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
     const getSavedLodgings = useTripMapStore((state) => state.getSavedLodgings);
     const savedLodgings = getSavedLodgings();
+
+    const collectionActivities = useMemo(() => {
+        if (selectedCollection === null) return [];
+        return savedActivities
+            .filter((a) => (a.collectionName ?? "") === selectedCollection)
+            .map((a) => a.activity);
+    }, [selectedCollection, savedActivities]);
+
+    const collectionLodgings = useMemo(() => {
+        if (selectedCollection === null) return [];
+        return savedLodgings
+            .filter((l) => (l.collectionName ?? "") === selectedCollection)
+            .map((l) => l.lodging);
+    }, [selectedCollection, savedLodgings]);
 
     const selectedLocationContext = useMemo(
         () => deriveSelectedLocationContext(trips, selectedTrip),
@@ -901,6 +917,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             savedActivities={savedActivities}
                             savedLodgings={savedLodgings}
                             collections={collections}
+                            selectedCollection={selectedCollection}
+                            onSelectCollection={setSelectedCollection}
                             onClose={() => {
                                 closePlansPanel();
                             }}
@@ -956,6 +974,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 <div data-spotlight="map" className="relative h-full min-w-0 flex-1">
                     <MapView
                         visibleTrips={filteredTrips}
+                        collectionActivities={collectionActivities}
+                        collectionLodgings={collectionLodgings}
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);
                         }}

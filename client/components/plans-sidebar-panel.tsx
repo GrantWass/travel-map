@@ -11,6 +11,7 @@ interface PlansSidebarPanelProps {
   savedActivities: SavedActivityEntry[];
   savedLodgings: SavedLodgingEntry[];
   collections: string[];
+  selectedCollection: string | null;
   onClose: () => void;
   onOpenTrip: (tripId: number) => void;
   onToggleSavedActivity: (activityId: number) => void;
@@ -19,6 +20,7 @@ interface PlansSidebarPanelProps {
   onDeleteCollection: (name: string) => void;
   onMoveActivity: (activityId: number, collectionName: string | null) => void;
   onMoveLodging: (lodgingId: number, collectionName: string | null) => void;
+  onSelectCollection: (name: string | null) => void;
 }
 
 interface ItemCardProps {
@@ -122,12 +124,14 @@ interface CollectionSectionProps {
   activities: SavedActivityEntry[];
   lodgings: SavedLodgingEntry[];
   collections: string[];
+  selectedCollection: string | null;
   onOpenTrip: (tripId: number) => void;
   onToggleSavedActivity: (activityId: number) => void;
   onToggleSavedLodging: (lodgingId: number) => void;
   onMoveActivity: (activityId: number, collectionName: string | null) => void;
   onMoveLodging: (lodgingId: number, collectionName: string | null) => void;
   onDeleteCollection?: () => void;
+  onSelectCollection: (name: string | null) => void;
 }
 
 function CollectionSection({
@@ -135,15 +139,19 @@ function CollectionSection({
   activities,
   lodgings,
   collections,
+  selectedCollection,
   onOpenTrip,
   onToggleSavedActivity,
   onToggleSavedLodging,
   onMoveActivity,
   onMoveLodging,
   onDeleteCollection,
+  onSelectCollection,
 }: CollectionSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const count = activities.length + lodgings.length;
+  const collectionKey = name ?? "";
+  const isShowingOnMap = selectedCollection === collectionKey;
 
   return (
     <div className="flex flex-col gap-1">
@@ -164,6 +172,18 @@ function CollectionSection({
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             {name ?? "Unsorted"} ({count})
           </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelectCollection(isShowingOnMap ? null : collectionKey)}
+          className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+            isShowingOnMap
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-secondary"
+          }`}
+          title={isShowingOnMap ? "Hide from map" : "Show on map"}
+        >
+          <MapPin className="h-3 w-3" />
         </button>
         {name && onDeleteCollection && (
           <button
@@ -219,6 +239,7 @@ export default function PlansSidebarPanel({
   savedActivities,
   savedLodgings,
   collections,
+  selectedCollection,
   onClose,
   onOpenTrip,
   onToggleSavedActivity,
@@ -227,6 +248,7 @@ export default function PlansSidebarPanel({
   onDeleteCollection,
   onMoveActivity,
   onMoveLodging,
+  onSelectCollection,
 }: PlansSidebarPanelProps) {
   const [newCollectionName, setNewCollectionName] = useState("");
   const [showNewCollectionInput, setShowNewCollectionInput] = useState(false);
@@ -332,12 +354,14 @@ export default function PlansSidebarPanel({
                     activities={colActivities}
                     lodgings={colLodgings}
                     collections={allCollectionNames}
+                    selectedCollection={selectedCollection}
                     onOpenTrip={onOpenTrip}
                     onToggleSavedActivity={onToggleSavedActivity}
                     onToggleSavedLodging={onToggleSavedLodging}
                     onMoveActivity={onMoveActivity}
                     onMoveLodging={onMoveLodging}
                     onDeleteCollection={() => onDeleteCollection(col)}
+                    onSelectCollection={onSelectCollection}
                   />
                 );
               })}
@@ -349,11 +373,13 @@ export default function PlansSidebarPanel({
                   activities={unsortedActivities}
                   lodgings={unsortedLodgings}
                   collections={allCollectionNames}
+                  selectedCollection={selectedCollection}
                   onOpenTrip={onOpenTrip}
                   onToggleSavedActivity={onToggleSavedActivity}
                   onToggleSavedLodging={onToggleSavedLodging}
                   onMoveActivity={onMoveActivity}
                   onMoveLodging={onMoveLodging}
+                  onSelectCollection={onSelectCollection}
                 />
               )}
             </>
