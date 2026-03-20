@@ -6,7 +6,8 @@ export function Ultron() {
   useEffect(() => {
     initTracker({
       apiKey: process.env.NEXT_PUBLIC_ULTRON_API_KEY!,
-      debug: process.env.NODE_ENV === 'development'
+      debug: process.env.NODE_ENV === 'development',
+      sessionReplay: true
     })
   }, [])
   return null
