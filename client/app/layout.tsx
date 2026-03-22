@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Pacifico } from "next/font/google";
 import AuthBootstrap from "@/components/auth-bootstrap";
-import { APP_NAME, APP_NAME_DESCRIPTION } from "@/lib/branding";
+import { APP_NAME, APP_NAME_DESCRIPTION, APP_KEYWORDS } from "@/lib/branding";
 import "./globals.css";
 import { Ultron } from "@/components/ultron";
 
@@ -12,6 +12,21 @@ const _brandDisplay = Pacifico({ subsets: ["latin"], weight: "400", variable: "-
 const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: APP_NAME,
+    url: siteUrl,
+    description: APP_NAME_DESCRIPTION,
+    applicationCategory: "TravelApplication",
+    operatingSystem: "Web",
+    offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+    },
+};
 
 export const metadata: Metadata = {
     metadataBase: new URL(siteUrl),
@@ -56,6 +71,7 @@ export const metadata: Metadata = {
         description: APP_NAME_DESCRIPTION,
         images: ["/twitter-image"],
     },
+    keywords: APP_KEYWORDS,
     category: "travel",
 };
 
@@ -66,6 +82,12 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
+            <head>
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                />
+            </head>
             <body className={`${_geist.variable} ${_geistMono.variable} ${_brandDisplay.variable} font-sans antialiased overflow-hidden`}>
                 <AuthBootstrap>{children}</AuthBootstrap>
                 <Ultron />

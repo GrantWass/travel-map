@@ -12,6 +12,8 @@ IOS/ios
 .env*.local
 expo-env.d.ts
 
+.claude 
+
 # Next.js
 .next
 next-env.d.ts

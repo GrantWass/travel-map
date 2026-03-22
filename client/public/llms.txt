@@ -1,0 +1,19 @@
+# Travela
+
+> A social travel planning app where real travelers share trip stories, activities, and lodging on an interactive map. Designed to help students and independent travelers plan affordable trips using peer experiences instead of expensive packaged tours.
+
+Travela is a web application at https://travel-map-nine.vercel.app. Users can browse public trips pinned on a live interactive map, search by destination, activity, tag, or cost, and save activities and lodgings to personal plans. Accounts can be traveler or student type; students can connect with university peers.
+
+## Core Features
+
+- [Explore the Map](https://travel-map-nine.vercel.app): Browse real trips pinned on an interactive map. Click markers to see trip details, photos, activities, and lodging.
+- [Search & Filter](https://travel-map-nine.vercel.app): Find trips by title, author, activity, place, tags, or max cost.
+- [Save to Plans](https://travel-map-nine.vercel.app): Bookmark activities and lodgings from any trip into your personal plan.
+- [Create a Trip](https://travel-map-nine.vercel.app/trips): Post your own trip with activities, lodgings, costs, photos, and map locations.
+- [View Profiles](https://travel-map-nine.vercel.app): See a traveler's bio, school, and full trip history.
+- [Sign Up](https://travel-map-nine.vercel.app/signup): Join as a traveler or student. Students can connect with their university community.
+
+## About
+
+Travela helps students and independent travelers find real, affordable travel inspiration from people like them. Instead of relying on travel agents or expensive packages, users can browse authentic trip stories — with actual costs, places visited, and practical notes.
+
