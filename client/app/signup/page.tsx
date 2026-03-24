@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MapPin, GraduationCap, Globe, Loader2 } from "lucide-react";
+import { MapPin, Loader2 } from "lucide-react";
 import BrandNameButton from "@/components/brand-name-button";
 import { getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
 import { API_BASE_URL, setAuthToken, claimSmsInvite } from "@/lib/api-client";
@@ -10,9 +10,7 @@ import type { User } from "@/lib/api-types";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 
-type AccountType = "traveler" | "student";
 type Mode = "signup" | "signin";
-type AnimPhase = "idle" | "out" | "in";
 
 export default function SignUpPage() {
     return (
@@ -58,9 +56,6 @@ function SignUpContent() {
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const setStatus = useAuthStore((state) => state.setStatus);
     const [mode, setMode] = useState<Mode>("signup");
-    const [accountType, setAccountType] = useState<AccountType>("traveler");
-    const [displayedType, setDisplayedType] = useState<AccountType>("traveler");
-    const [animPhase, setAnimPhase] = useState<AnimPhase>("idle");
     const [form, setForm] = useState({ name: "", email: "", password: "" });
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +63,6 @@ function SignUpContent() {
     const [isSendingReset, setIsSendingReset] = useState(false);
 
     const isSignup = mode === "signup";
-    const isStudent = isSignup && accountType === "student";
     const inviteTokenFromQuery = searchParams.get("invite");
     const nextPath = sanitizeNextPath(searchParams.get("next"));
     const inviteToken = (inviteTokenFromQuery || getStoredInviteToken())?.trim() || null;
@@ -192,7 +186,8 @@ function SignUpContent() {
                 // Set to "loading" so AuthBootstrap doesn't redirect while /setup
                 // initializes its own refreshSession call.
                 setStatus("loading");
-                const setupParams = new URLSearchParams({ accountType, next: nextPath });
+                // Always pass accountType=student so all users get verified access.
+                const setupParams = new URLSearchParams({ accountType: "student", next: nextPath });
                 router.push(`/setup?${setupParams.toString()}`);
                 return;
             } else {
@@ -218,23 +213,6 @@ function SignUpContent() {
             setIsLoading(false);
         }
     }
-
-    function selectAccountType(type: AccountType) {
-        if (type === displayedType || animPhase !== "idle") return;
-        setAccountType(type);
-        setAnimPhase("out");
-        setTimeout(() => {
-            setDisplayedType(type);
-            setAnimPhase("in");
-        }, 180);
-        setTimeout(() => setAnimPhase("idle"), 360);
-    }
-
-    function toggleWord() {
-        selectAccountType(displayedType === "traveler" ? "student" : "traveler");
-    }
-
-    const wordClass = animPhase === "out" ? "flip-word-out" : animPhase === "in" ? "flip-word-in" : "";
 
     const inputBase =
         "w-full rounded-lg border border-stone-200 bg-white/60 px-4 py-3 text-sm text-stone-800 placeholder:text-stone-400 outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-300 disabled:opacity-50";
@@ -277,39 +255,25 @@ function SignUpContent() {
                     <BrandNameButton className="text-2xl text-stone-800" />
                 </div>
 
-                <div className="relative w-full text-center">
-                    <h1 className={`text-5xl font-bold tracking-tight text-stone-900 sm:text-6xl md:text-7xl transition-opacity duration-300 ease-in-out ${isSignup ? "opacity-100" : "opacity-0 pointer-events-none select-none"}`}>
-                        You are a{" "}
-                        <span className="relative inline-block">
-                            <button type="button" onClick={toggleWord} disabled={!isSignup} tabIndex={isSignup ? 0 : -1} className="inline-block overflow-hidden text-amber-600 cursor-pointer hover:opacity-75 transition-opacity" style={{ verticalAlign: "bottom" }} aria-label="Toggle account type">
-                                <span className={`inline-block ${wordClass}`}>{displayedType}</span>
-                            </button>
-                            <span className="absolute -bottom-1 left-0 right-0 h-px bg-amber-300/70" />
-                        </span>
-                        .
-                    </h1>
-                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ease-in-out ${!isSignup ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-                        <h1 className="text-5xl font-bold tracking-tight text-stone-900 sm:text-6xl md:text-7xl">Welcome back.</h1>
-                    </div>
-                </div>
+                <h1 className="text-5xl font-bold tracking-tight text-stone-900 sm:text-6xl md:text-7xl text-center">
+                    {isSignup ? (
+                        <>
+                            Your next{" "}
+                            <span className="relative inline-block text-amber-600">
+                                adventure
+                                <span className="absolute -bottom-1 left-0 right-0 h-px bg-amber-300/70" />
+                            </span>
+                            .
+                        </>
+                    ) : (
+                        "Welcome back."
+                    )}
+                </h1>
 
-                <div className={`mt-6 flex gap-2 transition-opacity duration-300 ease-in-out ${isSignup ? "opacity-100" : "opacity-0 pointer-events-none select-none"}`} aria-hidden={!isSignup}>
-                    <button type="button" onClick={() => selectAccountType("traveler")} tabIndex={isSignup ? 0 : -1} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 ${accountType === "traveler" ? "bg-amber-500 text-white shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
-                        <Globe className="h-3.5 w-3.5" />
-                        Traveler
-                    </button>
-                    <button type="button" onClick={() => selectAccountType("student")} tabIndex={isSignup ? 0 : -1} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 ${accountType === "student" ? "bg-amber-500 text-white shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
-                        <GraduationCap className="h-3.5 w-3.5" />
-                        Student
-                    </button>
-                </div>
-
-                <p className="mt-3 text-sm text-stone-400">
+                <p className="mt-4 text-sm text-stone-400">
                     {mode === "signin"
                         ? "Enter your email and password to continue."
-                        : accountType === "traveler"
-                          ? "Explore trips, stays, and activities."
-                          : "Post trips and plan your next adventure."}
+                        : "Explore trips, stays, and activities."}
                 </p>
             </div>
 
@@ -324,15 +288,8 @@ function SignUpContent() {
                     </div>
 
                     {/* Email */}
-                    <div className="mb-4 flex flex-col">
-                        <input name="email" type="email" autoComplete="email" required disabled={isLoading} value={form.email} onChange={handleChange} placeholder={isStudent ? "University email (.edu)" : "Email"} className={inputBase} />
-                        <div style={collapseStyle(isStudent)}>
-                            <div style={{ overflow: "hidden", paddingTop: "4px" }}>
-                                <p className="flex items-center gap-1 px-1 text-xs text-amber-600">
-                                    <GraduationCap className="h-3 w-3 shrink-0" />A .edu email address is required for student accounts.
-                                </p>
-                            </div>
-                        </div>
+                    <div className="mb-4">
+                        <input name="email" type="email" autoComplete="email" required disabled={isLoading} value={form.email} onChange={handleChange} placeholder="Email" className={inputBase} />
                     </div>
 
                     {/* Password + strength indicator */}
