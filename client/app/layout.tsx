@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Pacifico } from "next/font/google";
 import AuthBootstrap from "@/components/auth-bootstrap";
 import { APP_NAME, APP_NAME_DESCRIPTION, APP_KEYWORDS } from "@/lib/branding";
@@ -26,6 +26,12 @@ const jsonLd = {
         price: "0",
         priceCurrency: "USD",
     },
+};
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
 };
 
 export const metadata: Metadata = {
