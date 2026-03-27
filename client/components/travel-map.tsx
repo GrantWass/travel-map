@@ -19,6 +19,7 @@ import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persis
 import { toUserProfileFromApi, createPlanCollection, deletePlanCollection, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveLodgingToCollection, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/components/ui/use-mobile";
 import { useTripEngagement } from "@/hooks/use-trip-engagement";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -208,6 +209,9 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             }),
         [selectedTrip, fullScreenTrip, searchPanelOpen, plansPanelOpen],
     );
+
+    const isMobile = useIsMobile();
+    const isMobileTripView = isMobile && mapPanels.showSidebar;
 
     // Keep frozen snapshot current while panels are open; stays stale while closing
     // so components remain mounted throughout the width-to-0 CSS transition.
@@ -687,6 +691,60 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         tripTypeFilter.length > 0 ||
         Boolean(dateFrom || dateTo);
 
+    const tripSidebarPanel = (frozenPanels.showSidebar && frozenPanels.trip) ? (
+        <SidebarPanel
+            review={frozenPanels.trip}
+            collections={collections}
+            onClose={() => void openTripById(null)}
+            onOpenAuthorProfile={(profileUserId) => {
+                requireAuth("profile", () => {
+                    void openProfile(profileUserId, "left");
+                });
+            }}
+            onExpandImage={setExpandedImage}
+            onToggleSavedActivity={handleToggleSavedActivity}
+            onToggleSavedLodging={handleToggleSavedLodging}
+            onEditTrip={
+                userId !== null &&
+                isStudent &&
+                (
+                    frozenPanels.trip.owner_user_id === userId ||
+                    frozenPanels.trip.collaborators.some((collaborator) => collaborator.user_id === userId)
+                )
+                    ? () => {
+                          const isPopup = Boolean(frozenPanels.trip!.event_start && frozenPanels.trip!.event_end);
+                          const base = `/trips?edit=${frozenPanels.trip!.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
+                          router.push(isPopup ? `${base}&mode=popup` : base);
+                      }
+                    : undefined
+            }
+            locationTripCount={selectedLocationContext.trips.length}
+            locationTripPosition={selectedLocationContext.selectedIndex >= 0 ? selectedLocationContext.selectedIndex + 1 : 1}
+            onShowPreviousTripAtLocation={handleShowPreviousTripAtLocation}
+            onShowNextTripAtLocation={handleShowNextTripAtLocation}
+            canShowPreviousTripAtLocation={selectedLocationContext.hasPrevious}
+            canShowNextTripAtLocation={selectedLocationContext.hasNext}
+            comments={frozenPanels.trip.comments ?? []}
+            isLiked={isTripLiked(frozenPanels.trip.trip_id)}
+            isLikeSubmitting={isLikeSubmitting}
+            likeError={likeError}
+            onToggleLike={() => {
+                void handleToggleTripLike();
+            }}
+            isAuthenticated={userId !== null}
+            isCommentSubmitting={isCommentSubmitting}
+            commentError={commentError}
+            onCommentSubmit={handleCreateComment}
+            onLoadComments={() => {
+                void handleLoadComments();
+            }}
+            onRequireSignInToComment={() => {
+                openSignupPrompt("comment");
+            }}
+            mobileSheetMode={isMobileTripView}
+        />
+    ) : null;
+
     return (
         <div className="relative h-screen w-screen overflow-hidden">
             {mapPanels.showTopLeftControls && (
@@ -829,7 +887,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 <div className="ml-2.5 h-[50vh] w-1.5 rounded-full bg-foreground/30" />
             </div>
 
-            <div className="flex h-full w-full">
+            <div className={cn("h-full w-full", isMobileTripView ? "overflow-y-auto" : "flex")}>
+                {!isMobileTripView && (
                 <div
                     className="h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                     style={{
@@ -841,58 +900,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                     onPointerDown={() => { if (isQuickOpen) setIsQuickOpen(false); }}
                 >
                     <div className="h-full" style={{ minWidth: REVIEW_PANEL_WIDTH }}>
-                        {frozenPanels.showSidebar && frozenPanels.trip && (
-                        <SidebarPanel
-                            review={frozenPanels.trip}
-                            collections={collections}
-                            onClose={() => void openTripById(null)}
-                            onOpenAuthorProfile={(profileUserId) => {
-                                requireAuth("profile", () => {
-                                    void openProfile(profileUserId, "left");
-                                });
-                            }}
-                            onExpandImage={setExpandedImage}
-                            onToggleSavedActivity={handleToggleSavedActivity}
-                            onToggleSavedLodging={handleToggleSavedLodging}
-                            onEditTrip={
-                                userId !== null &&
-                                isStudent &&
-                                (
-                                    frozenPanels.trip.owner_user_id === userId ||
-                                    frozenPanels.trip.collaborators.some((collaborator) => collaborator.user_id === userId)
-                                )
-                                    ? () => {
-                                          const isPopup = Boolean(frozenPanels.trip!.event_start && frozenPanels.trip!.event_end);
-                                          const base = `/trips?edit=${frozenPanels.trip!.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
-                                          router.push(isPopup ? `${base}&mode=popup` : base);
-                                      }
-                                    : undefined
-                            }
-                            locationTripCount={selectedLocationContext.trips.length}
-                            locationTripPosition={selectedLocationContext.selectedIndex >= 0 ? selectedLocationContext.selectedIndex + 1 : 1}
-                            onShowPreviousTripAtLocation={handleShowPreviousTripAtLocation}
-                            onShowNextTripAtLocation={handleShowNextTripAtLocation}
-                            canShowPreviousTripAtLocation={selectedLocationContext.hasPrevious}
-                            canShowNextTripAtLocation={selectedLocationContext.hasNext}
-                            comments={frozenPanels.trip.comments ?? []}
-                            isLiked={isTripLiked(frozenPanels.trip.trip_id)}
-                            isLikeSubmitting={isLikeSubmitting}
-                            likeError={likeError}
-                            onToggleLike={() => {
-                                void handleToggleTripLike();
-                            }}
-                            isAuthenticated={userId !== null}
-                            isCommentSubmitting={isCommentSubmitting}
-                            commentError={commentError}
-                            onCommentSubmit={handleCreateComment}
-                            onLoadComments={() => {
-                                void handleLoadComments();
-                            }}
-                            onRequireSignInToComment={() => {
-                                openSignupPrompt("comment");
-                            }}
-                        />
-                    )}
+                        {tripSidebarPanel}
                     {frozenPanels.showSearchPanel && (
                         <SearchSidebarPanel
                             query={frozenPanels.searchQuery}
@@ -970,8 +978,16 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                     )}
                     </div>
                 </div>
+                )}
 
-                <div data-spotlight="map" className="relative h-full min-w-0 flex-1">
+                <div
+                    data-spotlight="map"
+                    className={cn(
+                        isMobileTripView
+                            ? "sticky top-0 h-[50vh] w-full z-0"
+                            : "relative h-full min-w-0 flex-1"
+                    )}
+                >
                     <MapView
                         visibleTrips={filteredTrips}
                         collectionActivities={collectionActivities}
@@ -1022,6 +1038,15 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         </div>
                     )}
                 </div>
+
+                {isMobileTripView && (
+                    <div className="relative z-10 w-full -mt-5 rounded-t-2xl bg-card overflow-hidden shadow-[0_-4px_20px_rgba(0,0,0,0.12)]">
+                        <div className="flex justify-center pt-3 pb-1">
+                            <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
+                        </div>
+                        {tripSidebarPanel}
+                    </div>
+                )}
             </div>
 
             {mapContextMenu && (

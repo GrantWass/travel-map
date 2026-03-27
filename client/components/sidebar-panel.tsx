@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { X, MapPin, Calendar, FolderOpen, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal, Heart } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
@@ -11,6 +11,11 @@ import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-types";
 import { formatTripDate, formatPopupTimeRange, formatTripDuration } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
+
+function ContentScroller({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
+    if (mobile) return <>{children}</>;
+    return <ScrollArea className="flex-1 min-h-0">{children}</ScrollArea>;
+}
 
 interface SidebarPanelProps {
     review: Trip;
@@ -38,6 +43,7 @@ interface SidebarPanelProps {
     onCommentSubmit: (body: string) => Promise<void>;
     onLoadComments: () => void;
     onRequireSignInToComment: () => void;
+    mobileSheetMode?: boolean;
 }
 
 function formatCost(cost: number | null | undefined): string | null {
@@ -90,6 +96,7 @@ export default function SidebarPanel({
     onCommentSubmit,
     onLoadComments,
     onRequireSignInToComment,
+    mobileSheetMode,
 }: SidebarPanelProps) {
     const selectedActivity = useTripMapStore((state) => state.selectedActivity);
     const selectedLodging = useTripMapStore((state) => state.selectedLodging);
@@ -166,7 +173,7 @@ export default function SidebarPanel({
     }
 
     return (
-        <div className="relative flex h-full w-full flex-col bg-card border-r border-border">
+        <div className={cn("relative flex flex-col bg-card", !mobileSheetMode && "h-full w-full border-r border-border")}>
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
                 <Image src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="400px" className="object-cover" priority />
@@ -220,7 +227,7 @@ export default function SidebarPanel({
             </div>
 
             {/* Content */}
-            <ScrollArea className="flex-1 min-h-0">
+            <ContentScroller mobile={mobileSheetMode}>
                 <div className="flex flex-col gap-5 p-5 pb-20">
                     {/* Meta */}
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -658,7 +665,7 @@ export default function SidebarPanel({
                         </div>
                     </div>
                 </div>
-            </ScrollArea>
+            </ContentScroller>
 
             {/* Floating save FAB — appears when an activity or lodging is expanded */}
             {fabVisible && (
