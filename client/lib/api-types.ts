@@ -50,6 +50,7 @@ export interface TripLodging {
   thumbnail_url: string | null;
   title: string | null;
   description: string | null;
+  link_url?: string | null;
   latitude: number | null;
   longitude: number | null;
   cost: number | null;
@@ -63,6 +64,7 @@ export interface TripActivity {
   title: string | null;
   location: string | null;
   description: string | null;
+  link_url?: string | null;
   latitude: number | null;
   longitude: number | null;
   cost: number | null;
@@ -97,8 +99,6 @@ export interface Trip {
   lodgings: TripLodging[];
   activities: TripActivity[];
   comments: TripComment[];
-  event_start?: string | null;
-  event_end?: string | null;
 }
 
 
@@ -118,13 +118,12 @@ export interface CreateTripPayload {
   date?: string;
   visibility?: TripVisibility;
   tags?: string[];
-  event_start?: string;
-  event_end?: string;
   lodgings?: Array<{
     address?: string;
     thumbnail_url?: string;
     title?: string;
     description?: string;
+    link_url?: string;
     latitude?: string;
     longitude?: string;
     cost?: string;
@@ -135,6 +134,7 @@ export interface CreateTripPayload {
     title?: string;
     location?: string;
     description?: string;
+    link_url?: string;
     latitude?: string;
     longitude?: string;
     cost?: string;
@@ -142,27 +142,6 @@ export interface CreateTripPayload {
 }
 
 export type UpdateTripPayload = CreateTripPayload;
-
-export interface AddLodgingPayload {
-  address?: string;
-  thumbnail_url?: string;
-  title: string;
-  description?: string;
-  latitude?: string;
-  longitude?: string;
-  cost?: string;
-}
-
-export interface AddActivityPayload {
-  address?: string;
-  thumbnail_url?: string;
-  title: string;
-  location?: string;
-  description?: string;
-  latitude?: string;
-  longitude?: string;
-  cost?: string;
-}
 
 export interface SmsInvite {
   id: number;

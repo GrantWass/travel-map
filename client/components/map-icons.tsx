@@ -49,15 +49,6 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
     const imageUrl = sanitizeImageUrl(trip.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
         const size = hasImage ? (isActive ? 80 : 64) : (isActive ? 64 : 50);
-    const popupBadge = trip.event_end && trip.event_start
-        ? `<div style="
-            position:absolute;top:4px;right:4px;
-            width:24px;height:24px;border-radius:50%;
-            background:${MARKER_POPUP_BADGE_COLOR};border:2px solid ${MARKER_PRIMARY_COLOR};
-            display:flex;align-items:center;justify-content:center;
-            box-shadow:0 1px 4px ${MARKER_SHADOW};
-            "><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${MARKER_PRIMARY_COLOR}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>`
-        : "";
     return L.divIcon({
         className: "photo-marker",
         html: `
@@ -80,7 +71,6 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
             color:${MARKER_PRIMARY_COLOR};font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
         ">${safeLabelTitle}</div>` : ""}
         </div>
-        ${popupBadge}
     </div>
     `,
         iconSize: [size, size],

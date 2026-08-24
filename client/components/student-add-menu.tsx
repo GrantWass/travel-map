@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Plane, Timer } from "lucide-react";
+import { Plus, Plane } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StudentAddMenuProps {
     visible: boolean;
     onAddTrip?: () => void;
-    onAddPopUp?: () => void;
 }
 
-export default function StudentAddMenu({ visible, onAddTrip, onAddPopUp }: StudentAddMenuProps) {
+export default function StudentAddMenu({ visible, onAddTrip }: StudentAddMenuProps) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -47,22 +46,6 @@ export default function StudentAddMenu({ visible, onAddTrip, onAddPopUp }: Stude
                 >
                     <Plane className="h-4 w-4 text-primary" />
                     Add Trip
-                </button>
-                <button
-                    onClick={() => {
-                        onAddPopUp?.();
-                        setOpen(false);
-                    }}
-                    className={cn(
-                        "flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-all duration-[250ms] ease-out",
-                        open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-2 scale-95 opacity-0",
-                    )}
-                    style={{ transitionDelay: open ? "40ms" : "40ms" }}
-                    aria-hidden={!open}
-                    tabIndex={open ? 0 : -1}
-                >
-                    <Timer className="h-4 w-4 text-primary" />
-                    Add Pop-Up
                 </button>
             </div>
 

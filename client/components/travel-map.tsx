@@ -16,7 +16,7 @@ import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, createPlanCollection, deletePlanCollection, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveLodgingToCollection, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, addCustomPlanItem, createPlanCollection, createPlanShare, deleteCustomPlanItem, deletePlanCollection, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveCustomPlanItemToCollection, moveLodgingToCollection, updateCustomPlanItem, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/components/ui/use-mobile";
@@ -85,7 +85,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const router = useRouter();
     const pathname = usePathname();
     const userId = useAuthStore((state) => state.user?.user_id ?? null);
-    const isStudent = Boolean(useAuthStore((state) => state.user?.verified));
     const myProfile = useAuthStore((state) => state.myProfile);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
 
@@ -114,8 +113,10 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     const setSavedActivityIds = useTripMapStore((state) => state.setSavedActivityIds);
     const setSavedLodgingIds = useTripMapStore((state) => state.setSavedLodgingIds);
     const setSavedItems = useTripMapStore((state) => state.setSavedItems);
+    const setCustomItems = useTripMapStore((state) => state.setCustomItems);
     const setCollections = useTripMapStore((state) => state.setCollections);
     const collections = useTripMapStore((state) => state.collections);
+    const customItems = useTripMapStore((state) => state.customItems);
     const selectedCollection = useTripMapStore((state) => state.selectedCollection);
     const setSelectedCollection = useTripMapStore((state) => state.setSelectedCollection);
     const toggleSavedActivityId = useTripMapStore((state) => state.toggleSavedActivityId);
@@ -139,6 +140,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
     const [mapContextMenu, setMapContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
+    const [plansError, setPlansError] = useState<string | null>(null);
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
@@ -163,12 +165,41 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         setProfileState(null);
     }, []);
 
+    const openSignupPrompt = useCallback((intent: SignupPromptIntent) => {
+        setSignupPromptIntent(intent);
+    }, []);
+
     const applySavedPlans = useCallback((plans: Awaited<ReturnType<typeof getSavedPlans>>) => {
         setSavedActivityIds(plans.saved_activity_ids);
         setSavedLodgingIds(plans.saved_lodging_ids);
         setSavedItems(plans.saved_items ?? []);
+        setCustomItems(plans.custom_items ?? []);
         setCollections(plans.collections ?? []);
-    }, [setSavedActivityIds, setSavedLodgingIds, setSavedItems, setCollections]);
+    }, [setSavedActivityIds, setSavedLodgingIds, setSavedItems, setCustomItems, setCollections]);
+
+    const withPlans = useCallback(
+        (op: () => Promise<Awaited<ReturnType<typeof getSavedPlans>>>) => {
+            void op()
+                .then(applySavedPlans)
+                .catch(() => {
+                    setPlansError("Could not update plans right now. Please try again.");
+                    window.setTimeout(() => setPlansError(null), 4000);
+                });
+        },
+        [applySavedPlans],
+    );
+
+    const requirePlansAuth = useCallback(
+        (action: () => void) => {
+            if (userId === null) {
+                openSignupPrompt("save-to-plans");
+                return;
+            }
+
+            action();
+        },
+        [openSignupPrompt, userId],
+    );
 
     const tripLookup = useMemo(() => {
         return new Map(trips.map((trip) => [trip.trip_id, trip]));
@@ -247,10 +278,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         closePlansPanel();
     }, [isQuickOpen, clearSelections, closeSearchPanel, closePlansPanel]);
 
-    const openSignupPrompt = useCallback((intent: SignupPromptIntent) => {
-        setSignupPromptIntent(intent);
-    }, []);
-
     const handleContinueToSignup = useCallback(() => {
         const search = new URLSearchParams(window.location.search);
         const inviteToken = getInviteTokenFromSearch(search) ?? getStoredInviteToken();
@@ -286,28 +313,30 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     );
 
     const handleToggleSavedActivity = useCallback((_tripId: number, activity: TripActivity, collectionName?: string | null) => {
-        if (userId === null) {
-            openSignupPrompt("save-to-plans");
-            return;
-        }
-
-        toggleSavedActivityId(activity.activity_id);
-        void toggleSavedActivityApi(activity.activity_id, collectionName).then((plans) => {
-            applySavedPlans(plans);
+        requirePlansAuth(() => {
+            toggleSavedActivityId(activity.activity_id);
+            toggleSavedActivityApi(activity.activity_id, collectionName)
+                .then(applySavedPlans)
+                .catch(() => {
+                    toggleSavedActivityId(activity.activity_id);
+                    setPlansError("Could not save that right now. Please try again.");
+                    window.setTimeout(() => setPlansError(null), 4000);
+                });
         });
-    }, [applySavedPlans, openSignupPrompt, toggleSavedActivityId, userId]);
+    }, [applySavedPlans, requirePlansAuth, toggleSavedActivityId]);
 
     const handleToggleSavedLodging = useCallback((_tripId: number, lodging: TripLodging, collectionName?: string | null) => {
-        if (userId === null) {
-            openSignupPrompt("save-to-plans");
-            return;
-        }
-
-        toggleSavedLodgingId(lodging.lodge_id);
-        void toggleSavedLodgingApi(lodging.lodge_id, collectionName).then((plans) => {
-            applySavedPlans(plans);
+        requirePlansAuth(() => {
+            toggleSavedLodgingId(lodging.lodge_id);
+            toggleSavedLodgingApi(lodging.lodge_id, collectionName)
+                .then(applySavedPlans)
+                .catch(() => {
+                    toggleSavedLodgingId(lodging.lodge_id);
+                    setPlansError("Could not save that right now. Please try again.");
+                    window.setTimeout(() => setPlansError(null), 4000);
+                });
         });
-    }, [applySavedPlans, openSignupPrompt, toggleSavedLodgingId, userId]);
+    }, [applySavedPlans, requirePlansAuth, toggleSavedLodgingId]);
 
     useEffect(() => {
         void loadTrips(initialPublicTrips);
@@ -417,12 +446,24 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         onRequireLikeAuth: () => openSignupPrompt("like"),
     });
 
+    const syncTripUrlParam = useCallback((tripId: number | null) => {
+        if (typeof window === "undefined") return;
+        const url = new URL(window.location.href);
+        if (tripId === null) {
+            url.searchParams.delete("trip");
+        } else {
+            url.searchParams.set("trip", String(tripId));
+        }
+        window.history.replaceState(null, "", url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : ""));
+    }, []);
+
     const openTripById = useCallback(
         async (tripId: number | null) => {
             const requestId = activeTripRequestIdRef.current + 1;
             activeTripRequestIdRef.current = requestId;
 
             if (tripId === null) {
+                syncTripUrlParam(null);
                 clearSelections();
                 closePlansPanel();
                 setIsLoadingTripById(false);
@@ -431,6 +472,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
 
             const cached = tripLookup.get(tripId);
             if (cached) {
+                syncTripUrlParam(tripId);
                 clearSelections();
                 setSelectedTrip(cached);
                 closeSearchPanel();
@@ -447,17 +489,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                     return;
                 }
 
-                // Don't open expired popups.
-                const is_popup = trip.event_end && trip.event_start;
-                if (is_popup && trip.event_end !== null && trip.event_end !== undefined && new Date(trip.event_end) <= new Date()) {
-                    return;
-                }
-
                 upsertTrip(trip);
                 if (requestId !== activeTripRequestIdRef.current) {
                     return;
                 }
 
+                syncTripUrlParam(tripId);
                 clearSelections();
                 setSelectedTrip(trip);
                 closeSearchPanel();
@@ -470,7 +507,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 }
             }
         },
-        [clearSelections, closePlansPanel, setIsLoadingTripById, tripLookup, upsertTrip, setSelectedTrip, closeSearchPanel],
+        [clearSelections, closePlansPanel, setIsLoadingTripById, syncTripUrlParam, tripLookup, upsertTrip, setSelectedTrip, closeSearchPanel],
     );
 
     // Keep a stable ref so the mount effect below can call openTripById
@@ -480,14 +517,13 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         openTripByIdRef.current = openTripById;
     }, [openTripById]);
 
-    // On mount, check for a ?selectTrip=<id> param injected by the trip
-    // creation page after a new trip is posted.
+    // On mount, check for a ?trip=<id> deep link. The param stays in the URL so
+    // the link remains shareable while the trip is open.
     useEffect(() => {
-        const param = new URLSearchParams(window.location.search).get("selectTrip");
+        const param = new URLSearchParams(window.location.search).get("trip");
         if (!param) return;
         const tripId = Number(param);
         if (!Number.isFinite(tripId) || tripId <= 0) return;
-        window.history.replaceState(null, "", window.location.pathname);
         void openTripByIdRef.current(tripId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -548,7 +584,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
         async (targetUserId: number, expandFrom: "top-right" | "left") => {
             const requestId = profileOpenRequestIdRef.current + 1;
             profileOpenRequestIdRef.current = requestId;
-            const canManageTrips = userId !== null && targetUserId === userId && isStudent;
+            const canManageTrips = userId !== null && targetUserId === userId;
             const canEditProfile = userId !== null && targetUserId === userId;
 
             if (userId !== null && targetUserId === userId && myProfile) {
@@ -608,7 +644,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                 // Ignore profile lookup failures for now.
             }
         },
-        [isStudent, mergeCollaboratorTripsIntoProfile, myProfile, profileCacheByUser, refreshMyProfile, userId],
+        [mergeCollaboratorTripsIntoProfile, myProfile, profileCacheByUser, refreshMyProfile, userId],
     );
 
     const handleDeleteTrip = useCallback(
@@ -705,16 +741,13 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             onToggleSavedActivity={handleToggleSavedActivity}
             onToggleSavedLodging={handleToggleSavedLodging}
             onEditTrip={
-                userId !== null &&
-                isStudent &&
                 (
                     frozenPanels.trip.owner_user_id === userId ||
                     frozenPanels.trip.collaborators.some((collaborator) => collaborator.user_id === userId)
                 )
                     ? () => {
-                          const isPopup = Boolean(frozenPanels.trip!.event_start && frozenPanels.trip!.event_end);
                           const base = `/trips?edit=${frozenPanels.trip!.trip_id}&returnTo=${encodeURIComponent(pathname || "/")}`;
-                          router.push(isPopup ? `${base}&mode=popup` : base);
+                          router.push(base);
                       }
                     : undefined
             }
@@ -906,7 +939,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             query={frozenPanels.searchQuery}
                             trips={trips}
                             ownerFilter={ownerFilter}
-                            onOwnerFilterChange={setOwnerFilter}
                             currentUserId={userId}
                             friendIds={friendIds}
                             onQueryChange={setSearchQuery}
@@ -922,8 +954,10 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                     )}
                     {frozenPanels.showPlansPanel && (
                         <PlansSidebarPanel
+                            error={plansError}
                             savedActivities={savedActivities}
                             savedLodgings={savedLodgings}
+                            customItems={customItems}
                             collections={collections}
                             selectedCollection={selectedCollection}
                             onSelectCollection={setSelectedCollection}
@@ -934,46 +968,50 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                                 closePlansPanel();
                                 void openTripById(tripId);
                             }}
+                            onAddCustomItem={(payload) =>
+                                withPlans(() => addCustomPlanItem(payload))
+                            }
+                            onUpdateCustomItem={(itemId, patch) =>
+                                withPlans(() => updateCustomPlanItem(itemId, patch))
+                            }
+                            onDeleteCustomItem={(itemId) =>
+                                withPlans(() => deleteCustomPlanItem(itemId))
+                            }
+                            onMoveCustomItem={(itemId, collectionName) =>
+                                withPlans(() => moveCustomPlanItemToCollection(itemId, collectionName))
+                            }
                             onToggleSavedActivity={(activityId) => {
-                                if (userId === null) {
-                                    openSignupPrompt("save-to-plans");
-                                    return;
-                                }
-                                removeSavedActivityId(activityId);
-                                void toggleSavedActivityApi(activityId).then((plans) => {
-                                    applySavedPlans(plans);
+                                requirePlansAuth(() => {
+                                    removeSavedActivityId(activityId);
+                                    toggleSavedActivityApi(activityId)
+                                        .then(applySavedPlans)
+                                        .catch(() => {
+                                            toggleSavedActivityId(activityId);
+                                            setPlansError("Could not update plans right now. Please try again.");
+                                            window.setTimeout(() => setPlansError(null), 4000);
+                                        });
                                 });
                             }}
                             onToggleSavedLodging={(lodgingId) => {
-                                if (userId === null) {
-                                    openSignupPrompt("save-to-plans");
-                                    return;
-                                }
-                                removeSavedLodgingId(lodgingId);
-                                void toggleSavedLodgingApi(lodgingId).then((plans) => {
-                                    applySavedPlans(plans);
+                                requirePlansAuth(() => {
+                                    removeSavedLodgingId(lodgingId);
+                                    toggleSavedLodgingApi(lodgingId)
+                                        .then(applySavedPlans)
+                                        .catch(() => {
+                                            toggleSavedLodgingId(lodgingId);
+                                            setPlansError("Could not update plans right now. Please try again.");
+                                            window.setTimeout(() => setPlansError(null), 4000);
+                                        });
                                 });
                             }}
-                            onCreateCollection={(name) => {
-                                void createPlanCollection(name).then((plans) => {
-                                    applySavedPlans(plans);
-                                });
-                            }}
-                            onDeleteCollection={(name) => {
-                                void deletePlanCollection(name).then((plans) => {
-                                    applySavedPlans(plans);
-                                });
-                            }}
-                            onMoveActivity={(activityId, collectionName) => {
-                                void moveActivityToCollection(activityId, collectionName).then((plans) => {
-                                    applySavedPlans(plans);
-                                });
-                            }}
-                            onMoveLodging={(lodgingId, collectionName) => {
-                                void moveLodgingToCollection(lodgingId, collectionName).then((plans) => {
-                                    applySavedPlans(plans);
-                                });
-                            }}
+                            onCreateCollection={(name) => withPlans(() => createPlanCollection(name))}
+                            onDeleteCollection={(name) => withPlans(() => deletePlanCollection(name))}
+                            onMoveActivity={(activityId, collectionName) =>
+                                withPlans(() => moveActivityToCollection(activityId, collectionName))
+                            }
+                            onMoveLodging={(lodgingId, collectionName) =>
+                                withPlans(() => moveLodgingToCollection(lodgingId, collectionName))
+                            }
                         />
                     )}
                     </div>
@@ -995,12 +1033,12 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);
                         }}
-                        onRightClick={isStudent ? (lat, lng, x, y) => {
+                        onRightClick={userId !== null ? (lat, lng, x, y) => {
                             setMapContextMenu({ lat, lng, x, y });
                         } : undefined}
                     />
                     {/* Floating owner filter control (bottom-center) */}
-                    <div data-spotlight="owner-filter" className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] hidden md:flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+                    <div data-spotlight="owner-filter" className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                         <div className="shadow-md backdrop-blur-sm rounded-full">
                             <OwnerFilterSlider value={ownerFilter} onChange={setOwnerFilter} />
                         </div>
@@ -1071,17 +1109,6 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                             <MapPin className="h-4 w-4 text-primary" />
                             Create trip at this location
                         </button>
-                        <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
-                            onClick={() => {
-                                setMapContextMenu(null);
-                                router.push(`/trips?mode=popup&lat=${mapContextMenu.lat}&lng=${mapContextMenu.lng}&returnTo=${encodeURIComponent(pathname || "/")}`);
-                            }}
-                        >
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            Create popup at this location
-                        </button>
                     </div>
                 </>
             )}
@@ -1109,11 +1136,7 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
                     }}
                     onEditTrip={(tripId) => {
                         const returnTo = pathname || "/";
-                        // Check if the trip is a popup by looking it up in the store.
-                        const trip = trips.find((t) => t.trip_id === tripId);
-                        const isPopup = Boolean(trip?.event_start && trip?.event_end);
-                        const base = `/trips?edit=${tripId}&returnTo=${encodeURIComponent(returnTo)}`;
-                        router.push(isPopup ? `${base}&mode=popup` : base);
+                        router.push(`/trips?edit=${tripId}&returnTo=${encodeURIComponent(returnTo)}`);
                     }}
                     onClose={closeProfileModal}
                 />
@@ -1137,17 +1160,11 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             />
 
             <StudentAddMenu
-                visible={(isStudent || userId === null) && !mapPanels.showAnyLeftSidebar}
+                visible={!mapPanels.showAnyLeftSidebar}
                 onAddTrip={() => {
                     requireAuth("add-trip", () => {
                         const returnTo = pathname || "/";
                         router.push(`/trips?returnTo=${encodeURIComponent(returnTo)}`);
-                    });
-                }}
-                onAddPopUp={() => {
-                    requireAuth("add-trip", () => {
-                        const returnTo = pathname || "/";
-                        router.push(`/trips?mode=popup&returnTo=${encodeURIComponent(returnTo)}`);
                     });
                 }}
             />
@@ -1155,6 +1172,27 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
             {(isLoadingTrips || isLoadingTripById) && (
                 <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-full border border-border bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
                     Loading data...
+                </div>
+            )}
+
+            {!isLoadingTrips && !mapPanels.showAnyLeftSidebar && filteredTrips.length === 0 && (
+                <div className="pointer-events-none absolute left-1/2 top-1/2 z-[900] w-[min(340px,calc(100vw-3rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card/95 p-5 text-center shadow-lg backdrop-blur-sm">
+                    <MapPin className="mx-auto mb-2 h-6 w-6 text-muted-foreground/60" />
+                    {trips.length === 0 ? (
+                        <>
+                            <p className="text-sm font-medium text-foreground">The map is empty</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Be the first to share an adventure — tap + to add a trip.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-sm font-medium text-foreground">No trips match here</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Try zooming out or adjusting your search filters.
+                            </p>
+                        </>
+                    )}
                 </div>
             )}
         </div>

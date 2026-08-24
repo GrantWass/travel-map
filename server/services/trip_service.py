@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import re
-from threading import Lock
-from time import monotonic
 from typing import Any
 
 from db import get_cursor
@@ -15,13 +12,8 @@ from services.trip_priority import score_trip_priority
 
 VALID_VISIBILITY = {"public", "private", "friends"}
 VALID_DURATION = {"multiday trip", "day trip", "overnight trip"}
-TRIP_LIST_CACHE_TTL_SECONDS = 30
 PUBLIC_TRIPS_LIMIT = 50
 
-
-_trip_list_cache_lock = Lock()
-_trip_list_cache_version = 0
-_trip_list_cache: dict[int | None, tuple[float, int, list[dict[str, Any]]]] = {}
 
 BoundingBox = tuple[float, float, float, float]
 
@@ -36,13 +28,6 @@ class TripNotFoundError(LookupError):
 
 class TripForbiddenError(PermissionError):
     pass
-
-def invalidate_trip_list_cache() -> None:
-    global _trip_list_cache_version
-
-    with _trip_list_cache_lock:
-        _trip_list_cache_version += 1
-        _trip_list_cache.clear()
 
 
 def _as_float(value: Any) -> float | None:
@@ -115,8 +100,6 @@ def _serialize_trip_base(row: dict[str, Any]) -> dict[str, Any]:
         "activities": [],
         "comments": [],
         "collaborators": [],
-        "event_start": _as_datetime_iso(row.get("event_start")),
-        "event_end": _as_datetime_iso(row.get("event_end")),
     }
 
 
@@ -209,6 +192,7 @@ def _fetch_trip_children_by_ids(
                         'thumbnail_url', l.thumbnail_url,
                         'title', l.title,
                         'description', l.description,
+                        'link_url', l.link_url,
                         'latitude', ST_Y(l.geo_location::geometry),
                         'longitude', ST_X(l.geo_location::geometry),
                         'cost', l.cost
@@ -228,6 +212,7 @@ def _fetch_trip_children_by_ids(
                         'title', a.title,
                         'location', a.location,
                         'description', a.description,
+                        'link_url', a.link_url,
                         'latitude', ST_Y(a.geo_location::geometry),
                         'longitude', ST_X(a.geo_location::geometry),
                         'cost', a.cost
@@ -290,6 +275,7 @@ def _fetch_trip_children_by_ids(
                     "thumbnail_url": lodging.get("thumbnail_url"),
                     "title": lodging.get("title"),
                     "description": lodging.get("description"),
+                    "link_url": lodging.get("link_url"),
                     "latitude": _as_float(lodging.get("latitude")),
                     "longitude": _as_float(lodging.get("longitude")),
                     "cost": _as_float(lodging.get("cost")),
@@ -307,6 +293,7 @@ def _fetch_trip_children_by_ids(
                     "title": activity.get("title"),
                     "location": activity.get("location"),
                     "description": activity.get("description"),
+                    "link_url": activity.get("link_url"),
                     "latitude": _as_float(activity.get("latitude")),
                     "longitude": _as_float(activity.get("longitude")),
                     "cost": _as_float(activity.get("cost")),
@@ -377,8 +364,6 @@ def _fetch_trip_rows(
                 t.date,
                 t.visibility,
                 t.owner_user_id,
-                t.event_start,
-                t.event_end,
                 o.name AS owner_name,
                 o.bio AS owner_bio,
                 o.verified AS owner_verified,
@@ -537,20 +522,6 @@ def list_trips(
     include_children: bool = True,
     public_only: bool = False,
 ) -> list[dict[str, Any]]:
-    now = monotonic()
-
-    # TODO: why only cache when no bounding box?
-    # Only use cache for full hydrated trips
-    if bounding_box is None and include_children:
-        with _trip_list_cache_lock:
-            cache_entry = _trip_list_cache.get(viewer_user_id)
-            if cache_entry is not None:
-                cached_at, cache_version, cached_value = cache_entry
-                is_fresh = (now - cached_at) <= TRIP_LIST_CACHE_TTL_SECONDS
-                if is_fresh and cache_version == _trip_list_cache_version:
-                    return deepcopy(cached_value)
-                
-    
     where_sql, params = _append_bounding_box_filter("t.visibility = 'public'", tuple(), bounding_box)
     #TODO: I am not sure if a friends public trip will show if it is outside the limit set
     if viewer_user_id is None or public_only:
@@ -577,17 +548,34 @@ def list_trips(
             by_trip_id[trip["trip_id"]] = trip
         trips = sorted(by_trip_id.values(), key=lambda trip: trip["trip_id"], reverse=True)
 
-    result = _maybe_hydrate_trips(trips, include_children)
+    return _maybe_hydrate_trips(trips, include_children)
 
-    if bounding_box is None and include_children:
-        with _trip_list_cache_lock:
-            _trip_list_cache[viewer_user_id] = (
-                now,
-                _trip_list_cache_version,
-                deepcopy(result),
+
+def _trip_visible_to_viewer_sql() -> str:
+    """WHERE fragment: trip is public, viewer owns it, collaborates on it, or is friends with the owner.
+
+    Expects 4 params, all = viewer_user_id.
+    """
+    return """(
+        t.visibility = 'public'
+        OR t.owner_user_id = %s
+        OR EXISTS (
+            SELECT 1 FROM trip_collaborators tc
+            WHERE tc.trip_id = t.trip_id
+            AND tc.user_id = %s
+        )
+        OR (
+            t.visibility = 'friends'
+            AND EXISTS (
+                SELECT 1 FROM friendships f
+                WHERE f.status = 'accepted'
+                AND (
+                    (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
+                    OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
+                )
             )
-
-    return result
+        )
+    )"""
 
 
 def get_trips_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[dict[str, Any]]:
@@ -599,29 +587,7 @@ def get_trips_by_ids(trip_ids: list[int], viewer_user_id: int | None) -> list[di
         where_sql = "t.trip_id = ANY(%s) AND t.visibility = 'public'"
         params: tuple[Any, ...] = (trip_ids,)
     else:
-        where_sql = """(
-            t.trip_id = ANY(%s)
-            AND (
-                t.visibility = 'public'
-                OR t.owner_user_id = %s
-                OR EXISTS (
-                    SELECT 1 FROM trip_collaborators tc
-                    WHERE tc.trip_id = t.trip_id
-                    AND tc.user_id = %s
-                )
-                OR (
-                    t.visibility = 'friends'
-                    AND EXISTS (
-                        SELECT 1 FROM friendships f
-                        WHERE f.status = 'accepted'
-                        AND (
-                            (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
-                            OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
-                        )
-                    )
-                )
-            )
-        )"""
+        where_sql = f"t.trip_id = ANY(%s) AND {_trip_visible_to_viewer_sql()}"
         params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id)
 
     trips = _fetch_trip_rows(where_sql, params)
@@ -637,29 +603,7 @@ def get_trip_children_by_ids(trip_ids: list[int], viewer_user_id: int | None) ->
         where_sql = "t.trip_id = ANY(%s) AND t.visibility = 'public'"
         params: tuple[Any, ...] = (trip_ids,)
     else:
-        where_sql = """(
-            t.trip_id = ANY(%s)
-            AND (
-                t.visibility = 'public'
-                OR t.owner_user_id = %s
-                OR EXISTS (
-                    SELECT 1 FROM trip_collaborators tc
-                    WHERE tc.trip_id = t.trip_id
-                    AND tc.user_id = %s
-                )
-                OR (
-                    t.visibility = 'friends'
-                    AND EXISTS (
-                        SELECT 1 FROM friendships f
-                        WHERE f.status = 'accepted'
-                        AND (
-                            (f.requester_id = %s AND f.addressee_id = t.owner_user_id)
-                            OR (f.requester_id = t.owner_user_id AND f.addressee_id = %s)
-                        )
-                    )
-                )
-            )
-        )"""
+        where_sql = f"t.trip_id = ANY(%s) AND {_trip_visible_to_viewer_sql()}"
         params = (trip_ids, viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id)
 
     visible_trip_rows = _fetch_trip_rows(where_sql, params)
@@ -682,36 +626,18 @@ def get_trip_children_by_ids(trip_ids: list[int], viewer_user_id: int | None) ->
     ]
 
 
-def list_user_trips(target_user_id: int, viewer_user_id: int | None) -> list[dict[str, Any]]:
+def list_user_trips(
+    target_user_id: int,
+    viewer_user_id: int | None,
+    include_children: bool = True,
+) -> list[dict[str, Any]]:
     if viewer_user_id == target_user_id:
         trips = _fetch_trip_rows("t.owner_user_id = %s", (target_user_id,))
     else:
-        trips = _fetch_trip_rows(
-            """(
-                t.owner_user_id = %s
-                AND (
-                    t.visibility = 'public'
-                    OR EXISTS (
-                        SELECT 1 FROM trip_collaborators tc
-                        WHERE tc.trip_id = t.trip_id
-                        AND tc.user_id = %s
-                    )
-                    OR (
-                        t.visibility = 'friends'
-                        AND EXISTS (
-                            SELECT 1 FROM friendships f
-                            WHERE f.status = 'accepted'
-                            AND (
-                                (f.requester_id = %s AND f.addressee_id = %s)
-                                OR (f.requester_id = %s AND f.addressee_id = %s)
-                            )
-                        )
-                    )
-                )
-            )""",
-            (target_user_id, viewer_user_id, viewer_user_id, target_user_id, target_user_id, viewer_user_id),
-        )
-    return _maybe_hydrate_trips(trips, include_children=True)
+        where_sql = f"t.owner_user_id = %s AND {_trip_visible_to_viewer_sql()}"
+        params = (target_user_id, viewer_user_id, viewer_user_id, viewer_user_id, viewer_user_id)
+        trips = _fetch_trip_rows(where_sql, params)
+    return _maybe_hydrate_trips(trips, include_children=include_children)
 
 
 def get_trip(trip_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
@@ -763,20 +689,16 @@ def _parse_trip_date(value: Any) -> str | None:
     raise TripValidationError("date must use YYYY-MM, MM-YYYY, MM-YY, or 'Month YYYY'")
 
 
-def _parse_event_datetime(value: Any, *, field_name: str) -> datetime | None:
+def _parse_link_url(value: Any) -> str | None:
     candidate = to_nullable_string(value)
     if not candidate:
         return None
 
-    try:
-        parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
-    except ValueError:
-        raise TripValidationError(f"{field_name} must be a valid ISO 8601 datetime (e.g. 2025-03-01T14:00)")
+    lowered = candidate.lower()
+    if not (lowered.startswith("http://") or lowered.startswith("https://")):
+        raise TripValidationError("link must start with http:// or https://")
 
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-
-    return parsed.astimezone(timezone.utc)
+    return candidate
 
 
 def _parse_thumbnail_url(value: Any) -> str | None:
@@ -881,10 +803,11 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
                 thumbnail_url,
                 title,
                 description,
+                link_url,
                 geo_location,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
+            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
             """,
             (
                 trip_id,
@@ -892,6 +815,7 @@ def _insert_lodgings(cur, *, trip_id: int, lodgings: list[Any]):
                 _parse_thumbnail_url(lodging.get("thumbnail_url")),
                 to_nullable_string(lodging.get("title")),
                 to_nullable_string(lodging.get("description")),
+                _parse_link_url(lodging.get("link_url")),
                 geo_location,
                 cost,
             ),
@@ -918,10 +842,11 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
                 title,
                 location,
                 description,
+                link_url,
                 geo_location,
                 cost
             )
-            VALUES (%s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, ST_GeogFromText(%s), %s)
             """,
             (
                 trip_id,
@@ -930,13 +855,15 @@ def _insert_activities(cur, *, trip_id: int, activities: list[Any]):
                 to_nullable_string(activity.get("title")),
                 to_nullable_string(activity.get("location")),
                 to_nullable_string(activity.get("description")),
+                _parse_link_url(activity.get("link_url")),
                 geo_location,
                 cost,
             ),
         )
 
 
-def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+def _parse_common_trip_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Validate and normalize fields shared by create_trip and update_trip."""
     title = to_nullable_string(payload.get("title"))
     if not title:
         raise TripValidationError("title is required")
@@ -952,20 +879,22 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
     if not isinstance(tags, list):
         raise TripValidationError("tags must be a list")
 
-    event_start = _parse_event_datetime(payload.get("event_start"), field_name="event_start")
-    event_end = _parse_event_datetime(payload.get("event_end"), field_name="event_end")
-    if (event_start is None) != (event_end is None):
-        raise TripValidationError("event_start and event_end must both be provided for pop-up events")
-    if event_start is not None and event_end is not None and event_end <= event_start:
-        raise TripValidationError("event_end must be after event_start")
-    is_popup_event = event_start is not None and event_end is not None
-    if is_popup_event and lodgings:
-        raise TripValidationError("pop-up events cannot include lodgings")
-    if is_popup_event and activities:
-        raise TripValidationError("pop-up events cannot include activities")
+    return {
+        "title": title,
+        "lodgings": lodgings,
+        "activities": activities,
+        "tags": tags,
+        "duration": _parse_duration(payload.get("duration")),
+        "date": _parse_trip_date(payload.get("date")),
+        "thumbnail_url": _parse_thumbnail_url(payload.get("thumbnail_url")),
+        "description": to_nullable_string(payload.get("description")),
+        "cost": _parse_cost(payload.get("cost")),
+        "visibility": _parse_visibility(payload.get("visibility")),
+    }
 
-    duration = None if is_popup_event else _parse_duration(payload.get("duration"))
-    date = None if is_popup_event else _parse_trip_date(payload.get("date"))
+
+def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    fields = _parse_common_trip_payload(payload)
     latitude = _parse_latitude(payload.get("latitude"))
     longitude = _parse_longitude(payload.get("longitude"))
     geo_location = _to_geo_wkt(latitude, longitude)
@@ -982,25 +911,21 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
                 duration,
                 date,
                 visibility,
-                owner_user_id,
-                event_start,
-                event_end
+                owner_user_id
             )
-            VALUES (%s, %s, %s, ST_GeogFromText(%s), %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, ST_GeogFromText(%s), %s, %s, %s, %s, %s)
             RETURNING trip_id
             """,
             (
-                _parse_thumbnail_url(payload.get("thumbnail_url")),
-                title,
-                to_nullable_string(payload.get("description")),
+                fields["thumbnail_url"],
+                fields["title"],
+                fields["description"],
                 geo_location,
-                _parse_cost(payload.get("cost")),
-                duration,
-                date,
-                _parse_visibility(payload.get("visibility")),
+                fields["cost"],
+                fields["duration"],
+                fields["date"],
+                fields["visibility"],
                 owner_user_id,
-                event_start,
-                event_end,
             ),
         )
 
@@ -1010,9 +935,9 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
 
         trip_id = int(created["trip_id"])
 
-        _insert_tags(cur, trip_id=trip_id, tags=tags)
-        _insert_lodgings(cur, trip_id=trip_id, lodgings=lodgings)
-        _insert_activities(cur, trip_id=trip_id, activities=activities)
+        _insert_tags(cur, trip_id=trip_id, tags=fields["tags"])
+        _insert_lodgings(cur, trip_id=trip_id, lodgings=fields["lodgings"])
+        _insert_activities(cur, trip_id=trip_id, activities=fields["activities"])
 
     created_trip = get_trip(trip_id, owner_user_id)
     if not created_trip:
@@ -1020,8 +945,6 @@ def create_trip(*, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any
 
     # Compute and persist quality score at write time.
     _prepare_trip_priority_on_write(created_trip)
-
-    invalidate_trip_list_cache()
 
     return created_trip
 
@@ -1105,7 +1028,6 @@ def add_lodging(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
     if not row:
         raise TripValidationError("failed to create lodging")
 
-    invalidate_trip_list_cache()
 
     return {
         "lodge_id": int(row["lodge_id"]),
@@ -1156,7 +1078,6 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
     if not row:
         raise TripValidationError("failed to create activity")
 
-    invalidate_trip_list_cache()
 
     return {
         "activity_id": int(row["activity_id"]),
@@ -1167,35 +1088,7 @@ def add_activity(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -
 def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
     _require_trip_editor(trip_id=trip_id, user_id=owner_user_id)
 
-    title = to_nullable_string(payload.get("title"))
-    if not title:
-        raise TripValidationError("title is required")
-
-    lodgings = payload.get("lodgings") or []
-    activities = payload.get("activities") or []
-    tags = payload.get("tags") or []
-
-    if not isinstance(lodgings, list):
-        raise TripValidationError("lodgings must be a list")
-    if not isinstance(activities, list):
-        raise TripValidationError("activities must be a list")
-    if not isinstance(tags, list):
-        raise TripValidationError("tags must be a list")
-
-    event_start = _parse_event_datetime(payload.get("event_start"), field_name="event_start")
-    event_end = _parse_event_datetime(payload.get("event_end"), field_name="event_end")
-    if (event_start is None) != (event_end is None):
-        raise TripValidationError("event_start and event_end must both be provided for pop-up events")
-    if event_start is not None and event_end is not None and event_end <= event_start:
-        raise TripValidationError("event_end must be after event_start")
-    is_popup_event = event_start is not None and event_end is not None
-    if is_popup_event and lodgings:
-        raise TripValidationError("pop-up events cannot include lodgings")
-    if is_popup_event and activities:
-        raise TripValidationError("pop-up events cannot include activities")
-
-    duration = None if is_popup_event else _parse_duration(payload.get("duration"))
-    date = None if is_popup_event else _parse_trip_date(payload.get("date"))
+    fields = _parse_common_trip_payload(payload)
     latitude = _parse_latitude(payload.get("latitude"))
     longitude = _parse_longitude(payload.get("longitude"))
     geo_location = _to_geo_wkt(latitude, longitude)
@@ -1211,22 +1104,18 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
                 cost = %s,
                 duration = %s,
                 date = %s,
-                visibility = %s,
-                event_start = %s,
-                event_end = %s
+                visibility = %s
             WHERE trip_id = %s
             """,
             (
-                _parse_thumbnail_url(payload.get("thumbnail_url")),
-                title,
-                to_nullable_string(payload.get("description")),
+                fields["thumbnail_url"],
+                fields["title"],
+                fields["description"],
                 geo_location,
-                _parse_cost(payload.get("cost")),
-                duration,
-                date,
-                _parse_visibility(payload.get("visibility")),
-                event_start,
-                event_end,
+                fields["cost"],
+                fields["duration"],
+                fields["date"],
+                fields["visibility"],
                 trip_id,
             ),
         )
@@ -1234,13 +1123,13 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
             raise TripNotFoundError("trip not found")
 
         cur.execute("DELETE FROM trip_tags WHERE trip_id = %s", (trip_id,))
-        _insert_tags(cur, trip_id=trip_id, tags=tags)
+        _insert_tags(cur, trip_id=trip_id, tags=fields["tags"])
 
         cur.execute("DELETE FROM lodgings WHERE trip_id = %s", (trip_id,))
-        _insert_lodgings(cur, trip_id=trip_id, lodgings=lodgings)
+        _insert_lodgings(cur, trip_id=trip_id, lodgings=fields["lodgings"])
 
         cur.execute("DELETE FROM activities WHERE trip_id = %s", (trip_id,))
-        _insert_activities(cur, trip_id=trip_id, activities=activities)
+        _insert_activities(cur, trip_id=trip_id, activities=fields["activities"])
 
     updated_trip = get_trip(trip_id, owner_user_id)
     if not updated_trip:
@@ -1248,8 +1137,6 @@ def update_trip(*, trip_id: int, owner_user_id: int, payload: dict[str, Any]) ->
 
     # Compute and persist quality score at write time.
     _prepare_trip_priority_on_write(updated_trip)
-
-    invalidate_trip_list_cache()
 
     return updated_trip
 
@@ -1262,7 +1149,6 @@ def delete_trip(*, trip_id: int, owner_user_id: int):
         if cur.rowcount < 1:
             raise TripNotFoundError("trip not found")
 
-    invalidate_trip_list_cache()
 
 
 def add_trip_collaborator(*, trip_id: int, owner_user_id: int, collaborator_user_id: int) -> dict[str, Any]:
@@ -1311,7 +1197,6 @@ def add_trip_collaborator(*, trip_id: int, owner_user_id: int, collaborator_user
             (trip_id, collaborator_user_id, owner_user_id),
         )
 
-    invalidate_trip_list_cache()
 
     return {
         "trip_id": trip_id,
@@ -1342,7 +1227,8 @@ def get_user_profile(*, user_id: int, viewer_user_id: int | None) -> dict[str, A
     if not user_row:
         return None
 
-    trips = list_user_trips(target_user_id=user_id, viewer_user_id=viewer_user_id)
+    # Profile views only need trip summaries; skip full children hydration.
+    trips = list_user_trips(target_user_id=user_id, viewer_user_id=viewer_user_id, include_children=False)
     trip_entries = [
         {
             "trip_id": trip["trip_id"],
@@ -1451,7 +1337,6 @@ def create_trip_comment(*, trip_id: int, user_id: int, body: Any) -> dict[str, A
         )
         author_row = cur.fetchone()
 
-    invalidate_trip_list_cache()
 
     return {
         "comment_id": int(created_comment["comment_id"]),
@@ -1487,7 +1372,6 @@ def update_trip_like_count(*, trip_id: int, viewer_user_id: int | None, delta: i
     if not updated:
         raise TripNotFoundError("trip not found")
 
-    invalidate_trip_list_cache()
     return max(_as_int(updated.get("like_count"), default=0), 0)
 
 def get_unread_trip_comment_count_by_trip(*, user_id: int) -> dict[int, int]:

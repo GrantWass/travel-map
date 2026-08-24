@@ -43,23 +43,6 @@ export function formatTripDate(value: string): string {
     }).format(date);
 }
 
-export function formatPopupTimeRange(startIso: string, endIso: string): string {
-    const start = new Date(startIso);
-    const end = new Date(endIso);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Time unavailable";
-
-    const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
-    const startTime = start.toLocaleTimeString("en-US", timeOpts);
-    const endTime = end.toLocaleTimeString("en-US", timeOpts);
-
-    const now = new Date(); 
-    const isToday = start.toDateString() === now.toDateString();
-    if (isToday) return `Today · ${startTime} – ${endTime}`;
-
-    const dateStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `${dateStr} · ${startTime} – ${endTime}`;
-}
-
 export function formatTripDuration(value: string | null | undefined): string {
   if (!value) {
     return "Duration Flexible"

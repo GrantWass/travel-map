@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, MapPin, X } from "lucide-react";
 
@@ -9,6 +9,15 @@ import type { PlaceCenter, PlaceOption } from "@/lib/client-types";
 const PinMapPicker = dynamic(() => import("@/components/pin-map-picker"), { ssr: false });
 
 type PlaceSearchMode = "city" | "address";
+
+interface PlaceSuggestion {
+    label: string;
+    latitude?: number;
+    longitude?: number;
+    address: string;
+    placeId?: string;
+    needsDetails?: boolean;
+}
 
 interface PlacePickerProps {
     label: string;
@@ -30,10 +39,58 @@ export default function PlacePicker({
     allowMapPin = false,
 }: PlacePickerProps) {
     const [query, setQuery] = useState(value?.label || "");
-    const [results, setResults] = useState<PlaceOption[]>([]);
+    const [results, setResults] = useState<PlaceSuggestion[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isResolvingSelection, setIsResolvingSelection] = useState(false);
     const [mapPickerOpen, setMapPickerOpen] = useState(false);
+    // One session token per picker instance: bundles all autocomplete keystrokes
+    // with the final details call so Google bills them as a single session.
+    const sessionTokenRef = useRef<string>("");
+    if (!sessionTokenRef.current && typeof crypto !== "undefined") {
+        sessionTokenRef.current = crypto.randomUUID();
+    }
+
+    async function selectResult(result: PlaceSuggestion) {
+        if (!result.needsDetails || !result.placeId) {
+            onChange({
+                label: result.label,
+                address: result.address,
+                latitude: result.latitude!,
+                longitude: result.longitude!,
+            });
+            setQuery(result.label);
+            setIsOpen(false);
+            return;
+        }
+
+        setIsResolvingSelection(true);
+        try {
+            const params = new URLSearchParams({
+                place_id: result.placeId,
+                session_token: sessionTokenRef.current,
+            });
+            const response = await fetch(`/api/places/details?${params.toString()}`, {
+                cache: "no-store",
+            });
+            const payload = await response.json();
+            if (!response.ok || typeof payload?.latitude !== "number") {
+                throw new Error("lookup failed");
+            }
+            onChange({
+                label: payload.label ?? result.label,
+                address: payload.address ?? result.address,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+            });
+            setQuery(payload.label ?? result.label);
+            setIsOpen(false);
+        } catch {
+            setIsOpen(false);
+        } finally {
+            setIsResolvingSelection(false);
+        }
+    }
 
     useEffect(() => {
         setQuery(value?.label || "");
@@ -57,6 +114,10 @@ export default function PlacePicker({
                 if (mode === "address" && cityContext) {
                     params.set("near_lat", `${cityContext.latitude}`);
                     params.set("near_lon", `${cityContext.longitude}`);
+                }
+
+                if (sessionTokenRef.current) {
+                    params.set("session_token", sessionTokenRef.current);
                 }
 
                 const response = await fetch(`/api/places?${params.toString()}`, {
@@ -127,20 +188,29 @@ export default function PlacePicker({
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 Searching places...
                             </div>
+                        ) : isResolvingSelection ? (
+                            <div className="flex items-center gap-2 px-3 py-2 text-sm text-stone-500">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Finding location...
+                            </div>
                         ) : results.length > 0 ? (
                             results.map((result) => (
                                 <button
-                                    key={`${result.label}-${result.latitude}-${result.longitude}`}
+                                    key={`${result.placeId ?? result.label}-${result.latitude ?? ""}-${result.longitude ?? ""}`}
                                     type="button"
                                     onMouseDown={(event) => {
                                         event.preventDefault();
-                                        onChange(result);
-                                        setQuery(result.label);
-                                        setIsOpen(false);
+                                        void selectResult(result as PlaceSuggestion);
                                     }}
                                     className="w-full rounded-lg px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-100"
                                 >
                                     {result.label}
+                                    {(result as PlaceSuggestion).address &&
+                                        (result as PlaceSuggestion).address !== (result as PlaceSuggestion).label && (
+                                            <span className="block truncate text-xs text-stone-400">
+                                                {(result as PlaceSuggestion).address}
+                                            </span>
+                                        )}
                                 </button>
                             ))
                         ) : (

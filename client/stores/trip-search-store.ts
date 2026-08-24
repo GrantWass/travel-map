@@ -4,7 +4,7 @@ import { getPublicTrips, getTripChildrenBatch, getTripsBatch } from "@/lib/api-c
 import type { FriendshipRecord, Trip, TripActivity, TripLodging, TripDuration } from "@/lib/api-types";
 
 export const MAX_COST = 500;
-export const MAX_VISIBLE_TAGS = 15;
+const MAX_VISIBLE_TAGS = 15;
 
 export const TRIP_DURATION_OPTIONS: { value: TripDuration; label: string }[] = [
   { value: "day trip", label: "Day Trip" },
@@ -14,7 +14,7 @@ export const TRIP_DURATION_OPTIONS: { value: TripDuration; label: string }[] = [
 
 export type OwnerFilter = "all" | "friends" | "you";
 
-export interface SearchResult {
+interface SearchResult {
   trip: Trip;
   matchedActivities: TripActivity[];
   matchedLodgings: TripLodging[];
@@ -91,20 +91,7 @@ function normalizeMonthValue(value: string | null | undefined): string | null {
 }
 
 function getTripMonthValue(trip: Trip): string | null {
-  const fromDate = normalizeMonthValue((trip.date ?? "").slice(0, 7));
-  if (fromDate) {
-    return fromDate;
-  }
-
-  const eventStart = normalizeMonthValue((trip.event_start ?? "").slice(0, 7));
-  return eventStart;
-}
-
-export async function hydrateTripsWithChildren(tripIds: number[]): Promise<Trip[]> {
-  if (tripIds.length === 0) {
-    return [];
-  }
-  return getTripsBatch(tripIds);
+  return normalizeMonthValue((trip.date ?? "").slice(0, 7));
 }
 
 export async function hydrateTripChildrenOnly(tripIds: number[]) {
@@ -120,15 +107,7 @@ export async function fetchDeferredTripsWithChildren(tripIds: number[]): Promise
 
 export async function fetchPublicTripsLightweight(): Promise<Trip[]> {
   const apiTrips = await getPublicTrips();
-  const now = new Date();
-
-  return apiTrips
-    .filter((trip): trip is Trip => Boolean(trip))
-    .filter(
-      (trip) =>
-        !(trip.event_end && trip.event_start) ||
-        (trip.event_end !== null && new Date(trip.event_end) > now),
-    );
+  return apiTrips.filter((trip): trip is Trip => Boolean(trip));
 }
 
 export function getFriendIds(
@@ -165,7 +144,7 @@ export function getAvailableTags(trips: Trip[]): string[] {
     .map(([tag]) => tag);
 }
 
-export function filterTripsByDuration(trips: Trip[], tripTypeFilter: TripDuration[]): Trip[] {
+function filterTripsByDuration(trips: Trip[], tripTypeFilter: TripDuration[]): Trip[] {
   if (tripTypeFilter.length === 0) return trips;
   return trips.filter((trip) => {
     if (!trip.duration) return false;
@@ -174,7 +153,7 @@ export function filterTripsByDuration(trips: Trip[], tripTypeFilter: TripDuratio
   });
 }
 
-export function filterTripsByOwner(
+function filterTripsByOwner(
   trips: Trip[],
   ownerFilter: OwnerFilter,
   currentUserId: number | null,
@@ -197,6 +176,8 @@ export function filterTripsByOwner(
   });
 }
 
+export type SearchResultSort = "recommended" | "recent" | "liked";
+
 interface BuildSearchResultsArgs {
   trips: Trip[];
   query: string;
@@ -208,6 +189,7 @@ interface BuildSearchResultsArgs {
   tripTypeFilter?: TripDuration[];
   dateFrom?: string;
   dateTo?: string;
+  sort?: SearchResultSort;
 }
 
 export function buildSearchResults({
@@ -221,6 +203,7 @@ export function buildSearchResults({
   tripTypeFilter = [],
   dateFrom = "",
   dateTo = "",
+  sort = "recommended",
 }: BuildSearchResultsArgs): SearchResult[] {
   const textQuery = query.trim().toLowerCase();
   const fromMonth = normalizeMonthValue(dateFrom);
@@ -293,6 +276,19 @@ export function buildSearchResults({
   }
 
   return results.sort((left, right) => {
+    if (sort === "recent") {
+      return right.trip.trip_id - left.trip.trip_id;
+    }
+
+    if (sort === "liked") {
+      const leftLikes = left.trip.like_count ?? 0;
+      const rightLikes = right.trip.like_count ?? 0;
+      if (rightLikes !== leftLikes) {
+        return rightLikes - leftLikes;
+      }
+      return right.trip.trip_id - left.trip.trip_id;
+    }
+
     const rightScore = right.trip.priority_score ?? 0;
     const leftScore = left.trip.priority_score ?? 0;
     if (rightScore !== leftScore) {

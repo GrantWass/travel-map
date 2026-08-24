@@ -4,8 +4,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ImagePlus, MapPin, Plus, Sparkles, Timer, Trash2 } from "lucide-react";
+import { ImagePlus, MapPin, Sparkles, Timer } from "lucide-react";
 
+import {
+  READABLE_INPUT_CLASS,
+  READABLE_TEXTAREA_CLASS,
+  StopEditorSection,
+  StopPreviewList,
+  TagEditor,
+  VisibilitySelect,
+} from "@/components/trip-form-fields";
 import PlacePicker from "@/components/place-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,22 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
 import { ApiError, addTripCollaborator, createTrip, getTripFull, searchUsers, updateTrip, uploadImage } from "@/lib/api-client";
 import type { PlaceOption } from "@/lib/client-types";
-import { AVAILABLE_TAGS, BANNER_PLACEHOLDER } from "@/lib/trip-constants";
+import { BANNER_PLACEHOLDER } from "@/lib/trip-constants";
 import type { TripCollaborator, TripDuration, TripVisibility } from "@/lib/api-types";
 import { formatTripDuration } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
-
-interface StopDraft {
-  id: string;
-  title: string;
-  notes: string;
-  cost: string;
-  imageUrl: string;
-  imageName: string;
-  imageError: string;
-  isProcessingImage: boolean;
-  location: PlaceOption | null;
-}
+import { hasStopContent, makeStopDraft, type StopDraft } from "@/app/trips/stop-draft";
 
 function clean(value: string): string | undefined {
   const trimmed = value.trim();
@@ -57,79 +54,47 @@ function formatPreviewDate(value: string): string {
   });
 }
 
-function toLocalDatetimeInput(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function formatEventTimePreview(start: string, end: string): string {
-  if (!start || !end) return "No time set yet";
-
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return "Invalid time";
-
-  const now = new Date();
-  const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
-  const startTime = startDate.toLocaleTimeString("en-US", timeOpts);
-  const endTime = endDate.toLocaleTimeString("en-US", timeOpts);
-
-  const isToday = startDate.toDateString() === now.toDateString();
-  if (isToday) return `Today · ${startTime} – ${endTime}`;
-
-  const dateStr = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${dateStr} · ${startTime} – ${endTime}`;
-}
-
-function toEventIso(value: string): string | null {
-  if (!value.trim()) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-}
-
-function makeStopDraft(): StopDraft {
+function makeStopDraftFromChild(
+  child: {
+    title?: string | null;
+    description?: string | null;
+    cost?: string | number | null;
+    thumbnail_url?: string | null;
+    link_url?: string | null;
+    latitude?: string | number | null;
+    longitude?: string | number | null;
+    address?: string | null;
+  },
+  locationLabel: string,
+): StopDraft {
   return {
     id: crypto.randomUUID(),
-    title: "",
-    notes: "",
-    cost: "",
-    imageUrl: "",
-    imageName: "",
+    title: child.title || "",
+    notes: child.description || "",
+    cost: child.cost != null ? String(child.cost) : "",
+    linkUrl: child.link_url || "",
+    imageUrl: child.thumbnail_url || "",
+    imageName: child.thumbnail_url ? "Existing image" : "",
     imageError: "",
     isProcessingImage: false,
-    location: null,
+    location:
+      child.latitude != null && child.longitude != null
+        ? {
+            label: locationLabel,
+            address: child.address || "",
+            latitude: Number(child.latitude),
+            longitude: Number(child.longitude),
+          }
+        : null,
   };
 }
 
-const READABLE_INPUT_CLASS = "bg-white text-stone-900 placeholder:text-stone-500";
-const READABLE_TEXTAREA_CLASS = "bg-white text-stone-900 placeholder:text-stone-500";
 const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"] as const;
 const TRIP_DURATION_OPTIONS: Array<{ value: TripDuration; label: string; hint: string }> = [
   { value: "day trip", label: "Day Trip", hint: "In and out in one day" },
   { value: "overnight trip", label: "Overnight", hint: "One night away" },
   { value: "multiday trip", label: "Multi-Day", hint: "A longer getaway" },
 ];
-
-function hasStopContent(stop: StopDraft): boolean {
-  return Boolean(
-    stop.title.trim() ||
-      stop.notes.trim() ||
-      stop.cost.trim() ||
-      stop.imageUrl ||
-      stop.location,
-  );
-}
 
 export default function TripsPage() {
   return (
@@ -146,10 +111,7 @@ function TripsPageContent() {
   const editTripIdParam = searchParams.get("edit");
   const editTripId = editTripIdParam ? Number(editTripIdParam) : null;
   const isEditMode = Boolean(editTripId && Number.isFinite(editTripId) && editTripId > 0);
-  // In edit mode, popup-mode is determined by the fetched trip (overridden in effect below).
-  const [isPopupMode, setIsPopupMode] = useState(!isEditMode && searchParams.get("mode") === "popup");
   const status = useAuthStore((state) => state.status);
-  const isStudent = Boolean(useAuthStore((state) => state.user?.verified));
   const userId = useAuthStore((state) => state.user?.user_id ?? null);
 
   const [isSavingTrip, setIsSavingTrip] = useState(false);
@@ -181,18 +143,6 @@ function TripsPageContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
 
-  // Popup-specific state
-  const [eventStart, setEventStart] = useState(() => {
-    if (!isPopupMode) return "";
-    return toLocalDatetimeInput(new Date());
-  });
-  const [eventEnd, setEventEnd] = useState(() => {
-    if (!isPopupMode) return "";
-    const end = new Date();
-    end.setHours(end.getHours() + 2);
-    return toLocalDatetimeInput(end);
-  });
-
   const [lodgings, setLodgings] = useState<StopDraft[]>([]);
   const [activities, setActivities] = useState<StopDraft[]>([]);
   const previewLodgings = lodgings.filter(hasStopContent);
@@ -204,10 +154,7 @@ function TripsPageContent() {
       const nextPath = `${window.location.pathname}${window.location.search}`;
       router.replace(buildSignupHref({ nextPath, inviteToken }));
     }
-    if (status === "authenticated" && !isStudent) {
-      router.replace("/");
-    }
-  }, [isStudent, router, status]);
+  }, [router, status]);
 
   useEffect(() => {
     if (!prefillLat || !prefillLng) return;
@@ -244,7 +191,6 @@ function TripsPageContent() {
 
     getTripFull(editTripId)
       .then((trip) => {
-        console.log("Fetched trip for editing:", trip);
         const isOwner = userId !== null && trip.owner_user_id === userId;
         const isCollaborator = userId !== null && (trip.collaborators || []).some((collaborator) => collaborator.user_id === userId);
 
@@ -252,9 +198,6 @@ function TripsPageContent() {
           setEditLoadError("You don't have permission to edit this trip.");
           return;
         }
-
-        const isPopup = Boolean(trip.event_start && trip.event_end);
-        setIsPopupMode(isPopup);
 
         setTitle(trip.title);
         setDescription(trip.description || "");
@@ -274,54 +217,8 @@ function TripsPageContent() {
         setSelectedTags(trip.tags);
         setCollaborators(trip.collaborators || []);
 
-        if (isPopup && trip.event_start && trip.event_end) {
-          setEventStart(toLocalDatetimeInput(new Date(trip.event_start)));
-          setEventEnd(toLocalDatetimeInput(new Date(trip.event_end)));
-        }
-
-        setLodgings(
-          trip.lodgings.map((lodging) => ({
-            id: crypto.randomUUID(),
-            title: lodging.title || "",
-            notes: lodging.description || "",
-            cost: lodging.cost != null ? String(lodging.cost) : "",
-            imageUrl: lodging.thumbnail_url || "",
-            imageName: lodging.thumbnail_url ? "Existing image" : "",
-            imageError: "",
-            isProcessingImage: false,
-            location:
-              lodging.latitude != null && lodging.longitude != null
-                ? {
-                    label: lodging.address || lodging.title || "",
-                    address: lodging.address || "",
-                    latitude: lodging.latitude,
-                    longitude: lodging.longitude,
-                  }
-                : null,
-          })),
-        );
-
-        setActivities(
-          trip.activities.map((activity) => ({
-            id: crypto.randomUUID(),
-            title: activity.title || "",
-            notes: activity.description || "",
-            cost: activity.cost != null ? String(activity.cost) : "",
-            imageUrl: activity.thumbnail_url || "",
-            imageName: activity.thumbnail_url ? "Existing image" : "",
-            imageError: "",
-            isProcessingImage: false,
-            location:
-              activity.latitude != null && activity.longitude != null
-                ? {
-                    label: activity.location || activity.address || activity.title || "",
-                    address: activity.address || "",
-                    latitude: activity.latitude,
-                    longitude: activity.longitude,
-                  }
-                : null,
-          })),
-        );
+        setLodgings(trip.lodgings.map((lodging) => makeStopDraftFromChild(lodging, lodging.address || lodging.title || "")));
+        setActivities(trip.activities.map((activity) => makeStopDraftFromChild(activity, activity.location || activity.address || activity.title || "")));
       })
       .catch(() => {
         setEditLoadError("Could not load trip for editing. Please try again.");
@@ -421,7 +318,7 @@ function TripsPageContent() {
     return true;
   });
 
-  if (status !== "authenticated" || !isStudent) {
+  if (status !== "authenticated") {
     return null;
   }
 
@@ -552,37 +449,27 @@ function TripsPageContent() {
     setError("");
 
     if (!title.trim()) {
-      setError(isPopupMode ? "Add a pop-up title before posting." : "Add a trip title before posting.");
+      setError("Add a trip title before posting.");
       return;
     }
 
     if (!tripLocation) {
-      setError(isPopupMode ? "Choose a location before posting." : "Choose a trip location before posting.");
-      return;
-    }
-
-    if (isPopupMode && (!eventStart || !eventEnd)) {
-      setError("Set a start and end time before posting.");
-      return;
-    }
-
-    const normalizedEventStart = isPopupMode ? toEventIso(eventStart) : null;
-    const normalizedEventEnd = isPopupMode ? toEventIso(eventEnd) : null;
-    if (isPopupMode && (!normalizedEventStart || !normalizedEventEnd)) {
-      setError("Set a valid start and end time before posting.");
-      return;
-    }
-    if (
-      isPopupMode &&
-      normalizedEventStart &&
-      normalizedEventEnd &&
-      new Date(normalizedEventEnd) <= new Date(normalizedEventStart)
-    ) {
-      setError("End time must be after start time.");
+      setError("Choose a trip location before posting.");
       return;
     }
 
     setIsSavingTrip(true);
+
+    const stopToPayload = (stop: StopDraft) => ({
+      title: clean(stop.title),
+      description: clean(stop.notes),
+      address: stop.location?.address,
+      link_url: clean(stop.linkUrl),
+      latitude: stop.location ? `${stop.location.latitude}` : undefined,
+      longitude: stop.location ? `${stop.location.longitude}` : undefined,
+      cost: clean(stop.cost),
+      thumbnail_url: clean(stop.imageUrl),
+    });
 
     const tripPayload = {
       title: title.trim(),
@@ -593,38 +480,13 @@ function TripsPageContent() {
       cost: clean(cost),
       visibility,
       tags: selectedTags,
-      ...(isPopupMode
-        ? {
-            event_start: normalizedEventStart ?? undefined,
-            event_end: normalizedEventEnd ?? undefined,
-          }
-        : {
-            duration,
-            date: clean(date),
-            lodgings: lodgings
-              .filter(hasStopContent)
-              .map((stop) => ({
-                title: clean(stop.title),
-                description: clean(stop.notes),
-                address: stop.location?.address,
-                latitude: stop.location ? `${stop.location.latitude}` : undefined,
-                longitude: stop.location ? `${stop.location.longitude}` : undefined,
-                cost: clean(stop.cost),
-                thumbnail_url: clean(stop.imageUrl),
-              })),
-            activities: activities
-              .filter(hasStopContent)
-              .map((stop) => ({
-                title: clean(stop.title),
-                description: clean(stop.notes),
-                location: stop.location?.label,
-                address: stop.location?.address,
-                latitude: stop.location ? `${stop.location.latitude}` : undefined,
-                longitude: stop.location ? `${stop.location.longitude}` : undefined,
-                cost: clean(stop.cost),
-                thumbnail_url: clean(stop.imageUrl),
-              })),
-          }),
+      duration,
+      date: clean(date),
+      lodgings: lodgings.filter(hasStopContent).map(stopToPayload),
+      activities: activities.filter(hasStopContent).map((stop) => ({
+        ...stopToPayload(stop),
+        location: stop.location?.label,
+      })),
     };
 
     try {
@@ -648,7 +510,7 @@ function TripsPageContent() {
       const [pathnamePart, queryPart] = safeReturnTo.split("?");
       const destinationPath = pathnamePart || "/";
       const destinationParams = new URLSearchParams(queryPart || "");
-      destinationParams.set("selectTrip", String(savedTrip.trip_id));
+      destinationParams.set("trip", String(savedTrip.trip_id));
       const destinationQuery = destinationParams.toString();
       router.push(destinationQuery ? `${destinationPath}?${destinationQuery}` : destinationPath);
       return;
@@ -656,7 +518,7 @@ function TripsPageContent() {
       if (submitError instanceof ApiError) {
         setError(submitError.message);
       } else {
-        setError(isPopupMode ? "Could not post this pop-up right now. Please try again." : "Could not post this trip right now. Please try again.");
+        setError("Could not post this trip right now. Please try again.");
       }
     } finally {
       setIsSavingTrip(false);
@@ -671,13 +533,8 @@ function TripsPageContent() {
             <div>
               {isEditMode ? (
                 <>
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">{isPopupMode ? "Pop-Up Editor" : "Trip Editor"}</p>
-                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">{isPopupMode ? "Edit your pop-up" : "Edit your trip"}</h1>
-                </>
-              ) : isPopupMode ? (
-                <>
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Pop-Up Composer</p>
-                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Post a pop-up event</h1>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Trip Editor</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Edit your trip</h1>
                 </>
               ) : (
                 <>
@@ -728,7 +585,7 @@ function TripsPageContent() {
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder={isPopupMode ? "Name this pop-up..." : "Title your trip..."}
+                placeholder="Title your trip..."
                 className="w-full border-b border-stone-200 bg-transparent pb-3 text-4xl font-semibold tracking-tight text-stone-900 outline-none placeholder:text-stone-300"
               />
 
@@ -744,122 +601,13 @@ function TripsPageContent() {
               <Textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                rows={isPopupMode ? 4 : 7}
-                placeholder={
-                  isPopupMode
-                    ? "What's happening? Give people a reason to show up..."
-                    : "Tell the story: what you did, what surprised you, and what someone should know before visiting..."
-                }
+                rows={7}
+                placeholder="Tell the story: what you did, what surprised you, and what someone should know before visiting..."
                 className={`resize-none rounded-2xl border-stone-200 text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
               />
             </div>
 
-            {isPopupMode ? (
-              /* Popup mode: start/end times + cost + visibility + tags */
-              <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Start Time</label>
-                  <Input
-                    type="datetime-local"
-                    value={eventStart}
-                    onChange={(event) => setEventStart(event.target.value)}
-                    className={READABLE_INPUT_CLASS}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">End Time</label>
-                  <Input
-                    type="datetime-local"
-                    value={eventEnd}
-                    onChange={(event) => setEventEnd(event.target.value)}
-                    className={READABLE_INPUT_CLASS}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost (per person)</label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={cost}
-                    onChange={(event) => setCost(event.target.value.replace(/\D/g, ""))}
-                    placeholder="Free, or enter amount"
-                    className={READABLE_INPUT_CLASS}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
-                    value={visibility}
-                    onChange={(event) => setVisibility(event.target.value as TripVisibility)}
-                  >
-                    <option value="public">public</option>
-                    <option value="private">private</option>
-                    <option value="friends">friends</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_TAGS.map((tag) => {
-                      const selected = selectedTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleTag(tag)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                            selected
-                              ? "border-amber-600 bg-amber-600 text-white"
-                              : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
-                    {selectedTags
-                      .filter((tag) => !(AVAILABLE_TAGS as readonly string[]).includes(tag))
-                      .map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleTag(tag)}
-                          className="flex items-center gap-1 rounded-full border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold tracking-wide text-white transition-colors hover:bg-amber-700"
-                        >
-                          {tag}
-                          <span className="text-white/70">×</span>
-                        </button>
-                      ))}
-                    <div className="flex items-center gap-1">
-                      <input
-                        value={customTagInput}
-                        onChange={(e) => setCustomTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addCustomTag();
-                          }
-                        }}
-                        placeholder="Other..."
-                        className="w-24 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 outline-none focus:border-amber-500"
-                      />
-                      {customTagInput.trim() && (
-                        <button
-                          type="button"
-                          onClick={addCustomTag}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
-                          aria-label="Add custom tag"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
+            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
               /* Trip mode: date + cost + duration + visibility + tags */
               <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -929,436 +677,151 @@ function TripsPageContent() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-stone-900"
-                    value={visibility}
-                    onChange={(event) => setVisibility(event.target.value as TripVisibility)}
-                  >
-                    <option value="public">public</option>
-                    <option value="private">private</option>
-                    <option value="friends">friends</option>
-                  </select>
+                  <VisibilitySelect value={visibility} onChange={setVisibility} />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_TAGS.map((tag) => {
-                      const selected = selectedTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleTag(tag)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                            selected
-                              ? "border-amber-600 bg-amber-600 text-white"
-                              : "border-stone-300 bg-white text-stone-700 hover:border-stone-400"
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
-                    {selectedTags
-                      .filter((tag) => !(AVAILABLE_TAGS as readonly string[]).includes(tag))
-                      .map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleTag(tag)}
-                          className="flex items-center gap-1 rounded-full border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold tracking-wide text-white transition-colors hover:bg-amber-700"
-                        >
-                          {tag}
-                          <span className="text-white/70">×</span>
-                        </button>
-                      ))}
-                    <div className="flex items-center gap-1">
-                      <input
-                        value={customTagInput}
-                        onChange={(e) => setCustomTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addCustomTag();
-                          }
-                        }}
-                        placeholder="Other..."
-                        className="w-24 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 outline-none focus:border-amber-500"
-                      />
-                      {customTagInput.trim() && (
-                        <button
-                          type="button"
-                          onClick={addCustomTag}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
-                          aria-label="Add custom tag"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!isPopupMode && (
-              <>
-                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-stone-900">Places you stayed</h2>
-                    <Button type="button" variant="outline" className="rounded-full" onClick={() => addStop("lodging")}>
-                      <Plus className="mr-1 h-4 w-4" />
-                      Add stay
-                    </Button>
-                  </div>
-
-                  {lodgings.length === 0 ? (
-                    <p className="text-sm text-stone-500">Add hotels, campgrounds, or anywhere you stayed.</p>
-                  ) : null}
-
-                  <div className="space-y-4">
-                    {lodgings.map((stop, index) => (
-                      <div id={`stop-lodging-${stop.id}`} key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <p className="text-sm font-semibold text-stone-700">Stay #{index + 1}</p>
-                          <button
-                            type="button"
-                            onClick={() => removeStop("lodging", stop.id)}
-                            className="rounded-full p-1 text-stone-400 transition-colors hover:bg-white hover:text-stone-700"
-                            aria-label="Remove stay"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-
-                        <div className="grid gap-3">
-                          <Input
-                            value={stop.title}
-                            onChange={(event) => updateStop("lodging", stop.id, { title: event.target.value })}
-                            placeholder="Name this stay"
-                            className={READABLE_INPUT_CLASS}
-                          />
-
-                          <PlacePicker
-                            label="Location"
-                            placeholder="Search an address"
-                            value={stop.location}
-                            onChange={(location) => updateStop("lodging", stop.id, { location })}
-                            mode="address"
-                            cityContext={tripLocation}
-                            allowMapPin
-                          />
-
-                          <Textarea
-                            value={stop.notes}
-                            rows={3}
-                            onChange={(event) => updateStop("lodging", stop.id, { notes: event.target.value })}
-                            placeholder="What made this place good (or bad)?"
-                            className={`resize-none ${READABLE_TEXTAREA_CLASS}`}
-                          />
-
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              value={stop.cost}
-                              onChange={(event) => updateStop("lodging", stop.id, { cost: event.target.value.replace(/\D/g, "") })}
-                              placeholder="Cost per person (optional)"
-                              className={READABLE_INPUT_CLASS}
-                            />
-                            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
-                              <ImagePlus className="h-4 w-4 text-amber-700" />
-                              {stop.imageUrl ? "Change photo" : "Add photo"}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                disabled={stop.isProcessingImage}
-                                className="sr-only"
-                                onChange={(event) => {
-                                  setError("");
-                                  void handleStopImageUpload("lodging", stop.id, event.target.files?.[0]);
-                                }}
-                              />
-                            </label>
-                          </div>
-                          {stop.isProcessingImage ? (
-                            <p className="text-xs text-stone-500">Uploading image...</p>
-                          ) : stop.imageUrl ? (
-                            <p className="text-xs text-emerald-700">Photo uploaded.</p>
-                          ) : (
-                            <p className="text-xs text-stone-500">No photo selected.</p>
-                          )}
-                          {stop.imageError ? <p className="text-xs font-medium text-red-600">{stop.imageError}</p> : null}
-                          {stop.imageUrl ? (
-                            <div className="rounded-lg border border-stone-200 bg-white p-2">
-                              <div className="flex items-center gap-3">
-                                <Image
-                                  src={stop.imageUrl}
-                                  alt={stop.title ? `${stop.title} preview` : "Stay photo preview"}
-                                  width={80}
-                                  height={80}
-                                  className="h-20 w-20 rounded-md border border-stone-200 object-cover"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-medium text-stone-700">
-                                    {stop.imageName || "Selected image"}
-                                  </p>
-                                  <p className="text-xs text-stone-500">Preview shown as it will appear in this post.</p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="rounded-full"
-                                  onClick={() =>
-                                    updateStop("lodging", stop.id, {
-                                      imageUrl: "",
-                                      imageName: "",
-                                      imageError: "",
-                                      isProcessingImage: false,
-                                    })
-                                  }
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-stone-900">Things you did</h2>
-                    <Button type="button" variant="outline" className="rounded-full" onClick={() => addStop("activity")}>
-                      <Plus className="mr-1 h-4 w-4" />
-                      Add activity
-                    </Button>
-                  </div>
-
-                  {activities.length === 0 ? (
-                    <p className="text-sm text-stone-500">Add museums, hikes, restaurants, or events.</p>
-                  ) : null}
-
-                  <div className="space-y-4">
-                    {activities.map((stop, index) => (
-                      <div id={`stop-activity-${stop.id}`} key={stop.id} className="rounded-xl border border-stone-200 bg-stone-50/80 p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <p className="text-sm font-semibold text-stone-700">Activity #{index + 1}</p>
-                          <button
-                            type="button"
-                            onClick={() => removeStop("activity", stop.id)}
-                            className="rounded-full p-1 text-stone-400 transition-colors hover:bg-white hover:text-stone-700"
-                            aria-label="Remove activity"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-
-                        <div className="grid gap-3">
-                          <Input
-                            value={stop.title}
-                            onChange={(event) => updateStop("activity", stop.id, { title: event.target.value })}
-                            placeholder="Name this activity"
-                            className={READABLE_INPUT_CLASS}
-                          />
-
-                          <PlacePicker
-                            label="Location"
-                            placeholder="Search an address"
-                            value={stop.location}
-                            onChange={(location) => updateStop("activity", stop.id, { location })}
-                            mode="address"
-                            cityContext={tripLocation}
-                            allowMapPin
-                          />
-
-                          <Textarea
-                            value={stop.notes}
-                            rows={3}
-                            onChange={(event) => updateStop("activity", stop.id, { notes: event.target.value })}
-                            placeholder="What should people know before going?"
-                            className={`resize-none ${READABLE_TEXTAREA_CLASS}`}
-                          />
-
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              value={stop.cost}
-                              onChange={(event) => updateStop("activity", stop.id, { cost: event.target.value.replace(/\D/g, "") })}
-                              placeholder="Cost per person (optional)"
-                              className={READABLE_INPUT_CLASS}
-                            />
-                            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600 transition-colors hover:bg-stone-100">
-                              <ImagePlus className="h-4 w-4 text-amber-700" />
-                              {stop.imageUrl ? "Change photo" : "Add photo"}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                disabled={stop.isProcessingImage}
-                                className="sr-only"
-                                onChange={(event) => {
-                                  setError("");
-                                  void handleStopImageUpload("activity", stop.id, event.target.files?.[0]);
-                                }}
-                              />
-                            </label>
-                          </div>
-                          {stop.isProcessingImage ? (
-                            <p className="text-xs text-stone-500">Uploading image...</p>
-                          ) : stop.imageUrl ? (
-                            <p className="text-xs text-emerald-700">Photo uploaded.</p>
-                          ) : (
-                            <p className="text-xs text-stone-500">No photo selected.</p>
-                          )}
-                          {stop.imageError ? <p className="text-xs font-medium text-red-600">{stop.imageError}</p> : null}
-                          {stop.imageUrl ? (
-                            <div className="rounded-lg border border-stone-200 bg-white p-2">
-                              <div className="flex items-center gap-3">
-                                <Image
-                                  src={stop.imageUrl}
-                                  alt={stop.title ? `${stop.title} preview` : "Activity photo preview"}
-                                  width={80}
-                                  height={80}
-                                  className="h-20 w-20 rounded-md border border-stone-200 object-cover"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-medium text-stone-700">
-                                    {stop.imageName || "Selected image"}
-                                  </p>
-                                  <p className="text-xs text-stone-500">Preview shown as it will appear in this post.</p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="rounded-full"
-                                  onClick={() =>
-                                    updateStop("activity", stop.id, {
-                                      imageUrl: "",
-                                      imageName: "",
-                                      imageError: "",
-                                      isProcessingImage: false,
-                                    })
-                                  }
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {!isLoadingEditTrip && !editLoadError && (
-              <div className="space-y-3 rounded-xl border border-stone-200/80 bg-stone-50/70 p-3.5">
-                <div>
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-stone-600">Collaborators</h2>
-                  <p className="mt-1 text-xs text-stone-500">
-                    {isEditMode
-                      ? "Collaborators can edit this trip."
-                      : "Choose collaborators now. They will be added when you post this trip."}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {collaborators.length > 0 ? (
-                    collaborators.map((collaborator) => (
-                      <div
-                        key={collaborator.user_id}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-stone-700"
-                      >
-                        <span className="h-5 w-5 overflow-hidden rounded-full bg-stone-200">
-                          {collaborator.profile_image_url ? (
-                            <Image
-                              src={collaborator.profile_image_url}
-                              alt={collaborator.name || "Collaborator"}
-                              width={20}
-                              height={20}
-                              className="h-5 w-5 object-cover"
-                            />
-                          ) : null}
-                        </span>
-                        <span>{collaborator.name || `User #${collaborator.user_id}`}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-stone-500">No collaborators yet.</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Input
-                    value={collaboratorQuery}
-                    onChange={(event) => setCollaboratorQuery(event.target.value)}
-                    placeholder="Search users"
-                    className={`${READABLE_INPUT_CLASS} h-9 text-sm`}
+                  <TagEditor
+                    selectedTags={selectedTags}
+                    onToggle={toggleTag}
+                    customTagInput={customTagInput}
+                    onCustomTagInputChange={setCustomTagInput}
+                    onAddCustomTag={addCustomTag}
                   />
-                  {isSearchingCollaborators && <p className="text-xs text-stone-500">Searching...</p>}
-                  {collaboratorError && <p className="text-xs font-medium text-red-600">{collaboratorError}</p>}
-
-                  {filteredCollaboratorResults.length > 0 && (
-                    <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-lg border border-stone-200/80 bg-white/70 p-1.5">
-                      {filteredCollaboratorResults.map((candidate) => (
-                        <div
-                          key={candidate.user_id}
-                          className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-medium text-stone-800">{candidate.name || `User #${candidate.user_id}`}</p>
-                            {candidate.bio ? <p className="truncate text-xs text-stone-500">{candidate.bio}</p> : null}
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 rounded-full px-3 text-xs"
-                            disabled={addingCollaboratorUserId === candidate.user_id}
-                            onClick={() => {
-                              void handleAddCollaborator(candidate.user_id);
-                            }}
-                          >
-                            {addingCollaboratorUserId === candidate.user_id ? "Adding..." : "Add"}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
-            )}
-
-            {editLoadError ? <p className="text-sm font-medium text-red-600">{editLoadError}</p> : null}
-            {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
-
-            <div className="flex flex-wrap gap-3">
-              {isLoadingEditTrip ? (
-                <p className="text-sm text-stone-500">Loading trip data...</p>
-              ) : (
-                <Button
-                  type="button"
-                  className="rounded-full bg-amber-600 px-6 hover:bg-amber-700"
-                  onClick={() => void handleSubmitTrip()}
-                  disabled={isSavingTrip || Boolean(editLoadError)}
-                >
-                  {isSavingTrip
-                    ? "Saving..."
-                    : isEditMode
-                      ? "Save Changes"
-                      : isPopupMode
-                        ? "Post Pop-Up"
-                        : "Post Trip"}
-                </Button>
-              )}
             </div>
+
+            <StopEditorSection
+              kind="lodging"
+              heading="Places you stayed"
+              addLabel="Add stay"
+              stops={lodgings}
+              cityContext={tripLocation}
+              onAdd={() => addStop("lodging")}
+              onUpdate={(id, patch) => updateStop("lodging", id, patch)}
+              onRemove={(id) => removeStop("lodging", id)}
+              onImageUpload={(id, file) => {
+                setError("");
+                void handleStopImageUpload("lodging", id, file);
+              }}
+            />
+
+            <StopEditorSection
+              kind="activity"
+              heading="Things you did"
+              addLabel="Add activity"
+              stops={activities}
+              cityContext={tripLocation}
+              onAdd={() => addStop("activity")}
+              onUpdate={(id, patch) => updateStop("activity", id, patch)}
+              onRemove={(id) => removeStop("activity", id)}
+              onImageUpload={(id, file) => {
+                setError("");
+                void handleStopImageUpload("activity", id, file);
+              }}
+            />
+
+          {!isLoadingEditTrip && !editLoadError && (
+            <div className="space-y-3 rounded-xl border border-stone-200/80 bg-stone-50/70 p-3.5">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-stone-600">Collaborators</h2>
+                <p className="mt-1 text-xs text-stone-500">
+                  {isEditMode
+                    ? "Collaborators can edit this trip."
+                    : "Choose collaborators now. They will be added when you post this trip."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {collaborators.length > 0 ? (
+                  collaborators.map((collaborator) => (
+                    <div
+                      key={collaborator.user_id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-stone-700"
+                    >
+                      <span className="h-5 w-5 overflow-hidden rounded-full bg-stone-200">
+                        {collaborator.profile_image_url ? (
+                          <Image
+                            src={collaborator.profile_image_url}
+                            alt={collaborator.name || "Collaborator"}
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 object-cover"
+                          />
+                        ) : null}
+                      </span>
+                      <span>{collaborator.name || `User #${collaborator.user_id}`}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-stone-500">No collaborators yet.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Input
+                  value={collaboratorQuery}
+                  onChange={(event) => setCollaboratorQuery(event.target.value)}
+                  placeholder="Search users"
+                  className={`${READABLE_INPUT_CLASS} h-9 text-sm`}
+                />
+                {isSearchingCollaborators && <p className="text-xs text-stone-500">Searching...</p>}
+                {collaboratorError && <p className="text-xs font-medium text-red-600">{collaboratorError}</p>}
+
+                {filteredCollaboratorResults.length > 0 && (
+                  <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-lg border border-stone-200/80 bg-white/70 p-1.5">
+                    {filteredCollaboratorResults.map((candidate) => (
+                      <div
+                        key={candidate.user_id}
+                        className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-stone-800">{candidate.name || `User #${candidate.user_id}`}</p>
+                          {candidate.bio ? <p className="truncate text-xs text-stone-500">{candidate.bio}</p> : null}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 rounded-full px-3 text-xs"
+                          disabled={addingCollaboratorUserId === candidate.user_id}
+                          onClick={() => {
+                            void handleAddCollaborator(candidate.user_id);
+                          }}
+                        >
+                          {addingCollaboratorUserId === candidate.user_id ? "Adding..." : "Add"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {editLoadError ? <p className="text-sm font-medium text-red-600">{editLoadError}</p> : null}
+          {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+
+          <div className="flex flex-wrap gap-3">
+            {isLoadingEditTrip ? (
+              <p className="text-sm text-stone-500">Loading trip data...</p>
+            ) : (
+              <Button
+                type="button"
+                className="rounded-full bg-amber-600 px-6 hover:bg-amber-700"
+                onClick={() => void handleSubmitTrip()}
+                disabled={isSavingTrip || Boolean(editLoadError)}
+              >
+                {isSavingTrip
+                  ? "Saving..."
+                  : isEditMode
+                    ? "Save Changes"
+                    : "Post Trip"}
+              </Button>
+            )}
+          </div>
           </div>
         </section>
 
@@ -1375,40 +838,32 @@ function TripsPageContent() {
                 style={{ backgroundImage: `url(${coverImage || BANNER_PLACEHOLDER})` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-                {isPopupMode && (
-                  <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500/90 px-2.5 py-1 text-white backdrop-blur-sm">
-                    <Timer className="h-3 w-3" />
-                    <span className="text-xs font-semibold">Pop-Up</span>
-                  </div>
-                )}
                 <div className="absolute bottom-4 left-4 right-4 text-white">
                   <p className="text-xs uppercase tracking-[0.18em] text-white/80">
-                    {isPopupMode ? formatEventTimePreview(eventStart, eventEnd) : formatPreviewDate(date)}
+                    {formatPreviewDate(date)}
                   </p>
-                  <h2 className="mt-1 text-2xl font-semibold leading-tight">{title || (isPopupMode ? "Your pop-up title" : "Your trip title")}</h2>
+                  <h2 className="mt-1 text-2xl font-semibold leading-tight">{title || "Your trip title"}</h2>
                   <p className="mt-2 flex items-center gap-1 text-sm text-white/85">
                     <MapPin className="h-3.5 w-3.5" />
                     {tripLocation?.label || "Pick a primary location"}
                   </p>
-                  {!isPopupMode && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                        <Timer className="h-3 w-3" />
-                        {formatTripDuration(duration)}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      <Timer className="h-3 w-3" />
+                      {formatTripDuration(duration)}
+                    </span>
+                    {cost && (
+                      <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                        ${cost}/person
                       </span>
-                      {cost && (
-                        <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                          ${cost}/person
-                        </span>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-4 p-4">
                 <p className="text-sm leading-relaxed text-stone-700">
-                  {description || (isPopupMode ? "Your pop-up description appears here." : "Your trip story preview appears here as you write.")}
+                  {description || "Your trip story preview appears here as you write."}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -1423,79 +878,10 @@ function TripsPageContent() {
                   )}
                 </div>
 
-                {!isPopupMode && (
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="font-semibold text-stone-800">Stays ({previewLodgings.length})</p>
-                      {previewLodgings.length > 0 ? (
-                        <div className="mt-2 space-y-2">
-                          {previewLodgings.map((stop) => (
-                            <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
-                              <div className="flex items-start gap-3">
-                                <Image
-                                  src={stop.imageUrl || BANNER_PLACEHOLDER}
-                                  alt={stop.title ? `${stop.title} preview` : "Stay preview"}
-                                  width={64}
-                                  height={64}
-                                  className="h-16 w-16 rounded-md border border-stone-200 object-cover"
-                                />
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <p className="truncate text-sm font-semibold text-stone-800">
-                                    {stop.title || "Untitled stay"}
-                                  </p>
-                                  <p className="truncate text-xs text-stone-500">
-                                    {stop.location?.label || stop.location?.address || "Location not set"}
-                                  </p>
-                                  <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
-                                    {stop.notes || "No stay notes yet."}
-                                  </p>
-                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost/person: $${stop.cost}` : "No cost added"}</p>
-                                </div>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-stone-500">No stays added.</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="font-semibold text-stone-800">Activities ({previewActivities.length})</p>
-                      {previewActivities.length > 0 ? (
-                        <div className="mt-2 space-y-2">
-                          {previewActivities.map((stop) => (
-                            <article key={stop.id} className="rounded-xl border border-stone-200 bg-white p-2">
-                              <div className="flex items-start gap-3">
-                                <Image
-                                  src={stop.imageUrl || BANNER_PLACEHOLDER}
-                                  alt={stop.title ? `${stop.title} preview` : "Activity preview"}
-                                  width={64}
-                                  height={64}
-                                  className="h-16 w-16 rounded-md border border-stone-200 object-cover"
-                                />
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <p className="truncate text-sm font-semibold text-stone-800">
-                                    {stop.title || "Untitled activity"}
-                                  </p>
-                                  <p className="truncate text-xs text-stone-500">
-                                    {stop.location?.label || stop.location?.address || "Location not set"}
-                                  </p>
-                                  <p className="max-h-10 overflow-hidden text-xs leading-relaxed text-stone-600">
-                                    {stop.notes || "No activity notes yet."}
-                                  </p>
-                                  <p className="text-xs text-stone-500">{stop.cost ? `Cost/person: $${stop.cost}` : "No cost added"}</p>
-                                </div>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-stone-500">No activities added.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <div className="space-y-3 text-sm">
+                  <StopPreviewList kind="lodging" stops={lodgings} />
+                  <StopPreviewList kind="activity" stops={activities} />
+                </div>
               </div>
             </div>
           </div>

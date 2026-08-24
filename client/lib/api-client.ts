@@ -1,6 +1,4 @@
 import type {
-  AddActivityPayload,
-  AddLodgingPayload,
   CreateTripPayload,
   UpdateTripPayload,
   SessionResponse,
@@ -144,9 +142,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return promise;
 }
 
-// --- Public placeholder image (local asset — no external dependency) ---
-
-export const PLACEHOLDER_TRIP_IMAGE = "/placeholder-trip.svg";
+const PLACEHOLDER_TRIP_IMAGE = "/placeholder-trip.svg";
 
 // --- Session ---
 
@@ -219,11 +215,6 @@ export async function getTrip(tripId: number): Promise<Trip> {
   };
 }
 
-export async function getMyTrips(): Promise<Trip[]> {
-  const data = await requestJson<{ trips: Trip[] }>("/users/me/trips", { method: "GET" });
-  return data.trips;
-}
-
 export async function createTrip(payload: CreateTripPayload): Promise<Trip> {
   const data = await requestJson<{ trip: Trip }>("/trips", {
     method: "POST",
@@ -265,7 +256,7 @@ export async function getTripsBatch(tripIds: number[]): Promise<Trip[]> {
   return data.trips;
 }
 
-export interface TripChildrenBatchEntry {
+interface TripChildrenBatchEntry {
   trip_id: number;
   tags: string[];
   lodgings: Trip["lodgings"];
@@ -327,20 +318,6 @@ export async function uploadImage(file: File, folder = "trips"): Promise<string>
 }
 
 // --- Trip details ---
-
-export async function addTripLodging(tripId: number, payload: AddLodgingPayload) {
-  return requestJson<{ message: string }>(`/trips/${tripId}/lodgings`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function addTripActivity(tripId: number, payload: AddActivityPayload) {
-  return requestJson<{ message: string }>(`/trips/${tripId}/activities`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
 
 export async function getTripComments(tripId: number): Promise<TripComment[]> {
   const data = await requestJson<{ comments: TripComment[] }>(`/trips/${tripId}/comments`, {
@@ -427,13 +404,6 @@ export function toUserProfileFromApi(profileResponse: UserProfileResponse): User
 
 // --- SMS invites ---
 
-export async function createSmsInvite(phoneNumber: string) {
-  return requestJson<{ message: string; invite: SmsInvite }>("/sms-invites", {
-    method: "POST",
-    body: JSON.stringify({ phone_number: phoneNumber }),
-  });
-}
-
 export async function createInviteLink() {
   return requestJson<{ message: string; invite: Pick<SmsInvite, "invite_token"> }>("/sms-invites/link", {
     method: "POST",
@@ -481,10 +451,21 @@ export interface SavedPlanItem {
   collection_name: string | null;
 }
 
-export interface SavedPlans {
+export interface CustomPlanItem {
+  custom_item_id: number;
+  title: string | null;
+  notes: string | null;
+  address: string | null;
+  cost: string | null;
+  collection_name: string | null;
+  link_url?: string | null;
+}
+
+interface SavedPlans {
   saved_activity_ids: number[];
   saved_lodging_ids: number[];
   saved_items: SavedPlanItem[];
+  custom_items?: CustomPlanItem[];
   collections: string[];
 }
 
@@ -567,3 +548,70 @@ export async function markTripCommentsRead() {
 }
 
 export { ApiError };
+
+// ── Custom plan items (user-authored, not tied to a trip) ────────────────────
+
+export async function addCustomPlanItem(payload: {
+  title: string;
+  notes?: string;
+  address?: string;
+  cost?: string;
+  collection_name?: string | null;
+}): Promise<SavedPlans> {
+  return requestJson<SavedPlans>("/users/me/plans/custom-items", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCustomPlanItem(
+  customItemId: number,
+  payload: { title?: string; notes?: string | null; address?: string | null; cost?: string | null },
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/custom-items/${customItemId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCustomPlanItem(customItemId: number): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/custom-items/${customItemId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function moveCustomPlanItemToCollection(
+  customItemId: number,
+  collectionName: string | null,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/custom-items/${customItemId}/collection`, {
+    method: "PATCH",
+    body: JSON.stringify({ collection_name: collectionName }),
+  });
+}
+
+// ── Plan sharing ─────────────────────────────────────────────────────────────
+
+export interface SharedPlanGroup {
+  name: string;
+  activities: Array<{ title: string | null; address: string | null; thumbnail_url: string | null; cost: number | null; link_url?: string | null }>;
+  lodgings: Array<{ title: string | null; address: string | null; thumbnail_url: string | null; cost: number | null; link_url?: string | null }>;
+  custom_items: Array<{ title: string | null; notes: string | null; address: string | null; cost: string | null; link_url?: string | null }>;
+}
+
+export interface SharedPlan {
+  owner_name: string | null;
+  scope: string | null;
+  groups: SharedPlanGroup[];
+}
+
+export async function createPlanShare(collectionName: string | null): Promise<{ share_token: string }> {
+  return requestJson<{ share_token: string }>("/users/me/plans/share", {
+    method: "POST",
+    body: JSON.stringify({ collection_name: collectionName }),
+  });
+}
+
+export async function getSharedPlan(token: string): Promise<SharedPlan> {
+  return requestJson<SharedPlan>(`/plans/shared/${encodeURIComponent(token)}`);
+}

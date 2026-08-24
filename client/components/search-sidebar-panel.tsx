@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Eye, Timer, ChevronDown, CalendarRange } from "lucide-react";
+import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Timer, ChevronDown, CalendarRange, ArrowUpDown } from "lucide-react";
 
 function formatCityState(address: string | null | undefined): string | null {
     if (!address) return null;
@@ -20,13 +20,15 @@ function formatCityState(address: string | null | undefined): string | null {
         });
     return cleaned.slice(-2).join(", ") || null;
 }
-import OwnerFilterSlider from "@/components/owner-filter-slider";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import type { Trip } from "@/lib/api-types";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
-import { formatTripDuration } from "@/lib/utils";
-import { buildSearchResults, getAvailableTags, MAX_COST, TRIP_DURATION_OPTIONS, useTripSearchStore } from "@/stores/trip-search-store";
+import { formatTripDate, formatTripDuration } from "@/lib/utils";
+import { buildSearchResults, getAvailableTags, MAX_COST, TRIP_DURATION_OPTIONS, useTripSearchStore, type SearchResultSort } from "@/stores/trip-search-store";
+
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] as const;
 
 interface SearchSidebarPanelProps {
     query: string;
@@ -35,13 +37,12 @@ interface SearchSidebarPanelProps {
     onClose: () => void;
     onSelectTrip: (tripId: number) => void;
     ownerFilter?: "all" | "friends" | "you";
-    onOwnerFilterChange?: (value: "all" | "friends" | "you") => void;
     currentUserId?: number | null;
     friendIds?: number[];
     autoFocus?: boolean;
 }
 
-export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", onOwnerFilterChange, currentUserId = null, friendIds = [], autoFocus = true }: SearchSidebarPanelProps) {
+export default function SearchSidebarPanel({ query, trips, onQueryChange, onClose, onSelectTrip, ownerFilter = "all", currentUserId = null, friendIds = [], autoFocus = true }: SearchSidebarPanelProps) {
     const selectedTags = useTripSearchStore((state) => state.selectedTags);
     const maxCost = useTripSearchStore((state) => state.maxCost);
     const tripTypeFilter = useTripSearchStore((state) => state.tripTypeFilter);
@@ -54,6 +55,21 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     const setDateTo = useTripSearchStore((state) => state.setDateTo);
     const clearFilters = useTripSearchStore((state) => state.clearFilters);
     const syncTagsWithAvailability = useTripSearchStore((state) => state.syncTagsWithAvailability);
+
+    // Month/year selects are split so the filter works in every browser
+    // (<input type="month"> is unsupported in Firefox/Safari).
+    const [fromMonth, fromYear] = dateFrom ? dateFrom.split("-") : ["", ""];
+    const [toMonth, toYear] = dateTo ? dateTo.split("-") : ["", ""];
+    const availableYears = useMemo(
+        () => Array.from({ length: 11 }, (_, i) => new Date().getFullYear() + 5 - i),
+        [],
+    );
+
+    function setFromPart(month: string, year: string) {
+        setDateFrom(month && year ? `${year}-${month}` : "");
+    }
+
+    const [sort, setSort] = useState<SearchResultSort>("recommended");
 
     const availableTags = useMemo(() => getAvailableTags(trips), [trips]);
 
@@ -82,8 +98,9 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                 tripTypeFilter,
                 dateFrom,
                 dateTo,
+                sort,
             }),
-        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost, tripTypeFilter, dateFrom, dateTo],
+        [trips, query, ownerFilter, currentUserId, friendIds, selectedTags, maxCost, tripTypeFilter, dateFrom, dateTo, sort],
     );
 
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -234,31 +251,60 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                         Date
                                     </p>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
-                                            type="month"
-                                            value={dateFrom}
-                                            onChange={(e) => setDateFrom(e.target.value)}
-                                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none"
-                                            aria-label="Filter trips from month"
-                                        />
-                                        <input
-                                            type="month"
-                                            value={dateTo}
-                                            onChange={(e) => setDateTo(e.target.value)}
-                                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none"
-                                            aria-label="Filter trips through month"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Visibility */}
-                                <div className="flex flex-col gap-2 mt-0 mb-4">
-                                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                        <Eye className="h-3 w-3" />
-                                        Visibility
-                                    </p>
-                                    <div className="flex justify-center">
-                                        <OwnerFilterSlider value={ownerFilter} onChange={(v) => onOwnerFilterChange?.(v)} />
+                                        <div className="flex gap-1">
+                                            <select
+                                                value={fromMonth}
+                                                onChange={(e) => setFromPart(e.target.value, fromYear)}
+                                                className="h-9 w-full rounded-md border border-input bg-background px-1 text-xs text-foreground outline-none"
+                                                aria-label="From month"
+                                            >
+                                                <option value="">Month</option>
+                                                {MONTH_LABELS.map((name, i) => (
+                                                    <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={fromYear}
+                                                onChange={(e) => setFromPart(fromMonth, e.target.value)}
+                                                className="h-9 w-full rounded-md border border-input bg-background px-1 text-xs text-foreground outline-none"
+                                                aria-label="From year"
+                                            >
+                                                <option value="">Year</option>
+                                                {availableYears.map((year) => (
+                                                    <option key={year} value={String(year)}>{year}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <select
+                                                value={toMonth}
+                                                onChange={(e) => {
+                                                    const month = e.target.value;
+                                                    setDateTo(month && toYear ? `${toYear}-${month}` : "");
+                                                }}
+                                                className="h-9 w-full rounded-md border border-input bg-background px-1 text-xs text-foreground outline-none"
+                                                aria-label="To month"
+                                            >
+                                                <option value="">Month</option>
+                                                {MONTH_LABELS.map((name, i) => (
+                                                    <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={toYear}
+                                                onChange={(e) => {
+                                                    const year = e.target.value;
+                                                    setDateTo(toMonth && year ? `${year}-${toMonth}` : "");
+                                                }}
+                                                className="h-9 w-full rounded-md border border-input bg-background px-1 text-xs text-foreground outline-none"
+                                                aria-label="To year"
+                                            >
+                                                <option value="">Year</option>
+                                                {availableYears.map((year) => (
+                                                    <option key={year} value={String(year)}>{year}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </>
@@ -268,7 +314,23 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                     {/* Divider */}
                     <div className="border-t border-border mb-4" />
 
-                    {/* Results */}
+                    {/* Sort + results */}
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Results</span>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <ArrowUpDown className="h-3 w-3" />
+                            <select
+                                value={sort}
+                                onChange={(e) => setSort(e.target.value as SearchResultSort)}
+                                className="rounded-md border border-input bg-background px-1.5 py-1 text-xs text-foreground outline-none"
+                                aria-label="Sort results"
+                            >
+                                <option value="recommended">Recommended</option>
+                                <option value="recent">Most recent</option>
+                                <option value="liked">Most liked</option>
+                            </select>
+                        </label>
+                    </div>
                     <div className="flex flex-col gap-3">
                         {noFiltersOrQuery ? (
                             <div className="flex flex-col items-center gap-2 py-6 text-center">
@@ -303,8 +365,17 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                     <span className="truncate">{trip.owner?.name}</span>
                                                 </p>
                                                 <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <Timer className="h-3 w-3 flex-shrink-0" />
-                                                    <span>{formatTripDuration(trip.duration)}</span>
+                                                    {trip.date ? (
+                                                        <>
+                                                            <CalendarRange className="h-3 w-3 flex-shrink-0" />
+                                                            <span>{formatTripDate(trip.date)}</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Timer className="h-3 w-3 flex-shrink-0" />
+                                                            <span>{formatTripDuration(trip.duration)}</span>
+                                                        </>
+                                                    )}
                                                 </div>
                                                 {(trip.cost !== null || trip.tags.length > 0) && (
                                                     <div className="mt-0.5 flex items-center gap-2">
