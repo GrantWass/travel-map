@@ -51,7 +51,9 @@ function markerImageUrl(raw: string): string {
         if (!isOptimizable) {
             return url;
         }
-        return `/_next/image?url=${encodeURIComponent(url)}&w=${MARKER_THUMB_WIDTH}&q=70`;
+        // q must stay within next.config images.qualities (default [75]) or the
+        // optimizer rejects the request with a 400.
+        return `/_next/image?url=${encodeURIComponent(url)}&w=${MARKER_THUMB_WIDTH}&q=75`;
     } catch {
         return url;
     }
