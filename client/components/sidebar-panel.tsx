@@ -2,8 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
-import { X, MapPin, Calendar, ExternalLink, FolderOpen, Notebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, BedDouble, Timer, Expand, Pencil, MessageCircle, SendHorizontal, Heart, Share2 } from "lucide-react";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { X, Calendar, FolderOpen, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer, Pencil, MessageCircle, SendHorizontal, Heart, Share2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +11,7 @@ import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-typ
 import { formatTripDate, formatTripDuration } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import TripItinerary from "@/components/trip-itinerary";
+import StopItemCard, { ACTIVITY_CARD_CONFIG, LODGING_CARD_CONFIG } from "@/components/stop-item-card";
 
 function ContentScroller({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
     if (mobile) return <>{children}</>;
@@ -47,226 +47,6 @@ interface SidebarPanelProps {
     mobileSheetMode?: boolean;
 }
 
-function formatCost(cost: number | null | undefined): string | null {
-    if (cost == null) return null;
-    if (cost <= 0) return "Free";
-    return cost % 1 === 0 ? `$${cost}/person` : `$${cost.toFixed(2)}/person`;
-}
-
-function formatAddress(address: string | null | undefined): string | null {
-    if (!address) return null;
-    const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
-    const cleaned = parts
-        .map((part) => {
-            // "NY 10118" → "NY"
-            const stateZip = part.match(/^([A-Z]{2})\s+\d{5}(-\d{4})?$/i);
-            if (stateZip) return stateZip[1].toUpperCase();
-            return part;
-        })
-        .filter((part) => {
-            if (/^(USA|United States(?: of America)?|US)$/i.test(part)) return false;
-            if (/^\d{5}(-\d{4})?$/.test(part)) return false;
-            return true;
-        });
-    return cleaned.slice(0, 3).join(", ") || null;
-}
-
-interface StopItem {
-    title?: string | null;
-    description?: string | null;
-    address?: string | null;
-    link_url?: string | null;
-    cost?: number | string | null;
-}
-
-interface StopCardConfig {
-    label: string;
-    aspectRatio: number;
-    icon: ReactNode;
-    fallbackIcon: ReactNode;
-    showAddressPill: boolean;
-    unexpandedHoverClass: string;
-    noImageBorderClass: string;
-}
-
-const LODGING_CARD_CONFIG: StopCardConfig = {
-    label: "Lodging",
-    aspectRatio: 4 / 3,
-    icon: null,
-    fallbackIcon: <BedDouble className="h-5 w-5 text-muted-foreground/60" />,
-    showAddressPill: false,
-    unexpandedHoverClass: "bg-secondary/30 hover:bg-secondary/50",
-    noImageBorderClass: "border-border bg-secondary/30",
-};
-
-const ACTIVITY_CARD_CONFIG: StopCardConfig = {
-    label: "Activity",
-    aspectRatio: 16 / 9,
-    icon: null,
-    fallbackIcon: <MapPin className="h-5 w-5 text-muted-foreground/60" />,
-    showAddressPill: true,
-    unexpandedHoverClass: "bg-secondary/40 hover:bg-secondary/70",
-    noImageBorderClass: "border-border bg-secondary/40",
-};
-
-function StopItemCard({
-    id,
-    item,
-    thumbnailUrl,
-    isExpanded,
-    onSelect,
-    onExpandImage,
-    config,
-}: {
-    id: number;
-    item: StopItem;
-    thumbnailUrl: string | null;
-    isExpanded: boolean;
-    onSelect: () => void;
-    onExpandImage: () => void;
-    config: StopCardConfig;
-}) {
-    const hasImage = Boolean(thumbnailUrl);
-    const costLabel = formatCost(typeof item.cost === "number" ? item.cost : Number(item.cost));
-    const addressLabel = formatAddress(item.address);
-
-    const toggle = () => onSelect();
-
-    if (!hasImage) {
-        return (
-            <div className={cn("w-full rounded-xl border text-left", config.noImageBorderClass)}>
-                <div className="flex items-center gap-3 p-3">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-muted">
-                        {config.fallbackIcon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
-                        {addressLabel && !config.showAddressPill && (
-                            <p className="text-xs text-muted-foreground break-words whitespace-normal">{addressLabel}</p>
-                        )}
-                        {addressLabel && config.showAddressPill && (
-                            <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                                <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                <span className="min-w-0 break-words">{addressLabel}</span>
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div
-            role="button"
-            tabIndex={0}
-            onClick={toggle}
-            onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggle();
-                }
-            }}
-            className={cn(
-                "w-full cursor-pointer rounded-xl border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
-                isExpanded
-                    ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
-                    : "border-border " + config.unexpandedHoverClass,
-            )}
-        >
-            {isExpanded ? (
-                <div className="flex flex-col gap-3 p-3">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-foreground">{item.title}</p>
-                        <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                    </div>
-                    <div className="group relative overflow-hidden rounded-lg">
-                        <AspectRatio ratio={config.aspectRatio} className="bg-muted">
-                            <Image
-                                src={thumbnailUrl!}
-                                alt={item.title || config.label}
-                                fill
-                                sizes="350px"
-                                className="object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                        </AspectRatio>
-                        {costLabel && (
-                            <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                                {costLabel}
-                            </span>
-                        )}
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onExpandImage();
-                            }}
-                            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                            aria-label={`Expand ${item.title || config.label} image`}
-                        >
-                            <Expand className="h-3 w-3" />
-                            Expand
-                        </button>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        {config.showAddressPill ? (
-                            <div className="flex min-w-0 items-start justify-between gap-2">
-                                <h3 className="min-w-0 flex-1 text-base font-semibold text-foreground break-words">
-                                    {item.title}
-                                </h3>
-                                {addressLabel && (
-                                    <span className="inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground break-words whitespace-normal">
-                                        <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                        <span className="min-w-0 break-words whitespace-normal">{addressLabel}</span>
-                                    </span>
-                                )}
-                            </div>
-                        ) : (
-                            <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
-                        )}
-                        {!config.showAddressPill && addressLabel && (
-                            <p className="text-xs text-muted-foreground break-words whitespace-normal">{addressLabel}</p>
-                        )}
-                        {item.description && (
-                            <p className="text-sm leading-relaxed text-foreground/70">{item.description}</p>
-                        )}
-                        {item.link_url && (
-                            <a
-                                href={item.link_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-secondary/70"
-                            >
-                                <ExternalLink className="h-3 w-3" />
-                                Website
-                            </a>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div className="flex items-center gap-3 p-3">
-                    <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                        <Image src={thumbnailUrl!} alt={item.title || config.label} fill sizes="48px" className="object-cover" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
-                        {addressLabel && !config.showAddressPill && (
-                            <p className="text-xs text-muted-foreground break-words whitespace-normal">{addressLabel}</p>
-                        )}
-                        {addressLabel && config.showAddressPill && (
-                            <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                                <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                <span className="min-w-0 break-words">{addressLabel}</span>
-                            </span>
-                        )}
-                    </div>
-                    <ChevronDown className={cn("h-4 w-4 flex-shrink-0 text-muted-foreground", config.showAddressPill && "self-center")} />
-                </div>
-            )}
-        </div>
-    );
-}
 
 export default function SidebarPanel({
     review,
@@ -539,7 +319,6 @@ export default function SidebarPanel({
                                 review.lodgings.map((lodging) => (
                                     <StopItemCard
                                         key={lodging.lodge_id}
-                                        id={lodging.lodge_id}
                                         item={lodging}
                                         thumbnailUrl={lodging.thumbnail_url}
                                         isExpanded={selectedLodgingId === lodging.lodge_id}
@@ -564,7 +343,6 @@ export default function SidebarPanel({
                                 review.activities.map((activity) => (
                                     <StopItemCard
                                         key={activity.activity_id}
-                                        id={activity.activity_id}
                                         item={activity}
                                         thumbnailUrl={activity.thumbnail_url}
                                         isExpanded={selectedActivityId === activity.activity_id}

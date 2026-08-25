@@ -11,6 +11,22 @@ class PlanNotFoundError(LookupError):
     pass
 
 
+def _as_optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_item_type(value: Any) -> str:
+    item_type = str(value or "activity").strip().lower()
+    if item_type not in ("activity", "lodging"):
+        raise ValueError("item_type must be 'activity' or 'lodging'")
+    return item_type
+
+
 def _build_plans_response(user_id: int) -> dict[str, Any]:
     with get_cursor() as cur:
         cur.execute(
@@ -26,7 +42,8 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
 
         cur.execute(
             """
-            SELECT custom_item_id, title, notes, address, cost, collection_name, link_url
+            SELECT custom_item_id, title, notes, address, cost, collection_name, link_url,
+                   item_type, description, latitude, longitude, thumbnail_url
             FROM plan_custom_items
             WHERE owner_user_id = %s
             ORDER BY created_at DESC, custom_item_id DESC
@@ -59,6 +76,11 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
             "cost": r.get("cost"),
             "collection_name": r.get("collection_name"),
             "link_url": r.get("link_url"),
+            "item_type": r.get("item_type") or "activity",
+            "description": r.get("description"),
+            "latitude": _as_optional_float(r.get("latitude")),
+            "longitude": _as_optional_float(r.get("longitude")),
+            "thumbnail_url": r.get("thumbnail_url"),
         }
         for r in custom_rows
     ]
@@ -229,19 +251,40 @@ def add_custom_item(
     cost: str | None = None,
     link_url: str | None = None,
     collection_name: str | None = None,
+    item_type: str = "activity",
+    description: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    thumbnail_url: str | None = None,
 ) -> dict[str, Any]:
     title = title.strip()
     if not title:
         raise ValueError("title is required")
+    parsed_item_type = _parse_item_type(item_type)
 
     with get_cursor(commit=True) as cur:
         cur.execute(
             """
-            INSERT INTO plan_custom_items (owner_user_id, title, notes, address, cost, link_url, collection_name)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO plan_custom_items
+                (owner_user_id, title, notes, address, cost, link_url, collection_name,
+                 item_type, description, latitude, longitude, thumbnail_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING custom_item_id
             """,
-            (user_id, title, notes, address, cost, link_url, collection_name),
+            (
+                user_id,
+                title,
+                notes,
+                address,
+                cost,
+                link_url,
+                collection_name,
+                parsed_item_type,
+                description,
+                latitude,
+                longitude,
+                thumbnail_url,
+            ),
         )
         row = cur.fetchone()
 
@@ -255,10 +298,12 @@ def add_custom_item(
 
 
 def update_custom_item(user_id: int, custom_item_id: int, fields: dict[str, Any]) -> dict[str, Any]:
-    allowed = {"title", "notes", "address", "cost", "link_url"}
+    allowed = {"title", "notes", "address", "cost", "link_url", "item_type", "description", "latitude", "longitude", "thumbnail_url"}
     updates = {key: value for key, value in fields.items() if key in allowed}
     if "title" in updates and not str(updates["title"]).strip():
         raise ValueError("title is required")
+    if "item_type" in updates:
+        updates["item_type"] = _parse_item_type(updates["item_type"])
     if not updates:
         return _build_plans_response(user_id)
 
@@ -387,7 +432,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
 
         cur.execute(
             """
-            SELECT custom_item_id, title, notes, address, cost, collection_name, link_url
+            SELECT custom_item_id, title, notes, address, cost, collection_name, link_url,
+                   item_type, description, thumbnail_url
             FROM plan_custom_items
             WHERE owner_user_id = %s
             ORDER BY created_at DESC, custom_item_id DESC
@@ -434,13 +480,19 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
 
     for row in custom_items:
         collection = _group(_group_name(row["collection_name"]))
-        collection["custom_items"].append({
+        item_type = (row.get("item_type") or "activity").lower()
+        stop = {
             "title": row.get("title"),
-            "notes": row.get("notes"),
             "address": row.get("address"),
-            "cost": row.get("cost"),
+            "thumbnail_url": row.get("thumbnail_url"),
+            "cost": _as_optional_float(row.get("cost")),
             "link_url": row.get("link_url"),
-        })
+            "description": row.get("notes") or row.get("description"),
+        }
+        if item_type == "lodging":
+            collection["lodgings"].append(stop)
+        else:
+            collection["activities"].append(stop)
 
     ordered_groups = sorted(groups.values(), key=lambda g: (g["name"] == "Unsorted", g["name"]))
 

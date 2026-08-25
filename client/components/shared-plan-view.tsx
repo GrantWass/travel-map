@@ -75,6 +75,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                     <span>{item.address}</span>
                                                 </p>
                                             )}
+                                            {item.description && <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.description}</p>}
                                             {item.link_url && (
                                                 <span className="mt-1"><WebsiteChip url={item.link_url} /></span>
                                             )}
@@ -100,6 +101,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                     <span>{item.address}</span>
                                                 </p>
                                             )}
+                                            {item.description && <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.description}</p>}
                                             {item.link_url && (
                                                 <span className="mt-1"><WebsiteChip url={item.link_url} /></span>
                                             )}
@@ -107,23 +109,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         <CostLabel cost={item.cost} />
                                     </article>
                                 ))}
-
-                                {group.custom_items.map((item, index) => (
-                                    <article key={`c-${index}`} className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <p className="min-w-0 text-sm font-medium text-stone-800">{item.title}</p>
-                                            <CostLabel cost={item.cost} />
-                                        </div>
-                                        {item.address && (
-                                            <p className="mt-0.5 flex items-start gap-1 text-xs text-stone-500">
-                                                <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                                <span>{item.address}</span>
-                                            </p>
-                                        )}
-                                        {item.notes && <p className="mt-1 text-xs leading-relaxed text-stone-600">{item.notes}</p>}
-                                        {item.link_url && <span className="mt-2"><WebsiteChip url={item.link_url} /></span>}
-                                    </article>
-                                ))}
+                            
                             </section>
                         ))}
                     </div>

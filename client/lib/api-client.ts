@@ -459,6 +459,11 @@ export interface CustomPlanItem {
   cost: string | null;
   collection_name: string | null;
   link_url?: string | null;
+  item_type?: "activity" | "lodging";
+  description?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  thumbnail_url?: string | null;
 }
 
 interface SavedPlans {
@@ -557,6 +562,11 @@ export async function addCustomPlanItem(payload: {
   address?: string;
   cost?: string;
   collection_name?: string | null;
+  item_type?: "activity" | "lodging";
+  description?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  thumbnail_url?: string | null;
 }): Promise<SavedPlans> {
   return requestJson<SavedPlans>("/users/me/plans/custom-items", {
     method: "POST",
@@ -566,7 +576,17 @@ export async function addCustomPlanItem(payload: {
 
 export async function updateCustomPlanItem(
   customItemId: number,
-  payload: { title?: string; notes?: string | null; address?: string | null; cost?: string | null },
+  payload: {
+    title?: string;
+    notes?: string | null;
+    address?: string | null;
+    cost?: string | null;
+    item_type?: "activity" | "lodging";
+    description?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    thumbnail_url?: string | null;
+  },
 ): Promise<SavedPlans> {
   return requestJson<SavedPlans>(`/users/me/plans/custom-items/${customItemId}`, {
     method: "PUT",
@@ -631,11 +651,19 @@ export async function saveTripItinerary(
 
 // ── Plan sharing ─────────────────────────────────────────────────────────────
 
+export interface SharedPlanStop {
+  title: string | null;
+  address: string | null;
+  thumbnail_url: string | null;
+  cost: number | null;
+  link_url?: string | null;
+  description?: string | null;
+}
+
 export interface SharedPlanGroup {
   name: string;
-  activities: Array<{ title: string | null; address: string | null; thumbnail_url: string | null; cost: number | null; link_url?: string | null }>;
-  lodgings: Array<{ title: string | null; address: string | null; thumbnail_url: string | null; cost: number | null; link_url?: string | null }>;
-  custom_items: Array<{ title: string | null; notes: string | null; address: string | null; cost: string | null; link_url?: string | null }>;
+  activities: SharedPlanStop[];
+  lodgings: SharedPlanStop[];
 }
 
 export interface SharedPlan {

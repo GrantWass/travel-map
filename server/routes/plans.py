@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from flask import Blueprint, jsonify, request
 
 from services.auth_service import get_authenticated_user, to_nullable_string
@@ -20,6 +22,15 @@ from services.plans_service import (
 )
 
 plans_bp = Blueprint("plans", __name__)
+
+
+def _to_optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _require_authenticated_user():
@@ -121,6 +132,11 @@ def add_custom_plan_item():
         cost=to_nullable_string(body.get("cost")),
         link_url=link_url,
         collection_name=to_nullable_string(body.get("collection_name")) or None,
+        item_type=str(body.get("item_type") or "activity"),
+        description=to_nullable_string(body.get("description")),
+        latitude=_to_optional_float(body.get("latitude")),
+        longitude=_to_optional_float(body.get("longitude")),
+        thumbnail_url=to_nullable_string(body.get("thumbnail_url")),
     )
     return jsonify(plans), 201
 
