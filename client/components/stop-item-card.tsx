@@ -71,6 +71,27 @@ export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     noImageBorderClass: "border-border bg-secondary/40",
 };
 
+/** Shared "Places Stayed" / "Activities" section: heading + cards or empty state. */
+export function StopSection({
+    title,
+    emptyMessage,
+    children,
+}: {
+    title: ReactNode;
+    emptyMessage: string;
+    children?: ReactNode;
+}) {
+    const hasItems = Array.isArray(children) ? children.length > 0 : Boolean(children);
+    return (
+        <div className="flex flex-col gap-3">
+            <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                {title}
+            </h3>
+            {hasItems ? children : <p className="text-sm text-muted-foreground">{emptyMessage}</p>}
+        </div>
+    );
+}
+
 interface StopItemCardProps {
     item: StopItem;
     thumbnailUrl: string | null;

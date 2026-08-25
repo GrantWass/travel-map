@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-types";
-import { formatTripDate, formatTripDuration } from "@/lib/utils";
+import { formatTripDate, formatTripDuration, shareOrCopyUrl } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import TripItinerary from "@/components/trip-itinerary";
-import StopItemCard, { ACTIVITY_CARD_CONFIG, LODGING_CARD_CONFIG } from "@/components/stop-item-card";
+import StopItemCard, { ACTIVITY_CARD_CONFIG, LODGING_CARD_CONFIG, StopSection } from "@/components/stop-item-card";
 
 function ContentScroller({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
     if (mobile) return <>{children}</>;
@@ -123,23 +123,10 @@ export default function SidebarPanel({
 
     async function handleShareTrip() {
         const url = `${window.location.origin}/?trip=${review.trip_id}`;
-
-        if (typeof navigator.share === "function") {
-            try {
-                await navigator.share({ title: review.title, url });
-                return;
-            } catch {
-                // User dismissed the share sheet — fall through.
-                return;
-            }
-        }
-
-        try {
-            await navigator.clipboard.writeText(url);
+        const result = await shareOrCopyUrl(url, review.title);
+        if (result === "copied") {
             setShareLabel("Link copied!");
             window.setTimeout(() => setShareLabel("Share this trip"), 2000);
-        } catch {
-            // Clipboard unavailable — do nothing.
         }
     }
 
@@ -310,53 +297,46 @@ export default function SidebarPanel({
                     )}
 
                     {/* Places Stayed */}
-                    <div className="flex flex-col gap-3">
-                            <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    <StopSection
+                        title={
+                            <>
                                 <BedDouble className="h-3.5 w-3.5" />
                                 Places Stayed
-                            </h3>
-                            {review.lodgings.length > 0 ? (
-                                review.lodgings.map((lodging) => (
-                                    <StopItemCard
-                                        key={lodging.lodge_id}
-                                        item={lodging}
-                                        thumbnailUrl={lodging.thumbnail_url}
-                                        isExpanded={selectedLodgingId === lodging.lodge_id}
-                                        onSelect={() =>
-                                            setSelectedLodging(selectedLodgingId === lodging.lodge_id ? null : lodging)
-                                        }
-                                        onExpandImage={() => onExpandImage({ src: lodging.thumbnail_url!, alt: lodging.title || "Lodging" })}
-                                        config={LODGING_CARD_CONFIG}
-                                    />
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">No places stayed were added for this trip.</p>
-                            )}
-                    </div>
+                            </>
+                        }
+                        emptyMessage="No places stayed were added for this trip."
+                    >
+                        {review.lodgings.map((lodging) => (
+                            <StopItemCard
+                                key={lodging.lodge_id}
+                                item={lodging}
+                                thumbnailUrl={lodging.thumbnail_url}
+                                isExpanded={selectedLodgingId === lodging.lodge_id}
+                                onSelect={() =>
+                                    setSelectedLodging(selectedLodgingId === lodging.lodge_id ? null : lodging)
+                                }
+                                onExpandImage={() => onExpandImage({ src: lodging.thumbnail_url!, alt: lodging.title || "Lodging" })}
+                                config={LODGING_CARD_CONFIG}
+                            />
+                        ))}
+                    </StopSection>
 
                     {/* Activities */}
-                    <div className="flex flex-col gap-3">
-                            <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                                Activities
-                            </h3>
-                            {review.activities.length > 0 ? (
-                                review.activities.map((activity) => (
-                                    <StopItemCard
-                                        key={activity.activity_id}
-                                        item={activity}
-                                        thumbnailUrl={activity.thumbnail_url}
-                                        isExpanded={selectedActivityId === activity.activity_id}
-                                        onSelect={() =>
-                                            setSelectedActivity(selectedActivityId === activity.activity_id ? null : activity)
-                                        }
-                                        onExpandImage={() => onExpandImage({ src: activity.thumbnail_url!, alt: activity.title || "Activity" })}
-                                        config={ACTIVITY_CARD_CONFIG}
-                                    />
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">No activities were added for this trip.</p>
-                            )}
-                        </div>
+                    <StopSection title="Activities" emptyMessage="No activities were added for this trip.">
+                        {review.activities.map((activity) => (
+                            <StopItemCard
+                                key={activity.activity_id}
+                                item={activity}
+                                thumbnailUrl={activity.thumbnail_url}
+                                isExpanded={selectedActivityId === activity.activity_id}
+                                onSelect={() =>
+                                    setSelectedActivity(selectedActivityId === activity.activity_id ? null : activity)
+                                }
+                                onExpandImage={() => onExpandImage({ src: activity.thumbnail_url!, alt: activity.title || "Activity" })}
+                                config={ACTIVITY_CARD_CONFIG}
+                            />
+                        ))}
+                    </StopSection>
 
                     {/* Itinerary (optional day-by-day planner) */}
                     <TripItinerary

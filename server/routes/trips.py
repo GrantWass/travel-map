@@ -5,7 +5,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import Unauthorized
 
-from services.auth_service import get_authenticated_user
+from services.auth_service import get_authenticated_user, require_authenticated_user
 from services.itinerary_service import ItineraryForbiddenError, list_itinerary, replace_itinerary
 from services.trip_service import (
     TripValidationError,
@@ -82,11 +82,6 @@ def _parse_trip_ids_arg() -> list[int]:
     return trip_ids
 
 
-def _require_authenticated_user() -> dict[str, Any]:
-    user = get_authenticated_user()
-    if not user:
-        raise Unauthorized()
-    return user
 
 
 @trips_bp.route("/trips", methods=["GET"])
@@ -157,7 +152,7 @@ def get_trip_by_id(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>", methods=["PUT"])
 def update_trip_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     trip = update_trip(trip_id=trip_id, owner_user_id=user["user_id"], payload=payload)
@@ -166,7 +161,7 @@ def update_trip_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>", methods=["DELETE"])
 def delete_trip_by_id(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     delete_trip(trip_id=trip_id, owner_user_id=user["user_id"])
     return jsonify({"message": "trip deleted"}), 200
@@ -174,7 +169,7 @@ def delete_trip_by_id(trip_id: int):
 
 @trips_bp.route("/trips", methods=["POST"])
 def create_trip_route():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     trip = create_trip(owner_user_id=user["user_id"], payload=payload)
@@ -183,7 +178,7 @@ def create_trip_route():
 
 @trips_bp.route("/trips/<int:trip_id>/lodgings", methods=["POST"])
 def add_lodging_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     lodging = add_lodging(trip_id=trip_id, owner_user_id=user["user_id"], payload=payload)
@@ -192,7 +187,7 @@ def add_lodging_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>/activities", methods=["POST"])
 def add_activity_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     activity = add_activity(trip_id=trip_id, owner_user_id=user["user_id"], payload=payload)
@@ -213,7 +208,7 @@ def get_trip_itinerary_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>/itinerary", methods=["PUT"])
 def replace_trip_itinerary_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     try:
@@ -238,7 +233,7 @@ def get_trip_comments_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>/comments", methods=["POST"])
 def create_trip_comment_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     comment = create_trip_comment(
@@ -251,7 +246,7 @@ def create_trip_comment_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>/likes", methods=["POST"])
 def add_trip_like_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     like_count = update_trip_like_count(trip_id=trip_id, viewer_user_id=user["user_id"], delta=1)
     return jsonify({"trip_id": trip_id, "like_count": like_count}), 200
@@ -259,7 +254,7 @@ def add_trip_like_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>/likes", methods=["DELETE"])
 def remove_trip_like_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     like_count = update_trip_like_count(trip_id=trip_id, viewer_user_id=user["user_id"], delta=-1)
     return jsonify({"trip_id": trip_id, "like_count": like_count}), 200
@@ -267,7 +262,7 @@ def remove_trip_like_route(trip_id: int):
 
 @trips_bp.route("/trips/<int:trip_id>/collaborators", methods=["POST"])
 def add_trip_collaborator_route(trip_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     collaborator_user_id_raw = payload.get("collaborator_user_id")

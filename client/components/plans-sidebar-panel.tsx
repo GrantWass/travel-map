@@ -24,9 +24,11 @@ import PlacePicker from "@/components/place-picker";
 import StopItemCard, {
   ACTIVITY_CARD_CONFIG,
   LODGING_CARD_CONFIG,
+  StopSection,
 } from "@/components/stop-item-card";
 import { createPlanShare, type CustomPlanItem } from "@/lib/api-client";
 import { looksLikeLink, unfurlLink } from "@/lib/link-unfurl";
+import { shareOrCopyUrl } from "@/lib/utils";
 import type { PlaceOption } from "@/lib/client-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 
@@ -426,19 +428,16 @@ export default function PlansSidebarPanel({
     try {
       const { share_token } = await createPlanShare(collectionName);
       const url = `${window.location.origin}/shared-plan/${share_token}`;
-
-      if (typeof navigator.share === "function") {
-        await navigator.share({
-          title: collectionName ? `${collectionName} — travel plans` : "My travel plans",
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
+      const result = await shareOrCopyUrl(
+        url,
+        collectionName ? `${collectionName} — travel plans` : "My travel plans",
+      );
+      if (result === "copied") {
+        setCopiedShareLink(true);
+        window.setTimeout(() => setCopiedShareLink(false), 2000);
       }
-      setCopiedShareLink(true);
-      window.setTimeout(() => setCopiedShareLink(false), 2000);
     } catch {
-      // Dismissed share sheet or clipboard unavailable — do nothing.
+      // Share creation failed or clipboard unavailable — do nothing.
     }
   }
 
@@ -475,15 +474,59 @@ export default function PlansSidebarPanel({
     }
   }
 
+  /** Trip-style card for a saved activity from a real trip. */
+  function SavedActivityCard({ entry }: { entry: SavedActivityEntry }) {
+    return (
+      <StopItemCard
+        item={entry.activity}
+        thumbnailUrl={entry.activity.thumbnail_url || entry.tripThumbnail}
+        isExpanded={false}
+        onSelect={() => onOpenTrip(entry.tripId)}
+        config={ACTIVITY_CARD_CONFIG}
+      />
+    );
+  }
+
+  /** Trip-style card for a saved lodging from a real trip. */
+  function SavedLodgingCard({ entry }: { entry: SavedLodgingEntry }) {
+    return (
+      <StopItemCard
+        item={entry.lodging}
+        thumbnailUrl={entry.lodging.thumbnail_url || entry.tripThumbnail}
+        isExpanded={false}
+        onSelect={() => onOpenTrip(entry.tripId)}
+        config={LODGING_CARD_CONFIG}
+      />
+    );
+  }
+
+  function customRow(item: CustomPlanItem) {
+    return (
+      <CustomStopCard
+        key={item.custom_item_id}
+        item={item}
+        collections={allCollectionNames}
+        onSave={(patch) => onUpdateCustomItem(item.custom_item_id, patch)}
+        onDelete={() => onDeleteCustomItem(item.custom_item_id)}
+        onMove={(col) => onMoveCustomItem(item.custom_item_id, col)}
+      />
+    );
+  }
+
   /** Trip-like detail view centered on lodging + activities for one collection. */
   function CollectionDetailView({ name }: { name: string }) {
-    const colActivities = activitiesFor(name);
-    const colLodgings = lodgingsFor(name);
-    const colCustomItems = customItemsFor(name);
-    const activityItems = [
-      ...colCustomItems.filter((c) => (c.item_type ?? "activity") !== "lodging"),
+    const lodgingRows = [
+      ...lodgingsFor(name).map((entry) => <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />),
+      ...customItemsFor(name)
+        .filter((c) => c.item_type === "lodging")
+        .map(customRow),
     ];
-    const lodgingItems = colCustomItems.filter((c) => c.item_type === "lodging");
+    const activityRows = [
+      ...activitiesFor(name).map((entry) => <SavedActivityCard key={entry.activity.activity_id} entry={entry} />),
+      ...customItemsFor(name)
+        .filter((c) => (c.item_type ?? "activity") !== "lodging")
+        .map(customRow),
+    ];
 
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -551,64 +594,14 @@ export default function PlansSidebarPanel({
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-5 p-5">
             {/* Places Stayed — same layout as a trip */}
-            <div className="flex flex-col gap-3">
-              <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Places Stayed</h3>
-              {[...colLodgings.map((entry) => ({ kind: "saved" as const, entry })), ...lodgingItems.map((item) => ({ kind: "custom" as const, item }))].length > 0 ? (
-                [...colLodgings.map((entry) => ({ kind: "saved" as const, entry })), ...lodgingItems.map((item) => ({ kind: "custom" as const, item }))].map((row) =>
-                  row.kind === "saved" ? (
-                    <StopItemCard
-                      key={`sl-${row.entry.lodging.lodge_id}`}
-                      item={row.entry.lodging}
-                      thumbnailUrl={row.entry.lodging.thumbnail_url}
-                      isExpanded={false}
-                      onSelect={() => onOpenTrip(row.entry.tripId)}
-                      config={LODGING_CARD_CONFIG}
-                    />
-                  ) : (
-                    <CustomStopCard
-                      key={`cl-${row.item.custom_item_id}`}
-                      item={row.item}
-                      collections={allCollectionNames}
-                      onSave={(patch) => onUpdateCustomItem(row.item.custom_item_id, patch)}
-                      onDelete={() => onDeleteCustomItem(row.item.custom_item_id)}
-                      onMove={(col) => onMoveCustomItem(row.item.custom_item_id, col)}
-                    />
-                  ),
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground">No places stayed added yet.</p>
-              )}
-            </div>
+            <StopSection title={<><BedDouble className="h-3.5 w-3.5" /> Places Stayed</>} emptyMessage="No places stayed added yet.">
+              {lodgingRows}
+            </StopSection>
 
             {/* Activities — same layout as a trip */}
-            <div className="flex flex-col gap-3">
-              <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Activities</h3>
-              {[...colActivities.map((entry) => ({ kind: "saved" as const, entry })), ...activityItems.map((item) => ({ kind: "custom" as const, item }))].length > 0 ? (
-                [...colActivities.map((entry) => ({ kind: "saved" as const, entry })), ...activityItems.map((item) => ({ kind: "custom" as const, item }))].map((row) =>
-                  row.kind === "saved" ? (
-                    <StopItemCard
-                      key={`sa-${row.entry.activity.activity_id}`}
-                      item={row.entry.activity}
-                      thumbnailUrl={row.entry.activity.thumbnail_url}
-                      isExpanded={false}
-                      onSelect={() => onOpenTrip(row.entry.tripId)}
-                      config={ACTIVITY_CARD_CONFIG}
-                    />
-                  ) : (
-                    <CustomStopCard
-                      key={`ca-${row.item.custom_item_id}`}
-                      item={row.item}
-                      collections={allCollectionNames}
-                      onSave={(patch) => onUpdateCustomItem(row.item.custom_item_id, patch)}
-                      onDelete={() => onDeleteCustomItem(row.item.custom_item_id)}
-                      onMove={(col) => onMoveCustomItem(row.item.custom_item_id, col)}
-                    />
-                  ),
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground">No activities added yet.</p>
-              )}
-            </div>
+            <StopSection title="Activities" emptyMessage="No activities added yet.">
+              {activityRows}
+            </StopSection>
 
             {selectedCollection !== name && (
               <p className="text-xs text-muted-foreground">
@@ -716,35 +709,12 @@ export default function PlansSidebarPanel({
         {!collapsed && (
           <div className="flex flex-col gap-2 pl-1">
             {colLodgings.map((entry) => (
-              <StopItemCard
-                key={entry.lodging.lodge_id}
-                item={entry.lodging}
-                thumbnailUrl={entry.lodging.thumbnail_url || entry.tripThumbnail}
-                isExpanded={false}
-                onSelect={() => onOpenTrip(entry.tripId)}
-                config={LODGING_CARD_CONFIG}
-              />
+              <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />
             ))}
             {colActivities.map((entry) => (
-              <StopItemCard
-                key={entry.activity.activity_id}
-                item={entry.activity}
-                thumbnailUrl={entry.activity.thumbnail_url || entry.tripThumbnail}
-                isExpanded={false}
-                onSelect={() => onOpenTrip(entry.tripId)}
-                config={ACTIVITY_CARD_CONFIG}
-              />
+              <SavedActivityCard key={entry.activity.activity_id} entry={entry} />
             ))}
-            {colCustomItems.map((item) => (
-              <CustomStopCard
-                key={item.custom_item_id}
-                item={item}
-                collections={allCollectionNames}
-                onSave={(patch) => onUpdateCustomItem(item.custom_item_id, patch)}
-                onDelete={() => onDeleteCustomItem(item.custom_item_id)}
-                onMove={(col) => onMoveCustomItem(item.custom_item_id, col)}
-              />
-            ))}
+            {colCustomItems.map(customRow)}
           </div>
         )}
       </div>

@@ -85,3 +85,30 @@ export function toDisplayDate(dateValue: string | null | undefined): string {
     year: "numeric",
   }).format(parsed);
 }
+
+/**
+ * Opens the native share sheet when available, otherwise copies to clipboard.
+ * Returns "copied" so callers can flash a confirmation, or "dismissed" if the
+ * user closed the sheet or the clipboard was unavailable.
+ */
+export async function shareOrCopyUrl(
+  url: string,
+  title: string,
+): Promise<"shared" | "copied" | "dismissed"> {
+  if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title, url });
+      return "shared";
+    } catch {
+      // User dismissed the share sheet.
+      return "dismissed";
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    return "copied";
+  } catch {
+    return "dismissed";
+  }
+}

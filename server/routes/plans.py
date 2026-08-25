@@ -4,7 +4,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from services.auth_service import get_authenticated_user, to_nullable_string
+from services.auth_service import get_authenticated_user, require_authenticated_user, to_nullable_string
 from services.plans_service import (
     PlanNotFoundError,
     add_custom_item,
@@ -33,18 +33,11 @@ def _to_optional_float(value: Any) -> float | None:
         return None
 
 
-def _require_authenticated_user():
-    user = get_authenticated_user()
-    if not user:
-        from werkzeug.exceptions import Unauthorized
-
-        raise Unauthorized()
-    return user
 
 
 @plans_bp.route("/users/me/plans", methods=["GET"])
 def get_plans():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     plans = get_user_plans(user["user_id"])
     return jsonify(plans), 200
@@ -52,7 +45,7 @@ def get_plans():
 
 @plans_bp.route("/users/me/plans/activities/<int:activity_id>", methods=["POST"])
 def toggle_activity(activity_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     collection_name = body.get("collection_name") or None
@@ -62,7 +55,7 @@ def toggle_activity(activity_id: int):
 
 @plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>", methods=["POST"])
 def toggle_lodging(lodge_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     collection_name = body.get("collection_name") or None
@@ -72,7 +65,7 @@ def toggle_lodging(lodge_id: int):
 
 @plans_bp.route("/users/me/plans/collections", methods=["POST"])
 def add_collection():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     name = (body.get("name") or "").strip()
@@ -85,7 +78,7 @@ def add_collection():
 
 @plans_bp.route("/users/me/plans/collections/<string:name>", methods=["DELETE"])
 def remove_collection(name: str):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     plans = delete_collection(user["user_id"], name)
     return jsonify(plans), 200
@@ -93,7 +86,7 @@ def remove_collection(name: str):
 
 @plans_bp.route("/users/me/plans/activities/<int:activity_id>/collection", methods=["PATCH"])
 def move_activity_collection(activity_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     collection_name = body.get("collection_name") or None
@@ -103,7 +96,7 @@ def move_activity_collection(activity_id: int):
 
 @plans_bp.route("/users/me/plans/lodgings/<int:lodge_id>/collection", methods=["PATCH"])
 def move_lodging_collection(lodge_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     collection_name = body.get("collection_name") or None
@@ -113,7 +106,7 @@ def move_lodging_collection(lodge_id: int):
 
 @plans_bp.route("/users/me/plans/custom-items", methods=["POST"])
 def add_custom_plan_item():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     title = to_nullable_string(body.get("title"))
@@ -143,7 +136,7 @@ def add_custom_plan_item():
 
 @plans_bp.route("/users/me/plans/custom-items/<int:custom_item_id>", methods=["PUT"])
 def update_custom_plan_item(custom_item_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     if "link_url" in body:
@@ -161,7 +154,7 @@ def update_custom_plan_item(custom_item_id: int):
 
 @plans_bp.route("/users/me/plans/custom-items/<int:custom_item_id>", methods=["DELETE"])
 def delete_custom_plan_item(custom_item_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     try:
         plans = delete_custom_item(user["user_id"], custom_item_id)
@@ -172,7 +165,7 @@ def delete_custom_plan_item(custom_item_id: int):
 
 @plans_bp.route("/users/me/plans/custom-items/<int:custom_item_id>/collection", methods=["PATCH"])
 def move_custom_plan_item_collection(custom_item_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     collection_name = to_nullable_string(body.get("collection_name")) or None
@@ -185,7 +178,7 @@ def move_custom_plan_item_collection(custom_item_id: int):
 
 @plans_bp.route("/users/me/plans/share", methods=["POST"])
 def share_plans():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     body = request.get_json(silent=True) or {}
     result = create_plan_share(

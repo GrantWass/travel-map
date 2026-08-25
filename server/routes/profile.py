@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
-from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, to_nullable_string, update_user_settings
+from services.auth_service import UNSET, get_authenticated_user, mark_onboarding_steps_complete, require_authenticated_user, to_nullable_string, update_user_settings
 from services.trip_service import (
     get_unread_trip_comment_count_by_trip,
     get_user_profile,
@@ -17,18 +17,11 @@ from services.friendship_service import list_friendships as svc_list_friendships
 profile_bp = Blueprint("profile", __name__)
 
 
-def _require_authenticated_user():
-    user = get_authenticated_user()
-    if not user:
-        from werkzeug.exceptions import Unauthorized
-
-        raise Unauthorized()
-    return user
 
 
 @profile_bp.route("/profile/setup", methods=["POST"])
 def profile_setup():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     account_type = to_nullable_string(payload.get("account_type")) or "traveler"
@@ -53,7 +46,7 @@ def profile_setup():
 
 @profile_bp.route("/users/me/trips", methods=["GET"])
 def my_trips():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     trips = list_user_trips(target_user_id=user["user_id"], viewer_user_id=user["user_id"], include_children=False)
     return jsonify({"trips": trips}), 200
@@ -73,7 +66,7 @@ def user_profile(user_id: int):
 
 @profile_bp.route("/users/me/notifications/comments/unread-count", methods=["GET"])
 def unread_trip_comment_count():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     unread_count_by_trip = get_unread_trip_comment_count_by_trip(user_id=user["user_id"])
     unread_count = sum(unread_count_by_trip.values())
@@ -87,7 +80,7 @@ def unread_trip_comment_count():
 
 @profile_bp.route("/users/me/notifications/comments/mark-read", methods=["POST"])
 def mark_trip_comments_read():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     last_seen_at = mark_trip_comment_notifications_read(user_id=user["user_id"])
     return jsonify({"message": "trip comment notifications marked as read", "last_seen_at": last_seen_at}), 200
@@ -95,7 +88,7 @@ def mark_trip_comments_read():
 
 @profile_bp.route("/users/me/onboarding", methods=["PATCH"])
 def mark_onboarding():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     step_ids = payload.get("completed_step_ids")
@@ -109,7 +102,7 @@ def mark_onboarding():
 
 @profile_bp.route("/profile/update", methods=["POST"])
 def update_profile_settings():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
@@ -161,7 +154,7 @@ def update_profile_settings():
 
 @profile_bp.route("/sms-invites", methods=["POST"])
 def create_sms_invite():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     phone_number = to_nullable_string(payload.get("phone_number"))
@@ -174,7 +167,7 @@ def create_sms_invite():
 
 @profile_bp.route("/sms-invites/link", methods=["POST"])
 def create_link_invite():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     invite = svc_create_link_invite(inviter_id=user["user_id"])
     return jsonify({"message": "invite link created", "invite": invite}), 201
@@ -182,7 +175,7 @@ def create_link_invite():
 
 @profile_bp.route("/sms-invites/claim", methods=["POST"])
 def claim_sms_invite():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     invite_token = to_nullable_string(payload.get("invite_token"))
@@ -198,7 +191,7 @@ def claim_sms_invite():
 
 @profile_bp.route("/friendships", methods=["POST"])
 def create_friendship():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     addressee_id_raw = payload.get("addressee_id")
@@ -216,7 +209,7 @@ def create_friendship():
 
 @profile_bp.route("/friendships", methods=["GET"])
 def list_friendships():
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     data = svc_list_friendships(user_id=user["user_id"])
     return jsonify(data), 200
@@ -231,7 +224,7 @@ def search_users():
 
 @profile_bp.route("/friendships/<int:friendship_id>/respond", methods=["POST"])
 def respond_friendship(friendship_id: int):
-    user = _require_authenticated_user()
+    user = require_authenticated_user()
 
     payload = request.get_json(silent=True) or {}
     status = to_nullable_string(payload.get("status"))

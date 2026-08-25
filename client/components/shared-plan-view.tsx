@@ -6,6 +6,7 @@ import { BedDouble, CalendarRange, ExternalLink, MapPin, Notebook } from "lucide
 
 import type { SharedPlan, SharedPlanGroup } from "@/lib/api-client";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
+import { formatStopCost } from "@/components/stop-item-card";
 
 function WebsiteChip({ url }: { url: string }) {
     return (
@@ -19,14 +20,6 @@ function WebsiteChip({ url }: { url: string }) {
             Website
         </a>
     );
-}
-
-function formatCost(cost: number | string | null | undefined): string | null {
-    if (cost == null || cost === "") return null;
-    const value = typeof cost === "number" ? cost : Number(cost);
-    if (Number.isNaN(value)) return String(cost);
-    if (value <= 0) return "Free";
-    return value % 1 === 0 ? `$${value}/person` : `$${value.toFixed(2)}/person`;
 }
 
 export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
@@ -125,7 +118,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
 }
 
 function CostLabel({ cost }: { cost: number | string | null }) {
-    const label = formatCost(cost);
+    const label = formatStopCost(cost);
     if (!label) return null;
     return (
         <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-stone-600">

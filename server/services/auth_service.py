@@ -23,6 +23,16 @@ def to_nullable_string(value: Any) -> str | None:
     return text if text else None
 
 
+def require_authenticated_user() -> dict[str, Any]:
+    """Return the authenticated user or raise 401 Unauthorized."""
+    from werkzeug.exceptions import Unauthorized
+
+    user = get_authenticated_user()
+    if not user:
+        raise Unauthorized()
+    return user
+
+
 def normalize_user(row: dict[str, Any]) -> dict[str, Any]:
     completed = row.get("completed_onboarding_tours")
     if isinstance(completed, str):
