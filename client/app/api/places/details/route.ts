@@ -59,12 +59,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "place has no location" }, { status: 502 });
     }
 
-    return NextResponse.json({
-      label: formattedAddress ?? placeId,
-      address: formattedAddress ?? "",
-      latitude,
-      longitude,
-    });
+    return NextResponse.json(
+      {
+        label: formattedAddress ?? placeId,
+        address: formattedAddress ?? "",
+        latitude,
+        longitude,
+      },
+      // Place coordinates are effectively immutable — cache hard at the edge.
+      { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } },
+    );
   } catch {
     return NextResponse.json({ error: "place lookup failed" }, { status: 502 });
   } finally {

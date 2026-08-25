@@ -31,6 +31,34 @@ function sanitizeImageUrl(raw: string): string {
     }
 }
 
+const MARKER_THUMB_WIDTH = 128;
+
+// Hosts allowed through the Next image optimizer (mirrors next.config.mjs).
+const OPTIMIZER_HOST_SUFFIXES = ["amazonaws.com", "images.unsplash.com", "placehold.co"];
+
+// Markers render at 50-80px, so serve a small optimized variant instead of the
+// full-size stored image when possible; other hosts fall back to the raw URL.
+function markerImageUrl(raw: string): string {
+    const url = sanitizeImageUrl(raw);
+    if (!url || url.startsWith("/")) {
+        return url;
+    }
+    try {
+        const hostname = new URL(url).hostname;
+        const isOptimizable = OPTIMIZER_HOST_SUFFIXES.some(
+            (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
+        );
+        if (!isOptimizable) {
+            return url;
+        }
+        return `/_next/image?url=${encodeURIComponent(url)}&w=${MARKER_THUMB_WIDTH}&q=70`;
+    } catch {
+        return url;
+    }
+}
+
+const MARKER_IMG_ATTRS = `loading="lazy" decoding="async" onerror="this.style.display='none'"`;
+
 function truncateTripMarkerTitle(value: string, maxLength: number): string {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -46,7 +74,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
 
     const safeAltTitle = escapeHtml(trip.title);
     const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
-    const imageUrl = sanitizeImageUrl(trip.thumbnail_url || "");
+    const imageUrl = markerImageUrl(trip.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
         const size = hasImage ? (isActive ? 80 : 64) : (isActive ? 64 : 50);
     return L.divIcon({
@@ -63,6 +91,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
         ${hasImage ? `<img
             src="${imageUrl}"
             alt="${safeAltTitle}"
+            ${MARKER_IMG_ATTRS}
             style="display:block;width:100%;height:100%;object-fit:cover;"
         />
         <div style="
@@ -83,7 +112,7 @@ const CLUSTER_SIZE = 72;
 export function createClusterIcon(trip: Trip, count: number): L.DivIcon {
     const safeAltTitle = escapeHtml(trip.title);
     const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
-    const imageUrl = sanitizeImageUrl(trip.thumbnail_url || "");
+    const imageUrl = markerImageUrl(trip.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = CLUSTER_SIZE;
 
@@ -107,7 +136,7 @@ export function createClusterIcon(trip: Trip, count: number): L.DivIcon {
         background:${MARKER_PRIMARY_COLOR};
     ">
         ${hasImage
-            ? `<img src="${imageUrl}" alt="${safeAltTitle}" style="display:block;width:100%;height:100%;object-fit:cover;" />
+            ? `<img src="${imageUrl}" alt="${safeAltTitle}" ${MARKER_IMG_ATTRS} style="display:block;width:100%;height:100%;object-fit:cover;" />
                <div style="
                    position:absolute;left:0;right:0;bottom:0;padding:4px 6px;
                    background:${MARKER_GRADIENT_OVERLAY};
@@ -146,6 +175,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
         ${hasImage ? `<img
         src="${imageUrl}"
         alt="${safeTitle}"
+        ${MARKER_IMG_ATTRS}
         style="width:100%;height:100%;object-fit:cover;"
         />` : `<div style="
         position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -176,7 +206,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
 }
 
 export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.DivIcon {
-    const imageUrl = sanitizeImageUrl(lodging.thumbnail_url || "");
+    const imageUrl = markerImageUrl(lodging.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 70 : 50);
     const roofHeight = Math.round(size * 0.34);

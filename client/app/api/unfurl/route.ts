@@ -120,11 +120,14 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({
-      title: title || null,
-      description: description || null,
-      image: image || null,
-    });
+    return NextResponse.json(
+      {
+        title: title || null,
+        description: description || null,
+        image: image || null,
+      },
+      { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+    );
   } catch {
     return NextResponse.json({}, { status: 200 });
   } finally {

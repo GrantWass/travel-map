@@ -30,7 +30,7 @@ interface TripMapStoreState {
     collections: string[];
     isLoadingTrips: boolean;
     isLoadingTripById: boolean;
-    loadTrips: (initialPublicTrips?: Trip[]) => Promise<void>;
+    loadTrips: (initialPublicTrips?: Trip[], initialDeferredTripIds?: number[]) => Promise<void>;
     setTrips: (trips: Trip[]) => void;
     upsertTrip: (trip: Trip) => void;
     removeTripById: (tripId: number) => void;
@@ -149,7 +149,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     collections: [],
     isLoadingTrips: true,
     isLoadingTripById: false,
-    loadTrips: async (initialPublicTrips?: Trip[]) => {
+    loadTrips: async (initialPublicTrips?: Trip[], initialDeferredTripIds?: number[]) => {
         if (activeLoadTripsPromise) {
             return activeLoadTripsPromise;
         }
@@ -157,8 +157,10 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         activeLoadTripsPromise = (async () => {
             set({ isLoadingTrips: true });
 
-            // Kick off deferred visibility lookup immediately; do not block first render on it.
-            const deferredTripIdsPromise = getDeferredTripIds().catch(() => [] as number[]);
+            // Reuse server-provided deferred ids when available; otherwise look them up.
+            const deferredTripIdsPromise = initialDeferredTripIds
+                ? Promise.resolve(initialDeferredTripIds)
+                : getDeferredTripIds().catch(() => [] as number[]);
 
             try {
                 // Load public trips first for fastest render.

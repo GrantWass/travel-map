@@ -590,6 +590,45 @@ export async function moveCustomPlanItemToCollection(
   });
 }
 
+// ── Trip itineraries ─────────────────────────────────────────────────────────
+
+export interface ItineraryItem {
+  itinerary_item_id: number;
+  trip_id: number;
+  day_date: string | null;
+  position: number;
+  activity_id: number | null;
+  title: string | null;
+  notes: string | null;
+}
+
+/** Client-side draft item; id is assigned server-side on save. */
+export interface ItineraryDraftItem {
+  day_date: string | null;
+  activity_id?: number | null;
+  title?: string | null;
+  notes?: string | null;
+}
+
+export async function getTripItinerary(tripId: number): Promise<ItineraryItem[]> {
+  const data = await requestJson<{ items: ItineraryItem[] }>(`/trips/${tripId}/itinerary`, {
+    method: "GET",
+  });
+  return data.items;
+}
+
+export async function saveTripItinerary(
+  tripId: number,
+  items: ItineraryDraftItem[],
+): Promise<ItineraryItem[]> {
+  const data = await requestJson<{ items: ItineraryItem[] }>(`/trips/${tripId}/itinerary`, {
+    method: "PUT",
+    body: JSON.stringify({ items }),
+  });
+  return data.items;
+}
+
+
 // ── Plan sharing ─────────────────────────────────────────────────────────────
 
 export interface SharedPlanGroup {

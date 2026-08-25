@@ -11,9 +11,12 @@ import SearchSidebarPanel from "@/components/search-sidebar-panel";
 import SidebarPanel from "@/components/sidebar-panel";
 import SignupRequiredModal from "@/components/signup-required-modal";
 import StudentAddMenu from "@/components/student-add-menu";
-import UserProfileModal from "@/components/user-profile-modal";
-import FriendsModal from "@/components/friends-modal";
 import BrandNameButton from "@/components/brand-name-button";
+
+// Interaction-only modals load on demand to keep the initial bundle small.
+const UserProfileModal = dynamic(() => import("@/components/user-profile-modal"));
+const FriendsModal = dynamic(() => import("@/components/friends-modal"));
+
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
 import { toUserProfileFromApi, addCustomPlanItem, createPlanCollection, createPlanShare, deleteCustomPlanItem, deletePlanCollection, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveCustomPlanItemToCollection, moveLodgingToCollection, updateCustomPlanItem, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
@@ -79,9 +82,10 @@ const REVIEW_PANEL_WIDTH = "min(483px, 100vw)";
 
 interface TravelMapProps {
     initialPublicTrips?: Trip[];
+    initialDeferredTripIds?: number[];
 }
 
-export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
+export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }: TravelMapProps) {
     const router = useRouter();
     const pathname = usePathname();
     const userId = useAuthStore((state) => state.user?.user_id ?? null);
@@ -339,8 +343,8 @@ export default function TravelMap({ initialPublicTrips }: TravelMapProps) {
     }, [applySavedPlans, requirePlansAuth, toggleSavedLodgingId]);
 
     useEffect(() => {
-        void loadTrips(initialPublicTrips);
-    }, [initialPublicTrips, loadTrips]);
+        void loadTrips(initialPublicTrips, initialDeferredTripIds);
+    }, [initialPublicTrips, initialDeferredTripIds, loadTrips]);
 
     useEffect(() => {
         if (userId === null) return;

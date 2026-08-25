@@ -38,7 +38,11 @@ export async function GET(request: Request) {
                 .filter((nameValue): nameValue is string => Boolean(nameValue));
 
             const uniqueUniversities = Array.from(new Set(universities)).slice(0, 10);
-            return NextResponse.json({ universities: uniqueUniversities });
+            return NextResponse.json(
+                { universities: uniqueUniversities },
+                // The Hipolabs dataset rarely changes — cache hard at the edge.
+                { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=2592000" } },
+            );
         } catch {
             // Try next endpoint.
         }

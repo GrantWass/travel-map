@@ -311,18 +311,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ places: [] });
   }
 
+  const cacheHeaders = { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" };
+
   // Primary: Google Places autocomplete (when configured and healthy).
   if (isGoogleEnabled()) {
     const googleResults = await searchGooglePlaces(query, mode, nearLat, nearLon, sessionToken);
     if (googleResults !== null) {
-      return NextResponse.json({ places: googleResults, source: "google" });
+      return NextResponse.json({ places: googleResults, source: "google" }, { headers: cacheHeaders });
     }
     // fall through to Nominatim
   }
 
   try {
     const places = await searchNominatim(query, mode, nearLat, nearLon);
-    return NextResponse.json({ places, source: "nominatim" });
+    return NextResponse.json({ places, source: "nominatim" }, { headers: cacheHeaders });
   } catch {
     return NextResponse.json({ error: "Could not load places right now." }, { status: 502 });
   }

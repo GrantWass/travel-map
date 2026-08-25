@@ -71,14 +71,18 @@ export async function GET(request: Request) {
       throw new Error("No normalized label found");
     }
 
-    return NextResponse.json({
-      place: {
-        label: normalizedLabel,
-        address: normalizedLabel,
-        latitude: lat,
-        longitude: lon,
+    return NextResponse.json(
+      {
+        place: {
+          label: normalizedLabel,
+          address: normalizedLabel,
+          latitude: lat,
+          longitude: lon,
+        },
       },
-    });
+      // Reverse geocodes for a given coordinate are stable — cache at the edge.
+      { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } },
+    );
   } catch {
     return NextResponse.json({ error: "Could not resolve this pin to an address." }, { status: 502 });
   }

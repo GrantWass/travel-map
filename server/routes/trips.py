@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import Unauthorized
 
 from services.auth_service import get_authenticated_user
+from services.itinerary_service import ItineraryForbiddenError, list_itinerary, replace_itinerary
 from services.trip_service import (
     TripValidationError,
     add_activity,
@@ -196,6 +197,34 @@ def add_activity_route(trip_id: int):
     payload = request.get_json(silent=True) or {}
     activity = add_activity(trip_id=trip_id, owner_user_id=user["user_id"], payload=payload)
     return jsonify({"message": "activity created", "activity": activity}), 201
+
+
+@trips_bp.route("/trips/<int:trip_id>/itinerary", methods=["GET"])
+def get_trip_itinerary_route(trip_id: int):
+    viewer = get_authenticated_user()
+    viewer_user_id = viewer["user_id"] if viewer else None
+
+    trip = get_trip(trip_id=trip_id, viewer_user_id=viewer_user_id)
+    if not trip:
+        return jsonify({"error": "trip not found"}), 404
+
+    return jsonify({"items": list_itinerary(trip_id)}), 200
+
+
+@trips_bp.route("/trips/<int:trip_id>/itinerary", methods=["PUT"])
+def replace_trip_itinerary_route(trip_id: int):
+    user = _require_authenticated_user()
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        items = replace_itinerary(
+            trip_id=trip_id,
+            user_id=user["user_id"],
+            items=payload.get("items"),
+        )
+    except ItineraryForbiddenError:
+        return jsonify({"error": "you do not have permission to edit this itinerary"}), 403
+    return jsonify({"items": items}), 200
 
 
 @trips_bp.route("/trips/<int:trip_id>/comments", methods=["GET"])

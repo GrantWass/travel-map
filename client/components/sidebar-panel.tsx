@@ -11,6 +11,7 @@ import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-types";
 import { formatTripDate, formatTripDuration } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
+import TripItinerary from "@/components/trip-itinerary";
 
 function ContentScroller({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
     if (mobile) return <>{children}</>;
@@ -578,6 +579,13 @@ export default function SidebarPanel({
                                 <p className="text-sm text-muted-foreground">No activities were added for this trip.</p>
                             )}
                         </div>
+
+                    {/* Itinerary (optional day-by-day planner) */}
+                    <TripItinerary
+                        tripId={review.trip_id}
+                        activities={review.activities}
+                        canEdit={Boolean(onEditTrip)}
+                    />
 
                     <div className="flex flex-col gap-3 border-t border-border pt-4">
                         <div className="flex items-center justify-between gap-2">
