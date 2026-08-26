@@ -576,7 +576,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
         if activity_ids:
             cur.execute(
                 """
-                SELECT activity_id, title, address, thumbnail_url, cost, link_url
+                SELECT activity_id, title, address, thumbnail_url, cost, link_url,
+                       latitude, longitude
                 FROM activities
                 WHERE activity_id = ANY(%s)
                 """,
@@ -588,7 +589,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
         if lodging_ids:
             cur.execute(
                 """
-                SELECT lodge_id, title, address, thumbnail_url, cost, link_url
+                SELECT lodge_id, title, address, thumbnail_url, cost, link_url,
+                       latitude, longitude
                 FROM lodgings
                 WHERE lodge_id = ANY(%s)
                 """,
@@ -599,7 +601,7 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
         cur.execute(
             """
             SELECT custom_item_id, title, notes, address, cost, collection_name, link_url,
-                   item_type, description, thumbnail_url
+                   item_type, description, thumbnail_url, latitude, longitude
             FROM plan_custom_items
             WHERE owner_user_id = %s
             ORDER BY created_at DESC, custom_item_id DESC
@@ -652,6 +654,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
                 "thumbnail_url": data.get("thumbnail_url"),
                 "cost": float(data["cost"]) if data.get("cost") is not None else None,
                 "link_url": data.get("link_url"),
+                "latitude": _as_optional_float(data.get("latitude")),
+                "longitude": _as_optional_float(data.get("longitude")),
             })
         elif row["item_type"] == "lodging" and int(row["item_id"]) in lodgings_by_id:
             data = lodgings_by_id[int(row["item_id"])]
@@ -661,6 +665,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
                 "thumbnail_url": data.get("thumbnail_url"),
                 "cost": float(data["cost"]) if data.get("cost") is not None else None,
                 "link_url": data.get("link_url"),
+                "latitude": _as_optional_float(data.get("latitude")),
+                "longitude": _as_optional_float(data.get("longitude")),
             })
 
     for row in custom_items:
@@ -673,6 +679,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
             "cost": _as_optional_float(row.get("cost")),
             "link_url": row.get("link_url"),
             "description": row.get("notes") or row.get("description"),
+            "latitude": _as_optional_float(row.get("latitude")),
+            "longitude": _as_optional_float(row.get("longitude")),
         }
         if item_type == "lodging":
             collection["lodgings"].append(stop)

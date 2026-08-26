@@ -2,11 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { BedDouble, CalendarRange, ExternalLink, MapPin, Notebook, Plane } from "lucide-react";
 
 import type { SharedPlan, SharedPlanGroup } from "@/lib/api-client";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import { formatStopCost } from "@/components/stop-item-card";
+
+// Leaflet touches window at import time, so only load the map client-side.
+const SharedPlanMap = dynamic(() => import("@/components/shared-plan-map"), { ssr: false });
 
 function WebsiteChip({ url }: { url: string }) {
     return (
@@ -24,7 +28,7 @@ function WebsiteChip({ url }: { url: string }) {
 
 export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
     return (
-        <main className="min-h-screen bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-10 md:px-8">
+        <main className="h-screen overflow-y-auto bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-10 md:px-8">
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
                 <header className="flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 text-sm font-medium text-amber-700 hover:text-amber-800">
@@ -41,6 +45,12 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                     <p className="mt-1 text-sm text-stone-500">
                         {plan.owner_name ? `Put together by ${plan.owner_name}` : "Put together by a fellow traveler"}
                     </p>
+
+                    {(plan.groups.some((g) => (g.activities ?? []).length + (g.lodgings ?? []).length > 0)) && (
+                        <div className="mt-5">
+                            <SharedPlanMap plan={plan} />
+                        </div>
+                    )}
 
                     <div className="mt-6 flex flex-col gap-6">
                         {plan.groups.length === 0 && (
