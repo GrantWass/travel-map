@@ -612,8 +612,8 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
   return (
     <div className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow">
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Plane className="h-4 w-4" />
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Plane className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">

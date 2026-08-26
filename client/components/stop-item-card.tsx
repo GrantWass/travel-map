@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronUp, Expand, ExternalLink, MapPin } from "lucide-react";
+import { BedDouble, ChevronDown, ChevronUp, Expand, ExternalLink, MapPin } from "lucide-react";
 
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { cn } from "@/lib/utils";
@@ -55,7 +55,7 @@ export const LODGING_CARD_CONFIG: StopCardConfig = {
     label: "Lodging",
     aspectRatio: 4 / 3,
     icon: null,
-    fallbackIcon: <MapPin className="h-5 w-5 text-muted-foreground/60" />,
+    fallbackIcon: <BedDouble className="h-5 w-5 text-primary" />,
     showAddressPill: false,
     unexpandedHoverClass: "bg-secondary/30 hover:bg-secondary/50",
     noImageBorderClass: "border-border bg-secondary/30",
@@ -65,7 +65,7 @@ export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     label: "Activity",
     aspectRatio: 16 / 9,
     icon: null,
-    fallbackIcon: <MapPin className="h-5 w-5 text-muted-foreground/60" />,
+    fallbackIcon: <MapPin className="h-5 w-5 text-primary" />,
     showAddressPill: true,
     unexpandedHoverClass: "bg-secondary/40 hover:bg-secondary/70",
     noImageBorderClass: "border-border bg-secondary/40",
@@ -136,7 +136,7 @@ export default function StopItemCard({
                 )}
             >
                 <div className="flex items-center gap-3 p-3">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-muted">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
                         {config.fallbackIcon}
                     </div>
                     <div className="min-w-0 flex-1">
