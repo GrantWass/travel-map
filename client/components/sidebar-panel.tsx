@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTripMapStore } from "@/stores/trip-map-store";
+import { useAuthStore } from "@/stores/auth-store";
 import type { TripActivity, TripComment, TripLodging, Trip } from "@/lib/api-types";
 import { formatTripDate, formatTripDuration, shareOrCopyUrl } from "@/lib/utils";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
@@ -82,6 +83,8 @@ export default function SidebarPanel({
     const setSelectedLodging = useTripMapStore((state) => state.setSelectedLodging);
     const savedActivityIds = new Set(useTripMapStore((state) => state.savedActivityIds));
     const savedLodgingIds = new Set(useTripMapStore((state) => state.savedLodgingIds));
+    const userId = useAuthStore((state) => state.user?.user_id ?? null);
+    const isTripOwner = userId !== null && review.owner_user_id === userId;
     const selectedActivityId = selectedActivity?.activity_id ?? null;
     const selectedLodgingId = selectedLodging?.lodge_id ?? null;
 
@@ -338,11 +341,11 @@ export default function SidebarPanel({
                         ))}
                     </StopSection>
 
-                    {/* Itinerary (optional day-by-day planner) */}
+                    {/* Itinerary (optional day-by-day planner; creator-only editing) */}
                     <TripItinerary
                         tripId={review.trip_id}
                         activities={review.activities}
-                        canEdit={Boolean(onEditTrip)}
+                        canEdit={isTripOwner}
                     />
 
                     <div className="flex flex-col gap-3 border-t border-border pt-4">

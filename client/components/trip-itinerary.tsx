@@ -78,7 +78,10 @@ export default function TripItinerary({ tripId, activities, canEdit }: TripItine
     const tmpIdRef = useRef(0);
 
     useEffect(() => {
-        if (!open || loadedTripRef.current === tripId) return;
+        // Editors load on expand; viewers must load immediately so we can
+        // hide the section entirely when the creator never built an itinerary.
+        const shouldLoad = canEdit ? open : true;
+        if (!shouldLoad || loadedTripRef.current === tripId) return;
         loadedTripRef.current = tripId;
         setLoadState("loading");
         getTripItinerary(tripId)
@@ -102,7 +105,7 @@ export default function TripItinerary({ tripId, activities, canEdit }: TripItine
                 setError("Could not load the itinerary.");
                 setLoadState("ready");
             });
-    }, [open, tripId]);
+    }, [open, tripId, canEdit]);
 
     const activityById = useMemo(() => {
         const map = new Map<number, ItineraryActivity>();
@@ -332,6 +335,11 @@ export default function TripItinerary({ tripId, activities, canEdit }: TripItine
                 )}
             </div>
         );
+    }
+
+    // Viewers see nothing when the trip creator never built an itinerary.
+    if (!canEdit && loadState === "ready" && drafts.length === 0) {
+        return null;
     }
 
     return (

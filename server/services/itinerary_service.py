@@ -31,17 +31,16 @@ def _parse_optional_text(value: Any, *, max_length: int = 2000) -> str | None:
 
 
 def _user_can_edit_trip(cur, *, trip_id: int, user_id: int) -> bool:
+    # Only the trip creator may modify its itinerary — collaborators get
+    # read-only access so they cannot restructure someone else's plan.
     cur.execute(
         """
         SELECT EXISTS (
             SELECT 1 FROM trips
             WHERE trip_id = %s AND owner_user_id = %s
-        ) OR EXISTS (
-            SELECT 1 FROM trip_collaborators
-            WHERE trip_id = %s AND user_id = %s
         ) AS can_edit
         """,
-        (trip_id, user_id, trip_id, user_id),
+        (trip_id, user_id),
     )
     row = cur.fetchone()
     return bool(row and row.get("can_edit"))
