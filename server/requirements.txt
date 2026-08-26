@@ -9,5 +9,5 @@ werkzeug
 flask
 flask_session
 bcrypt
-Pillow
+Pillow==11.2.1  # last line with manylinux_2_17 wheels; base image has glibc 2.26
 aws-wsgi
