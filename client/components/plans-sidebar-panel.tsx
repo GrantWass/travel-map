@@ -371,7 +371,7 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
       thumbnailUrl={item.thumbnail_url ?? null}
       isExpanded={isExpanded}
       onSelect={() => setIsExpanded((v) => !v)}
-      config={{ ...config, showAddressPill: Boolean(item.thumbnail_url) && config.showAddressPill }}
+      config={config}
       actions={
         <>
           <button

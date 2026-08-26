@@ -31,7 +31,6 @@ export interface StopCardConfig {
     aspectRatio: number;
     icon: ReactNode;
     fallbackIcon: ReactNode;
-    showAddressPill: boolean;
     unexpandedHoverClass: string;
     noImageBorderClass: string;
 }
@@ -41,7 +40,6 @@ export const LODGING_CARD_CONFIG: StopCardConfig = {
     aspectRatio: 4 / 3,
     icon: null,
     fallbackIcon: <BedDouble className="h-5 w-5 text-primary" />,
-    showAddressPill: false,
     unexpandedHoverClass: "bg-secondary/30 hover:bg-secondary/50",
     noImageBorderClass: "border-border bg-secondary/30",
 };
@@ -51,7 +49,6 @@ export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     aspectRatio: 16 / 9,
     icon: null,
     fallbackIcon: <MapPin className="h-5 w-5 text-primary" />,
-    showAddressPill: true,
     unexpandedHoverClass: "bg-secondary/40 hover:bg-secondary/70",
     noImageBorderClass: "border-border bg-secondary/40",
 };
@@ -126,17 +123,14 @@ export default function StopItemCard({
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
-                        {addressLabel && !config.showAddressPill && (
-                            <p className="text-xs text-muted-foreground break-words whitespace-normal">{addressLabel}</p>
-                        )}
-                        {addressLabel && config.showAddressPill && (
+                        {addressLabel && (
                             <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words">{addressLabel}</span>
                             </span>
                         )}
                     </div>
-                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground self-center" />
                 </div>
             </div>
         );
@@ -162,7 +156,8 @@ export default function StopItemCard({
         >
             {isExpanded ? (
                 <div className="flex flex-col gap-3 p-3">
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
                         <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     </div>
                     {hasImage && (
@@ -198,23 +193,11 @@ export default function StopItemCard({
                         </div>
                     )}
                     <div className="flex flex-col gap-1.5">
-                        {config.showAddressPill ? (
-                            <div className="flex min-w-0 items-start justify-between gap-2">
-                                <h3 className="min-w-0 flex-1 text-base font-semibold text-foreground break-words">
-                                    {item.title}
-                                </h3>
-                                {addressLabel && (
-                                    <span className="inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground break-words whitespace-normal">
-                                        <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                        <span className="min-w-0 break-words whitespace-normal">{addressLabel}</span>
-                                    </span>
-                                )}
-                            </div>
-                        ) : (
-                            <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
-                        )}
-                        {!config.showAddressPill && addressLabel && (
-                            <p className="text-xs text-muted-foreground break-words whitespace-normal">{addressLabel}</p>
+                        {addressLabel && (
+                            <span className="inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground break-words whitespace-normal">
+                                <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                                <span className="min-w-0 break-words whitespace-normal">{addressLabel}</span>
+                            </span>
                         )}
                         {costLabel && !hasImage && (
                             <p className="text-sm font-medium text-foreground/80">{costLabel}</p>
@@ -245,17 +228,14 @@ export default function StopItemCard({
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
-                        {addressLabel && !config.showAddressPill && (
-                            <p className="text-xs text-muted-foreground break-words whitespace-normal">{addressLabel}</p>
-                        )}
-                        {addressLabel && config.showAddressPill && (
+                        {addressLabel && (
                             <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words">{addressLabel}</span>
                             </span>
                         )}
                     </div>
-                    <ChevronDown className={cn("h-4 w-4 flex-shrink-0 text-muted-foreground", config.showAddressPill && "self-center")} />
+                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground self-center" />
                 </div>
             )}
         </div>
