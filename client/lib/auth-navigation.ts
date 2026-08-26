@@ -19,7 +19,7 @@ export function getStoredInviteToken(): string | null {
   }
 
   try {
-    return normalizeInviteToken(window.sessionStorage.getItem(INVITE_TOKEN_CACHE_KEY));
+    return normalizeInviteToken(window.localStorage.getItem(INVITE_TOKEN_CACHE_KEY));
   } catch {
     return null;
   }
@@ -34,11 +34,11 @@ export function persistInviteToken(inviteToken: string | null | undefined) {
 
   try {
     if (!normalized) {
-      window.sessionStorage.removeItem(INVITE_TOKEN_CACHE_KEY);
+      window.localStorage.removeItem(INVITE_TOKEN_CACHE_KEY);
       return;
     }
 
-    window.sessionStorage.setItem(INVITE_TOKEN_CACHE_KEY, normalized);
+    window.localStorage.setItem(INVITE_TOKEN_CACHE_KEY, normalized);
   } catch {
     // Ignore storage failures.
   }

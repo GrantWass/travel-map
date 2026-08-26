@@ -24,7 +24,7 @@ function readAuthToken(): string | null {
   }
 
   try {
-    return window.sessionStorage.getItem(AUTH_TOKEN_KEY);
+    return window.localStorage.getItem(AUTH_TOKEN_KEY);
   } catch {
     return null;
   }
@@ -42,11 +42,11 @@ export function setAuthToken(token: string | null) {
 
   try {
     if (!token) {
-      window.sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      window.localStorage.removeItem(AUTH_TOKEN_KEY);
       return;
     }
 
-    window.sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
   } catch {
     // Ignore storage failures.
   }

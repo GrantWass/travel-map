@@ -371,7 +371,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
       />
 
       <div
-        className="modal-expand-center fixed inset-3 z-[1600] flex max-h-[calc(100dvh-1.5rem)] flex-col rounded-2xl border border-border bg-card shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[680px] sm:max-h-[88dvh] sm:-translate-x-1/2 sm:-translate-y-1/2 overflow-hidden"
+        className="modal-expand-center fixed inset-3 z-[1600] flex max-h-[calc(100dvh-1.5rem)] flex-col rounded-2xl border border-border bg-card shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(760px,calc(100vw-2rem))] sm:max-h-[88dvh] sm:-translate-x-1/2 sm:-translate-y-1/2 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}

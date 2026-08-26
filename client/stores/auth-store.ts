@@ -16,7 +16,7 @@ function readCachedJson<T>(key: string): T | null {
     }
 
     try {
-        const raw = window.sessionStorage.getItem(key);
+        const raw = window.localStorage.getItem(key);
         if (!raw) {
             return null;
         }
@@ -33,11 +33,11 @@ function writeCachedJson<T>(key: string, value: T | null) {
     }
 
     if (value === null) {
-        window.sessionStorage.removeItem(key);
+        window.localStorage.removeItem(key);
         return;
     }
 
-    window.sessionStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 interface AuthStoreState {
