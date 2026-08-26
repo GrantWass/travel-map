@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, X } from "lucide-react";
 
 import { markOnboardingComplete } from "@/lib/api-client";
 import type { OnboardingStep } from "@/lib/onboarding-steps";
@@ -19,8 +19,6 @@ const CARD_H_EST = 220;
 function useTargetRect(selector: string | null): DOMRect | null {
   const [rect, setRect] = useState<DOMRect | null>(null);
 
-  // useLayoutEffect fires before paint so the spotlight updates in the same frame as the step
-  // change — prevents the previous step's cutout from flashing when navigating back.
   useLayoutEffect(() => {
     if (!selector) {
       setRect(null);
@@ -42,18 +40,6 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
   const [index, setIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  const step = steps[index];
-
-  // Hook must be called unconditionally (rules of hooks).
-  const targetRect = useTargetRect(step?.targetSelector ?? null);
-
-  // Guard after all hooks: handles brief re-render as parent unmounts this component.
-  if (!step) return null;
-
-  const isFirst = index === 0;
-  const isLast = index === steps.length - 1;
-  const Icon = step.Icon;
-
   async function finish() {
     setIsFinishing(true);
     try {
@@ -64,21 +50,39 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
     onComplete();
   }
 
+  // Filter to only steps whose target element actually exists on screen (skips hidden mobile elements)
+  const [visibleSteps] = useState(() => {
+    return steps.filter((s) => {
+      if (!s.targetSelector) return true;
+      if (typeof document === "undefined") return true;
+      return Boolean(document.querySelector(s.targetSelector));
+    });
+  });
+
+  const step = visibleSteps[index];
+
+  // Hook must be called unconditionally (rules of hooks).
+  const targetRect = useTargetRect(step?.targetSelector ?? null);
+
+  // Guard after all hooks: handles brief re-render as parent unmounts this component.
+  if (!step) return null;
+
+  const isFirst = index === 0;
+  const isLast = index === visibleSteps.length - 1;
+  const Icon = step.Icon;
+
   // ── Fixed card position: centered vertically, ~1/3 from left ─────────────
   const sw = typeof window !== "undefined" ? window.innerWidth : 1440;
   const sh = typeof window !== "undefined" ? window.innerHeight : 900;
 
   const cardTop = Math.round(sh / 2 - CARD_H_EST / 2);
-  // 48px left margin gives a symmetric right margin on the cutout → combined block is centered.
   const cardLeft = Math.max(SCREEN_PAD, Math.min(sw - CARD_W - SCREEN_PAD, 48));
 
-  // Per-step mask ID prevents browsers from serving a stale cached mask when the cutout
-  // content changes (e.g. navigating back to "welcome" which has no cutout element).
   const maskId = `tm-spotlight-mask-${index}`;
 
   return (
     <>
-      {/* Invisible click-blocker — prevents interacting with anything below the overlay */}
+      {/* Invisible click-blocker */}
       <div className="fixed inset-0" style={{ zIndex: 2999 }} />
 
       {/* Full-screen overlay with spotlight cutout */}
@@ -115,13 +119,12 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
         />
       </svg>
 
-      {/* Tooltip card — fixed position, never moves between steps */}
+      {/* Tooltip card */}
       <div
         className="fixed rounded-2xl border border-border bg-white shadow-2xl"
         style={{ zIndex: 3001, top: cardTop, left: cardLeft, width: CARD_W }}
       >
         <div className="p-5">
-          {/* Icon */}
           <div className="mb-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <Icon className="h-5 w-5 text-primary" />
@@ -133,7 +136,7 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
 
           {/* Progress dots */}
           <div className="my-4 flex items-center gap-1.5">
-            {steps.map((_, i) => (
+            {visibleSteps.map((_, i) => (
               <div
                 key={i}
                 className={`h-1.5 rounded-full transition-all duration-200 ${
@@ -145,18 +148,27 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
 
           {/* Navigation */}
           <div className="flex items-center gap-2">
-            {!isFirst && (
-              <button
-                type="button"
-                onClick={() => setIndex(index - 1)}
-                disabled={isFinishing}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-stone-50 disabled:opacity-50"
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Back
-              </button>
-            )}
-            <div className="ml-auto">
+            <button
+              type="button"
+              onClick={() => void finish()}
+              disabled={isFinishing}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-stone-50 disabled:opacity-50"
+            >
+              <X className="h-3 w-3" />
+              Skip tour
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              {!isFirst && (
+                <button
+                  type="button"
+                  onClick={() => setIndex(index - 1)}
+                  disabled={isFinishing}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-stone-50 disabled:opacity-50"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  Back
+                </button>
+              )}
               {isLast ? (
                 <button
                   type="button"

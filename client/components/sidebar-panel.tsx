@@ -14,6 +14,15 @@ import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import TripItinerary from "@/components/trip-itinerary";
 import StopItemCard, { ACTIVITY_CARD_CONFIG, LODGING_CARD_CONFIG, StopSection } from "@/components/stop-item-card";
 
+function SafeImage({ src, alt, fallback, ...props }: { src: string; alt: string; fallback?: ReactNode } & Omit<React.ComponentProps<typeof Image>, "src" | "alt">) {
+    const [failed, setFailed] = useState(false);
+    if (failed) {
+        if (fallback) return <>{fallback}</>;
+        return <div className="flex h-full w-full items-center justify-center bg-secondary text-muted-foreground"><User className="h-5 w-5" /></div>;
+    }
+    return <Image src={src} alt={alt} onError={() => setFailed(true)} {...props} />;
+}
+
 function ContentScroller({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
     if (mobile) return <>{children}</>;
     return <ScrollArea className="flex-1 min-h-0">{children}</ScrollArea>;
@@ -167,7 +176,7 @@ export default function SidebarPanel({
         <div className={cn("relative flex flex-col bg-card", !mobileSheetMode && "h-full w-full border-r border-border")}>
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
-                <Image src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="400px" className="object-cover" priority />
+                <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="400px" className="object-cover" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                 {locationTripCount > 1 && (
                     <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm">
@@ -261,7 +270,7 @@ export default function SidebarPanel({
                                         className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-2.5 py-1 text-xs text-foreground/85 transition-colors hover:bg-secondary"
                                     >
                                         {collaborator.profile_image_url ? (
-                                            <Image
+                                            <SafeImage
                                                 src={collaborator.profile_image_url}
                                                 alt={collaborator.name || "Collaborator"}
                                                 width={18}
@@ -444,7 +453,7 @@ export default function SidebarPanel({
                                         <div key={comment.comment_id} className="rounded-xl border border-border bg-background p-3">
                                             <div className="mb-1.5 flex items-center gap-2">
                                                 {comment.user_profile_image_url ? (
-                                                    <Image
+                                                    <SafeImage
                                                         src={comment.user_profile_image_url}
                                                         alt={`${authorName} avatar`}
                                                         width={24}

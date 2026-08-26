@@ -43,8 +43,15 @@ export default function UserProfileModal({
     const signOut = useAuthStore((state) => state.signOut);
     const refreshMyProfile = useAuthStore((state) => state.refreshMyProfile);
     const refreshSession = useAuthStore((state) => state.refreshSession);
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === "Escape") onClose();
+        }
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
+
     const animClass = expandFrom === "left" ? "modal-expand-left" : "modal-expand";
-    console.log(profile, userId)
 
     const [displayState, setDisplayState] = useState(() => ({
         name: profile.name || "Traveler",
@@ -72,6 +79,7 @@ export default function UserProfileModal({
     });
     const [profileImageFailed, setProfileImageFailed] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [tripToDelete, setTripToDelete] = useState<{ id: number; title: string } | null>(null);
 
     useEffect(() => {
         setDisplayState({
@@ -592,7 +600,7 @@ export default function UserProfileModal({
                                                     type="button"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
-                                                        onDeleteTrip?.(trip.trip_id);
+                                                        setTripToDelete({ id: trip.trip_id, title: trip.title });
                                                     }}
                                                     disabled={deletingTripId === trip.trip_id}
                                                     className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 disabled:cursor-not-allowed disabled:opacity-70"
@@ -611,6 +619,38 @@ export default function UserProfileModal({
                     )}
                 </div>
             </div>
+
+            {/* Delete confirmation dialog */}
+            {tripToDelete && (
+                <>
+                    <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setTripToDelete(null)} />
+                    <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(400px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl">
+                        <h3 className="text-base font-semibold text-foreground">Delete trip?</h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            &ldquo;{tripToDelete.title}&rdquo; will be permanently deleted. This can&apos;t be undone.
+                        </p>
+                        <div className="mt-5 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setTripToDelete(null)}
+                                className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-secondary"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onDeleteTrip?.(tripToDelete.id);
+                                    setTripToDelete(null);
+                                }}
+                                className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:opacity-90"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </>
     );
 }

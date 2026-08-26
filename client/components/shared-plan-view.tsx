@@ -164,6 +164,16 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                     <CalendarRange className="h-3 w-3" />
                     Plans are a live snapshot of saved places.
                 </p>
+
+                <div className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-6 text-center backdrop-blur-sm">
+                    <p className="text-sm text-muted-foreground">Want to plan your own trips?</p>
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+                    >
+                        Explore Travela
+                    </Link>
+                </div>
             </div>
         </main>
     );

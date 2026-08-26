@@ -251,7 +251,7 @@ export function StopEditorCard({
             type="text"
             inputMode="numeric"
             value={stop.cost}
-            onChange={(event) => onUpdate({ cost: event.target.value.replace(/\D/g, "") })}
+            onChange={(event) => onUpdate({ cost: event.target.value.replace(/\D/g, "").slice(0, 6) })}
             placeholder="Cost per person (optional)"
             className={READABLE_INPUT_CLASS}
           />

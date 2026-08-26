@@ -64,7 +64,7 @@ export default function SharedPlanMap({ plan }: { plan: SharedPlan }) {
             scrollWheelZoom: false,
             attributionControl: false,
         });
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${process.env.NEXT_PUBLIC_CARTO_API_KEY ?? ""}`, {
             subdomains: "abcd",
             maxZoom: 19,
         }).addTo(map);

@@ -335,6 +335,7 @@ interface CustomStopCardProps {
 function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomStopCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (isEditing) {
     return (
@@ -356,6 +357,7 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
   const config = item.item_type === "lodging" ? LODGING_CARD_CONFIG : ACTIVITY_CARD_CONFIG;
 
   return (
+    <>
     <StopItemCard
       item={{
         title: item.title,
@@ -382,7 +384,7 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
             <MoveMenu collections={collections} currentCollection={item.collection_name} onMove={onMove} />
             <button
               type="button"
-              onClick={onDelete}
+              onClick={() => setConfirmDelete(true)}
               className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               aria-label="Delete plan item"
               title="Delete"
@@ -393,6 +395,20 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
         </>
       }
     />
+    {confirmDelete && (
+      <>
+        <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
+        <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+          <h3 className="text-sm font-semibold text-foreground">Delete this item?</h3>
+          <p className="mt-1.5 text-xs text-muted-foreground">&ldquo;{item.title}&rdquo; will be removed from your plans.</p>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => { onDelete(); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
+          </div>
+        </div>
+      </>
+    )}
+    </>
   );
 }
 
@@ -582,6 +598,7 @@ interface FlightCardProps {
 /** Card showing a saved flight, expandable with edit/move/delete actions. */
 function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (isEditing) {
     return (
@@ -610,6 +627,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
   ].filter(Boolean);
 
   return (
+    <>
     <div className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow">
       <div className="flex items-start gap-2.5">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -657,7 +675,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
               <MoveMenu collections={collections} currentCollection={flight.collection_name} onMove={onMove} />
               <button
                 type="button"
-                onClick={onDelete}
+                onClick={() => setConfirmDelete(true)}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 aria-label="Delete flight"
                 title="Delete"
@@ -669,6 +687,20 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
         </div>
       </div>
     </div>
+    {confirmDelete && (
+      <>
+        <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
+        <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+          <h3 className="text-sm font-semibold text-foreground">Delete this flight?</h3>
+          <p className="mt-1.5 text-xs text-muted-foreground">This flight will be removed from your plans.</p>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
+            <button type="button" onClick={() => { onDelete(); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
+          </div>
+        </div>
+      </>
+    )}
+    </>
   );
 }
 
@@ -905,6 +937,7 @@ export default function PlansSidebarPanel({
 
   /** Trip-like detail view centered on lodging + activities for one collection. */
   function CollectionDetailView({ name }: { name: string }) {
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const lodgingRows = [
       ...lodgingsFor(name).map((entry) => <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />),
       ...customItemsFor(name)
@@ -977,10 +1010,7 @@ export default function PlansSidebarPanel({
             </button>
             <button
               type="button"
-              onClick={() => {
-                onDeleteCollection(name);
-                setOpenCollection(null);
-              }}
+              onClick={() => setConfirmDelete(true)}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
               aria-label={`Delete collection "${name}"`}
               title={`Delete collection`}
@@ -989,6 +1019,20 @@ export default function PlansSidebarPanel({
             </button>
           </div>
         </div>
+
+        {confirmDelete && (
+          <>
+            <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
+            <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+              <h3 className="text-sm font-semibold text-foreground">Delete collection?</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground">&ldquo;{name}&rdquo; will be deleted. Items inside won&apos;t be removed from your plans.</p>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
+                <button type="button" onClick={() => { onDeleteCollection(name); setOpenCollection(null); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
+              </div>
+            </div>
+          </>
+        )}
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-5 p-5">
@@ -1027,6 +1071,7 @@ export default function PlansSidebarPanel({
     onDelete?: () => void;
   }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const colActivities = activitiesFor(name);
     const colLodgings = lodgingsFor(name);
     const colCustomItems = customItemsFor(name);
@@ -1111,7 +1156,7 @@ export default function PlansSidebarPanel({
           {name && onDelete && (
             <button
               type="button"
-              onClick={onDelete}
+              onClick={() => setConfirmDelete(true)}
               className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
               title={`Delete collection "${name}"`}
             >
@@ -1119,6 +1164,20 @@ export default function PlansSidebarPanel({
             </button>
           )}
         </div>
+
+        {confirmDelete && name && (
+          <>
+            <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
+            <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
+              <h3 className="text-sm font-semibold text-foreground">Delete collection?</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground">&ldquo;{name}&rdquo; will be deleted. Items inside won&apos;t be removed from your plans.</p>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
+                <button type="button" onClick={() => { onDelete?.(); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
+              </div>
+            </div>
+          </>
+        )}
 
         {!collapsed && (
           <div className="flex flex-col gap-2 pl-1">

@@ -49,7 +49,7 @@ export default function OwnerFilterSlider({ value, onChange }: OwnerFilterSlider
     return (
         <div
             ref={containerRef}
-            className="relative inline-flex select-none rounded-full border border-border bg-secondary/40 cursor-pointer overflow-hidden"
+            className="relative inline-flex select-none rounded-full border border-border bg-secondary/40 cursor-pointer overflow-hidden max-w-[calc(100vw-2rem)]"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -69,7 +69,7 @@ export default function OwnerFilterSlider({ value, onChange }: OwnerFilterSlider
                     key={optValue}
                     type="button"
                     onClick={() => onChange(optValue)}
-                    className={`relative z-10 flex items-center justify-center gap-1.5 h-11 w-[104px] text-sm font-medium transition-colors duration-150 ${
+                    className={`relative z-10 flex items-center justify-center gap-1.5 h-11 flex-1 min-w-0 text-sm font-medium transition-colors duration-150 ${
                         value === optValue ? "text-primary" : "text-muted-foreground hover:text-foreground"
                     }`}
                     aria-label={label}

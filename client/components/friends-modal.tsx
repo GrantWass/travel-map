@@ -141,6 +141,7 @@ function RequestRow({
   onClick,
   onAccept,
   onDecline,
+  busy,
 }: any) {
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -156,18 +157,19 @@ function RequestRow({
 
       {onAccept ? (
         <div className="flex gap-2">
-          <Button size="sm" onClick={onAccept} className="flex-1 sm:flex-none">
+          <Button size="sm" onClick={onAccept} disabled={busy} className="flex-1 sm:flex-none">
             <Check className="mr-2 h-4 w-4" />
-            Accept
+            {busy ? "..." : "Accept"}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={onDecline}
+            disabled={busy}
             className="flex-1 sm:flex-none"
           >
             <Slash className="mr-2 h-4 w-4" />
-            Decline
+            {busy ? "..." : "Decline"}
           </Button>
         </div>
       ) : (
@@ -187,6 +189,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [requestBusy, setRequestBusy] = useState(false);
+  const [respondBusy, setRespondBusy] = useState<number | null>(null);
 
   const [inviteLink, setInviteLink] = useState("/signup");
   const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
@@ -207,6 +210,14 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
   useEffect(() => {
     if (!loaded) load();
   }, []);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -264,8 +275,16 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
   /* -------- respond -------- */
 
   async function respond(id: number, status: "accepted" | "declined") {
-    await respondFriendRequest(id, status);
-    await load();
+    setRespondBusy(id);
+    try {
+      await respondFriendRequest(id, status);
+      await load();
+    } catch {
+      // Request may have already been removed — refresh regardless
+      await load();
+    } finally {
+      setRespondBusy(null);
+    }
   }
 
   async function openProfileOptimistic(
@@ -494,6 +513,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                     key={req.id}
                     name={req.requester_name}
                     image={(req as any).requester_profile_image_url}
+                    busy={respondBusy === req.id}
                     onClick={() =>
                       openProfileOptimistic(req.requester_id, {
                         name: req.requester_name,
