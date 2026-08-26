@@ -4,6 +4,7 @@ import hashlib
 import secrets
 from typing import Any
 
+import psycopg2
 from db import get_cursor
 
 
@@ -52,17 +53,23 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
         )
         custom_rows = cur.fetchall()
 
-        cur.execute(
-            """
-            SELECT flight_id, airline, flight_number, origin_code, destination_code,
-                   departure_date, departure_time, price, collection_name, link_url, notes
-            FROM plan_flights
-            WHERE owner_user_id = %s
-            ORDER BY created_at DESC, flight_id DESC
-            """,
-            (user_id,),
-        )
-        flight_rows = cur.fetchall()
+        try:
+            cur.execute(
+                """
+                SELECT flight_id, airline, flight_number, origin_code, destination_code,
+                       departure_date, departure_time, price, collection_name, link_url, notes
+                FROM plan_flights
+                WHERE owner_user_id = %s
+                ORDER BY created_at DESC, flight_id DESC
+                """,
+                (user_id,),
+            )
+            flight_rows = cur.fetchall()
+        except psycopg2.errors.UndefinedTable:
+            # Migration not applied yet — treat flights as empty rather than
+            # failing every plans operation.
+            cur.connection.rollback()
+            flight_rows = []
 
     real_rows = [r for r in rows if r["item_type"] != "collection_anchor"]
     anchor_rows = [r for r in rows if r["item_type"] == "collection_anchor"]
@@ -603,17 +610,21 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
         if scope_collection is not None:
             custom_items = [r for r in custom_items if r["collection_name"] == scope_collection]
 
-        cur.execute(
-            """
-            SELECT flight_id, airline, flight_number, origin_code, destination_code,
-                   departure_date, departure_time, price, collection_name, link_url, notes
-            FROM plan_flights
-            WHERE owner_user_id = %s
-            ORDER BY created_at DESC, flight_id DESC
-            """,
-            (owner_user_id,),
-        )
-        flight_rows = cur.fetchall()
+        try:
+            cur.execute(
+                """
+                SELECT flight_id, airline, flight_number, origin_code, destination_code,
+                       departure_date, departure_time, price, collection_name, link_url, notes
+                FROM plan_flights
+                WHERE owner_user_id = %s
+                ORDER BY created_at DESC, flight_id DESC
+                """,
+                (owner_user_id,),
+            )
+            flight_rows = cur.fetchall()
+        except psycopg2.errors.UndefinedTable:
+            cur.connection.rollback()
+            flight_rows = []
         if scope_collection is not None:
             flight_rows = [r for r in flight_rows if r["collection_name"] == scope_collection]
 

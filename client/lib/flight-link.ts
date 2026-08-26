@@ -10,6 +10,7 @@ export interface ParsedFlightLink {
   departure_date?: string; // ISO YYYY-MM-DD when found
   airline?: string;
   flight_number?: string;
+  notes?: string;
 }
 
 function titleCaseAirline(value: string): string {
@@ -61,40 +62,83 @@ const AIRLINE_CODE_TO_NAME: Record<string, string> = {
   WS: "WestJet",
 };
 
+interface TfsSegment {
+  origin: string;
+  date: string;
+  destination: string;
+  flight?: string; // e.g. "AA2531"
+}
+
 /**
  * Attempts to decode Google Flights' `tfs` base64url parameter. It contains a
- * protobuf where airport codes appear as 3 uppercase letters — extract pairs.
+ * protobuf where each flight leg appears as length-prefixed ASCII:
+ *   0x0a 0x03 ORIGIN, 0x12 0x0a DATE, 0x1a 0x03 DEST, 0x2a 0x02 AIRLINE, number.
  */
 function parseTfsParam(tfs: string): ParsedFlightLink | null {
   let text: string;
   try {
     const base64 = tfs.replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4));
-    text = binary;
+    text = atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4));
   } catch {
     return null;
   }
 
-  // Airport codes appear as length-prefixed strings in the protobuf; grabbing
-  // all 3-letter uppercase runs and taking the first two as route endpoints
-  // works for simple one-way/round-trip searches.
-  const codes: string[] = [];
-  const seen = new Set<string>();
-  const re = /[A-Z]{3}/g;
+  const segments: TfsSegment[] = [];
+  // The flight number is length-prefixed, so read it manually — a greedy \d+
+  // would swallow the next protobuf tag byte (0x32 = "2") into the number.
+  const segRe =
+    /\n\x03([A-Z]{3})\x12\n(\d{4}-\d{2}-\d{2})\x1a\x03([A-Z]{3})(?:\*\x02([A-Z]{2}))?/g;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    const code = match[0];
-    // Filter out common protobuf noise tokens that happen to be 3 caps.
-    if (["USD", "EUR", "GBP", "CAD", "JPY", "AUD", "PRO", "GAE", "ENG"].includes(code)) continue;
-    if (!seen.has(code)) {
-      seen.add(code);
-      codes.push(code);
+  while ((match = segRe.exec(text)) !== null) {
+    let flight: string | undefined;
+    if (match[4]) {
+      let pos = segRe.lastIndex;
+      if (text[pos] === "2") {
+        const len = text.charCodeAt(pos + 1);
+        const digits = text.slice(pos + 2, pos + 2 + len);
+        if (len >= 1 && len <= 4 && /^\d+$/.test(digits)) {
+          flight = `${match[4]}${digits}`;
+          segRe.lastIndex = pos + 2 + len;
+        }
+      }
     }
-    if (codes.length >= 2) break;
+    segments.push({
+      origin: match[1],
+      date: match[2],
+      destination: match[3],
+      ...(flight ? { flight } : {}),
+    });
   }
 
-  if (codes.length < 2) return null;
-  return { origin_code: codes[0], destination_code: codes[1] };
+  if (segments.length === 0) return null;
+
+  // Connecting legs depart from the previous leg's arrival airport; reconcile
+  // mismatches (the tfs payload sometimes contains a corrupted code).
+  for (let i = 0; i < segments.length - 1; i++) {
+    if (segments[i].destination !== segments[i + 1].origin) {
+      segments[i].destination = segments[i + 1].origin;
+    }
+  }
+
+  const first = segments[0];
+  const result: ParsedFlightLink = {
+    origin_code: first.origin,
+    destination_code: first.destination,
+    departure_date: first.date,
+  };
+  if (first.flight) {
+    const carrierMatch = /^([A-Z]{2})/.exec(first.flight);
+    result.flight_number = first.flight;
+    if (carrierMatch) result.airline = AIRLINE_CODE_TO_NAME[carrierMatch[1]];
+  }
+
+  // Multi-leg itineraries don't fit the single route fields — summarize them.
+  if (segments.length > 1) {
+    result.notes = segments
+      .map((s) => `${s.flight ? `${s.flight} ` : ""}${s.origin}→${s.destination}${s.date ? ` ${s.date}` : ""}`)
+      .join(" · ");
+  }
+  return result;
 }
 
 /**

@@ -393,6 +393,7 @@ function FlightForm({
     if (!departureDate && parsed.departure_date) setDepartureDate(parsed.departure_date);
     if (!airline.trim() && parsed.airline) setAirline(parsed.airline);
     if (!flightNumber.trim() && parsed.flight_number) setFlightNumber(parsed.flight_number);
+    if (!notes.trim() && parsed.notes) setNotes(parsed.notes);
 
     const preview = await unfurlLink(trimmed);
     if (!preview) return;
