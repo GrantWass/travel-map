@@ -177,7 +177,7 @@ export default function SidebarPanel({
         <div className={cn("relative flex flex-col bg-card", !mobileSheetMode && "h-full w-full border-r border-border")}>
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
-                <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="(max-width: 640px) 100vw, 483px" priority />
+                <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="(max-width: 640px) 100vw, 483px" priority className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                 {locationTripCount > 1 && (
                     <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm">

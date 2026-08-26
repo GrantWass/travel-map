@@ -49,7 +49,7 @@ export default function OwnerFilterSlider({ value, onChange }: OwnerFilterSlider
     return (
         <div
             ref={containerRef}
-            className="relative inline-flex select-none rounded-full border border-border bg-secondary/40 cursor-pointer overflow-hidden max-w-[calc(100vw-2rem)]"
+            className="relative inline-flex select-none rounded-full border border-border bg-secondary/40 cursor-pointer overflow-hidden max-w-[calc(100vw-2rem)] min-w-[280px]"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}

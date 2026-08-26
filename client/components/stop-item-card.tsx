@@ -157,7 +157,7 @@ export default function StopItemCard({
                         <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     </div>
                     {hasImage && (
-                        <div className="group relative max-h-64 overflow-hidden rounded-lg bg-muted">
+                        <div className="group relative h-56 overflow-hidden rounded-lg bg-muted">
                             <Image
                                 src={thumbnailUrl!}
                                 alt={item.title || config.label}

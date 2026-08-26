@@ -19,7 +19,7 @@ const FriendsModal = dynamic(() => import("@/components/friends-modal"));
 
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, addCustomPlanItem, addPlanFlight, createPlanCollection, createPlanShare, deleteCustomPlanItem, deletePlanCollection, deletePlanFlight, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveCustomPlanItemToCollection, moveLodgingToCollection, movePlanFlightToCollection, updateCustomPlanItem, updatePlanFlight, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, addCustomPlanItem, addPlanFlight, createPlanCollection, createPlanShare, deleteCustomPlanItem, deletePlanCollection, deletePlanFlight, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTripFull, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveCustomPlanItemToCollection, moveLodgingToCollection, movePlanFlightToCollection, updateCustomPlanItem, updatePlanFlight, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/components/ui/use-mobile";
@@ -521,7 +521,8 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             }
 
             const cached = tripLookup.get(tripId);
-            if (cached) {
+            const cachedNeedsChildren = cached && cached.activities.length === 0 && cached.lodgings.length === 0;
+            if (cached && !cachedNeedsChildren) {
                 syncTripUrlParam(tripId);
                 clearSelections();
                 setSelectedTrip(cached);
@@ -531,10 +532,10 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 return;
             }
 
-            // Trips should mostly be cached at this point
+            // Fetch full trip data (with children) when not cached or cached version lacks children.
             setIsLoadingTripById(true);
             try {
-                const trip = await getTrip(tripId);
+                const trip = await getTripFull(tripId);
                 if (!trip) {
                     return;
                 }
