@@ -558,11 +558,18 @@ export default function MapView({
             return;
         }
 
+        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
         const observer = new ResizeObserver(() => {
-            map.invalidateSize({ animate: true });
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                map.invalidateSize({ animate: false });
+            }, 150);
         });
         observer.observe(container);
-        return () => observer.disconnect();
+        return () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            observer.disconnect();
+        };
     }, []);
 
     return <div ref={mapContainerRef} className="h-full w-full" />;

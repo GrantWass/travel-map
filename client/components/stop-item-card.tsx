@@ -4,7 +4,6 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { BedDouble, ChevronDown, ChevronUp, Expand, MapPin } from "lucide-react";
 
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import WebsiteChip from "@/components/website-chip";
 import { cn, formatAddress } from "@/lib/utils";
 
@@ -28,7 +27,6 @@ export interface StopItem {
 
 export interface StopCardConfig {
     label: string;
-    aspectRatio: number;
     icon: ReactNode;
     fallbackIcon: ReactNode;
     unexpandedHoverClass: string;
@@ -37,7 +35,6 @@ export interface StopCardConfig {
 
 export const LODGING_CARD_CONFIG: StopCardConfig = {
     label: "Lodging",
-    aspectRatio: 4 / 3,
     icon: null,
     fallbackIcon: <BedDouble className="h-5 w-5 text-primary" />,
     unexpandedHoverClass: "bg-secondary/30 hover:bg-secondary/50",
@@ -46,7 +43,6 @@ export const LODGING_CARD_CONFIG: StopCardConfig = {
 
 export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     label: "Activity",
-    aspectRatio: 16 / 9,
     icon: null,
     fallbackIcon: <MapPin className="h-5 w-5 text-primary" />,
     unexpandedHoverClass: "bg-secondary/40 hover:bg-secondary/70",
@@ -161,16 +157,14 @@ export default function StopItemCard({
                         <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     </div>
                     {hasImage && (
-                        <div className="group relative overflow-hidden rounded-lg">
-                            <AspectRatio ratio={config.aspectRatio} className="bg-muted">
-                                <Image
-                                    src={thumbnailUrl!}
-                                    alt={item.title || config.label}
-                                    fill
-                                    sizes="350px"
-                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                />
-                            </AspectRatio>
+                        <div className="group relative max-h-64 overflow-hidden rounded-lg bg-muted">
+                            <Image
+                                src={thumbnailUrl!}
+                                alt={item.title || config.label}
+                                fill
+                                sizes="350px"
+                                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
                             {costLabel && (
                                 <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
                                     {costLabel}

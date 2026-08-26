@@ -358,9 +358,9 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
   /* -------- tabs config -------- */
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode; dot?: boolean }[] = [
-    { key: "friends", label: "My Friends", icon: <Users className="h-4 w-4" /> },
+    { key: "friends", label: "Friends", icon: <Users className="h-4 w-4" /> },
     { key: "invites", label: "Invites", icon: <Bell className="h-4 w-4" />, dot: hasIncoming },
-    { key: "discover", label: "Add Friends", icon: <Search className="h-4 w-4" /> },
+    { key: "discover", label: "Discover", icon: <Search className="h-4 w-4" /> },
   ];
 
   return (
@@ -391,7 +391,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`relative flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? "text-foreground border-b-2 border-primary -mb-px"
                   : "text-muted-foreground hover:text-foreground"
@@ -428,7 +428,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                     className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors"
                   >
                     {/* number badge */}
-                    <span className="shrink-0 w-6 text-center text-xs font-semibold text-muted-foreground tabular-nums">
+                    <span className="shrink-0 w-6 text-center text-xs font-semibold text-muted-foreground tabular-nums hidden sm:inline">
                       {idx + 1}
                     </span>
                     <UserAvatar name={f.otherName} image={f.otherImage} size={36} />
@@ -443,7 +443,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                     >
                       {f.otherName ?? "Unknown"}
                     </button>
-                    <span className="shrink-0 text-xs text-muted-foreground">Friend</span>
+                    <span className="shrink-0 hidden sm:inline text-xs text-muted-foreground">Friend</span>
                   </div>
                 ))
               )}
