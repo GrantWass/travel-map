@@ -61,6 +61,24 @@ function markerImageUrl(raw: string): string {
 
 const MARKER_IMG_ATTRS = `loading="lazy" decoding="async" onerror="this.style.display='none'"`;
 
+// Amber glyph fallbacks (matching MARKER_POPUP_BADGE_COLOR) used anywhere a
+// marker would show a photo but none is available.
+function activityGlyphSvg(px: number): string {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${px}" height="${px}" aria-hidden="true">
+                <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" fill="${MARKER_POPUP_BADGE_COLOR}"></path>
+                <circle cx="12" cy="10" r="3" fill="${MARKER_PRIMARY_COLOR}"></circle>
+            </svg>`;
+}
+
+function lodgingGlyphSvg(px: number): string {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${px}" height="${px}" aria-hidden="true">
+                <path d="M12 2.8 3.2 9.9a1.6 1.6 0 0 0-.6 1.25V19.4c0 .88.72 1.6 1.6 1.6h15.6c.88 0 1.6-.72 1.6-1.6v-8.25c0-.49-.22-.95-.6-1.25Z" fill="${MARKER_POPUP_BADGE_COLOR}"></path>
+                <path d="M10.1 21v-5.1c0-.61.49-1.1 1.1-1.1h1.6c.61 0 1.1.49 1.1 1.1V21Z" fill="${MARKER_PRIMARY_COLOR}"></path>
+                <rect x="15.4" y="13.4" width="2.4" height="2.4" rx="0.4" fill="${MARKER_PRIMARY_COLOR}"></rect>
+                <rect x="6.2" y="13.4" width="2.4" height="2.4" rx="0.4" fill="${MARKER_PRIMARY_COLOR}"></rect>
+            </svg>`;
+}
+
 function truncateTripMarkerTitle(value: string, maxLength: number): string {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -78,7 +96,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
     const safeLabelTitle = escapeHtml(truncateTripMarkerTitle(trip.title, MAP_MARKER_TITLE_MAX_CHARS));
     const imageUrl = markerImageUrl(trip.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
-        const size = hasImage ? (isActive ? 80 : 64) : (isActive ? 64 : 50);
+        const size = hasImage ? (isActive ? 80 : 64) : (isActive ? 56 : 44);
     return L.divIcon({
         className: "photo-marker",
         html: `
@@ -89,6 +107,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
         border:${isActive ? `3px solid ${MARKER_ACTIVE_BORDER_COLOR}` : `2px solid ${MARKER_PRIMARY_COLOR}`};
         box-shadow:0 4px 20px ${MARKER_SHADOW};
         background:${MARKER_PRIMARY_COLOR};
+        display:flex;align-items:center;justify-content:center;
         ">
         ${hasImage ? `<img
             src="${imageUrl}"
@@ -100,7 +119,7 @@ export function createTripIcon(trip: Trip, isActive: boolean): L.DivIcon {
             position:absolute;left:0;right:0;bottom:0;padding:4px 6px;
             background:${MARKER_GRADIENT_OVERLAY};
             color:${MARKER_PRIMARY_COLOR};font-size:10px;font-weight:600;font-family:system-ui,sans-serif;
-        ">${safeLabelTitle}</div>` : ""}
+        ">${safeLabelTitle}</div>` : activityGlyphSvg(Math.max(Math.round(size * 0.62), 14))}
         </div>
     </div>
     `,
@@ -163,7 +182,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
     const safeTitle = escapeHtml(activity.title || "Activity");
     const imageUrl = sanitizeImageUrl(activity.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
-    const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 70 : 50);
+    const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 54 : 42);
 
     return L.divIcon({
         className: "activity-marker",
@@ -183,10 +202,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
         position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
         display:flex;align-items:center;justify-content:center;
         " aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${Math.max(Math.round(size * 0.62), 18)}" height="${Math.max(Math.round(size * 0.62), 18)}">
-                <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" fill="${MARKER_POPUP_BADGE_COLOR}"></path>
-                <circle cx="12" cy="10" r="3" fill="${MARKER_PRIMARY_COLOR}"></circle>
-            </svg>
+            ${activityGlyphSvg(Math.max(Math.round(size * 0.62), 14))}
         </div>`}
     </div>
     `,
@@ -198,17 +214,12 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
 export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.DivIcon {
     const imageUrl = markerImageUrl(lodging.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
-    const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 70 : 50);
+    const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 54 : 42);
     const safeTitle = escapeHtml(lodging.title || "Lodging");
     const borderColor = isActive ? MARKER_ACTIVE_BORDER_COLOR : MARKER_PRIMARY_COLOR;
-    const iconPx = Math.max(Math.round(size * 0.62), 18);
+    const iconPx = Math.max(Math.round(size * 0.62), 14);
 
-    const houseGlyph = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${iconPx}" height="${iconPx}">
-                <path d="M12 2.8 3.2 9.9a1.6 1.6 0 0 0-.6 1.25V19.4c0 .88.72 1.6 1.6 1.6h15.6c.88 0 1.6-.72 1.6-1.6v-8.25c0-.49-.22-.95-.6-1.25Z" fill="${MARKER_POPUP_BADGE_COLOR}"></path>
-                <path d="M10.1 21v-5.1c0-.61.49-1.1 1.1-1.1h1.6c.61 0 1.1.49 1.1 1.1V21Z" fill="${MARKER_PRIMARY_COLOR}"></path>
-                <rect x="15.4" y="13.4" width="2.4" height="2.4" rx="0.4" fill="${MARKER_PRIMARY_COLOR}"></rect>
-                <rect x="6.2" y="13.4" width="2.4" height="2.4" rx="0.4" fill="${MARKER_PRIMARY_COLOR}"></rect>
-            </svg>`;
+    const houseGlyph = lodgingGlyphSvg(iconPx);
 
     // No photo: clean circular badge with an amber house glyph, matching the
     // activity pin's style.

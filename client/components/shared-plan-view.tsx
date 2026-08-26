@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import { BedDouble, CalendarRange, ExternalLink, MapPin, Notebook, Plane } from "lucide-react";
 
 import type { SharedPlan, SharedPlanGroup } from "@/lib/api-client";
-import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import { formatStopCost } from "@/components/stop-item-card";
 
 // Leaflet touches window at import time, so only load the map client-side.
@@ -23,6 +22,27 @@ function WebsiteChip({ url }: { url: string }) {
             <ExternalLink className="h-3 w-3" />
             Website
         </a>
+    );
+}
+
+/** Thumbnail when a photo exists; otherwise a kind-appropriate icon tile. */
+function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind: "activity" | "lodging" }) {
+    if (src) {
+        return (
+            <Image
+                src={src}
+                alt={alt}
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-md border border-stone-200 object-cover"
+            />
+        );
+    }
+    const Icon = kind === "activity" ? MapPin : BedDouble;
+    return (
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-stone-100 text-amber-700">
+            <Icon className="h-5 w-5" />
+        </div>
     );
 }
 
@@ -63,13 +83,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
 
                                 {group.activities.map((item, index) => (
                                     <article key={`a-${index}`} className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                                        <Image
-                                            src={item.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                            className="h-12 w-12 rounded-md border border-stone-200 object-cover"
-                                        />
+                                        <StopThumb src={item.thumbnail_url} alt={item.title || "Activity"} kind="activity" />
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-medium text-stone-800">{item.title || "Untitled activity"}</p>
                                             {item.address && (
@@ -89,13 +103,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
 
                                 {group.lodgings.map((item, index) => (
                                     <article key={`l-${index}`} className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50/80 p-3">
-                                        <Image
-                                            src={item.thumbnail_url || DEFAULT_FALLBACK_IMAGE}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                            className="h-12 w-12 rounded-md border border-stone-200 object-cover"
-                                        />
+                                        <StopThumb src={item.thumbnail_url} alt={item.title || "Lodging"} kind="lodging" />
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-medium text-stone-800">{item.title || "Untitled lodging"}</p>
                                             {item.address && (
