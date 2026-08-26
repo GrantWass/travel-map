@@ -290,6 +290,7 @@ export default function TripItinerary({ tripId, activities, canEdit }: TripItine
                         alt=""
                         width={28}
                         height={28}
+                        sizes="28px"
                         className="h-7 w-7 flex-shrink-0 rounded-md object-cover"
                     />
                 ) : (

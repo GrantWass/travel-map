@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { BedDouble, ChevronDown, ChevronUp, Expand, ExternalLink, MapPin } from "lucide-react";
+import { BedDouble, ChevronDown, ChevronUp, Expand, MapPin } from "lucide-react";
 
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { cn } from "@/lib/utils";
+import WebsiteChip from "@/components/website-chip";
+import { cn, formatAddress } from "@/lib/utils";
 
 export function formatStopCost(cost: number | string | null | undefined): string | null {
     if (cost == null) return null;
@@ -15,23 +16,7 @@ export function formatStopCost(cost: number | string | null | undefined): string
     return numeric % 1 === 0 ? `$${numeric}/person` : `$${numeric.toFixed(2)}/person`;
 }
 
-export function formatStopAddress(address: string | null | undefined): string | null {
-    if (!address) return null;
-    const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
-    const cleaned = parts
-        .map((part) => {
-            // "NY 10118" → "NY"
-            const stateZip = part.match(/^([A-Z]{2})\s+\d{5}(-\d{4})?$/i);
-            if (stateZip) return stateZip[1].toUpperCase();
-            return part;
-        })
-        .filter((part) => {
-            if (/^(USA|United States(?: of America)?|US)$/i.test(part)) return false;
-            if (/^\d{5}(-\d{4})?$/.test(part)) return false;
-            return true;
-        });
-    return cleaned.slice(0, 3).join(", ") || null;
-}
+export const formatStopAddress = formatAddress;
 
 export interface StopItem {
     title?: string | null;
@@ -177,8 +162,7 @@ export default function StopItemCard({
         >
             {isExpanded ? (
                 <div className="flex flex-col gap-3 p-3">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <div className="flex items-center justify-end">
                         <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     </div>
                     {hasImage && (
@@ -239,16 +223,9 @@ export default function StopItemCard({
                             <p className="text-sm leading-relaxed text-foreground/70">{item.description}</p>
                         )}
                         {item.link_url && (
-                            <a
-                                href={item.link_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-secondary/70"
-                            >
-                                <ExternalLink className="h-3 w-3" />
-                                Website
-                            </a>
+                            <span className="mt-1" onClick={(e) => e.stopPropagation()}>
+                                <WebsiteChip url={item.link_url} />
+                            </span>
                         )}
                     </div>
                     {actions && (

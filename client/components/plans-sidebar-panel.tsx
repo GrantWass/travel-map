@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCopy,
-  ExternalLink,
   FolderOpen,
   ImagePlus,
   Link2,
@@ -23,12 +22,15 @@ import {
 } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import ConfirmDialog from "@/components/confirm-dialog";
 import PlacePicker from "@/components/place-picker";
 import StopItemCard, {
   ACTIVITY_CARD_CONFIG,
   LODGING_CARD_CONFIG,
   StopSection,
 } from "@/components/stop-item-card";
+import WebsiteChip from "@/components/website-chip";
+import { INPUT_CLASS, TEXTAREA_CLASS } from "@/lib/ui-constants";
 import { createPlanShare, uploadImage, type CustomPlanItem, type PlanFlight } from "@/lib/api-client";
 import { looksLikeLink, unfurlLink } from "@/lib/link-unfurl";
 import { parseFlightLink } from "@/lib/flight-link";
@@ -237,7 +239,7 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
           if (e.key === "Escape") onCancel();
         }}
         placeholder={itemType === "activity" ? "What do you want to do?" : "Where do you want to stay?"}
-        className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+        className={`${INPUT_CLASS} w-full`}
       />
       <PlacePicker
         label=""
@@ -252,13 +254,13 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
           onChange={(e) => void handleLinkChange(e.target.value)}
           placeholder="Paste a link — we'll fill in details"
           type="url"
-          className="min-w-0 flex-1 rounded-md border border-dashed border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+          className={`${INPUT_CLASS} min-w-0 flex-1 border-dashed`}
         />
         <input
           value={cost}
           onChange={(e) => setCost(e.target.value)}
           placeholder="Cost / person"
-          className="w-28 flex-shrink-0 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+          className={`${INPUT_CLASS} w-28 flex-shrink-0`}
         />
       </div>
       <div className="flex items-center gap-2">
@@ -283,7 +285,7 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
             alt=""
             width={32}
             height={32}
-            unoptimized
+            sizes="32px"
             className="h-8 w-8 rounded-md border border-border object-cover"
           />
         ) : null}
@@ -293,7 +295,7 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
         onChange={(e) => setNotes(e.target.value)}
         rows={2}
         placeholder="Notes (optional)"
-        className="w-full resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+        className={`${TEXTAREA_CLASS} w-full`}
       />
       <div className="flex items-center justify-between">
         {targetCollectionLabel ? (
@@ -395,19 +397,13 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
         </>
       }
     />
-    {confirmDelete && (
-      <>
-        <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
-        <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
-          <h3 className="text-sm font-semibold text-foreground">Delete this item?</h3>
-          <p className="mt-1.5 text-xs text-muted-foreground">&ldquo;{item.title}&rdquo; will be removed from your plans.</p>
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
-            <button type="button" onClick={() => { onDelete(); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
-          </div>
-        </div>
-      </>
-    )}
+    <ConfirmDialog
+      open={confirmDelete}
+      title="Delete this item?"
+      description={`"${item.title}" will be removed from your plans.`}
+      onConfirm={() => { onDelete(); setConfirmDelete(false); }}
+      onCancel={() => setConfirmDelete(false)}
+    />
     </>
   );
 }
@@ -420,8 +416,7 @@ interface SavedStopActionsProps {
   onMove: (collectionName: string | null) => void;
 }
 
-const flightInputClass =
-  "min-w-0 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground";
+const flightInputClass = INPUT_CLASS;
 
 /** Add/edit form for a plan flight. Pasting a Google Flights link pre-fills what it can. */
 function FlightForm({
@@ -557,7 +552,7 @@ function FlightForm({
         onChange={(e) => setNotes(e.target.value)}
         rows={2}
         placeholder="Notes (optional)"
-        className="w-full resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+        className={`${TEXTAREA_CLASS} w-full`}
       />
       <div className="flex items-center justify-between">
         {targetCollectionLabel ? (
@@ -652,16 +647,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
           )}
           <div className="mt-1.5 flex items-center gap-2">
             {flight.link_url && (
-              <a
-                href={flight.link_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                title={flight.link_url}
-              >
-                <ExternalLink className="h-3 w-3" />
-                View
-              </a>
+              <WebsiteChip url={flight.link_url} variant="subtle" />
             )}
             <button
               type="button"
@@ -687,19 +673,13 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
         </div>
       </div>
     </div>
-    {confirmDelete && (
-      <>
-        <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
-        <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
-          <h3 className="text-sm font-semibold text-foreground">Delete this flight?</h3>
-          <p className="mt-1.5 text-xs text-muted-foreground">This flight will be removed from your plans.</p>
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
-            <button type="button" onClick={() => { onDelete(); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
-          </div>
-        </div>
-      </>
-    )}
+    <ConfirmDialog
+      open={confirmDelete}
+      title="Delete this flight?"
+      description="This flight will be removed from your plans."
+      onConfirm={() => { onDelete(); setConfirmDelete(false); }}
+      onCancel={() => setConfirmDelete(false)}
+    />
     </>
   );
 }
@@ -1020,19 +1000,13 @@ export default function PlansSidebarPanel({
           </div>
         </div>
 
-        {confirmDelete && (
-          <>
-            <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
-            <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
-              <h3 className="text-sm font-semibold text-foreground">Delete collection?</h3>
-              <p className="mt-1.5 text-xs text-muted-foreground">&ldquo;{name}&rdquo; will be deleted. Items inside won&apos;t be removed from your plans.</p>
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
-                <button type="button" onClick={() => { onDeleteCollection(name); setOpenCollection(null); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
-              </div>
-            </div>
-          </>
-        )}
+        <ConfirmDialog
+          open={confirmDelete}
+          title="Delete collection?"
+          description={`"${name}" will be deleted. Items inside won't be removed from your plans.`}
+          onConfirm={() => { onDeleteCollection(name); setOpenCollection(null); setConfirmDelete(false); }}
+          onCancel={() => setConfirmDelete(false)}
+        />
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-5 p-5">
@@ -1165,19 +1139,13 @@ export default function PlansSidebarPanel({
           )}
         </div>
 
-        {confirmDelete && name && (
-          <>
-            <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setConfirmDelete(false)} />
-            <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl">
-              <h3 className="text-sm font-semibold text-foreground">Delete collection?</h3>
-              <p className="mt-1.5 text-xs text-muted-foreground">&ldquo;{name}&rdquo; will be deleted. Items inside won&apos;t be removed from your plans.</p>
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancel</button>
-                <button type="button" onClick={() => { onDelete?.(); setConfirmDelete(false); }} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90">Delete</button>
-              </div>
-            </div>
-          </>
-        )}
+        <ConfirmDialog
+          open={confirmDelete && !!name}
+          title="Delete collection?"
+          description={`"${name}" will be deleted. Items inside won't be removed from your plans.`}
+          onConfirm={() => { onDelete?.(); setConfirmDelete(false); }}
+          onCancel={() => setConfirmDelete(false)}
+        />
 
         {!collapsed && (
           <div className="flex flex-col gap-2 pl-1">
@@ -1342,7 +1310,7 @@ export default function PlansSidebarPanel({
                   if (e.key === "Escape") { setShowNewCollectionInput(false); setNewCollectionName(""); }
                 }}
                 placeholder="Collection name..."
-                className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+                className={`${INPUT_CLASS} min-w-0 flex-1`}
               />
               <button
                 type="button"

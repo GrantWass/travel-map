@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { X, UserPlus, Check, Slash, Copy, Link as LinkIcon, Users, Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +11,7 @@ import {
 } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
+import UserAvatar from "@/components/user-avatar";
 import UserProfileModal from "./user-profile-modal";
 
 interface FriendsModalProps {
@@ -20,52 +20,6 @@ interface FriendsModalProps {
 }
 
 type Tab = "friends" | "invites" | "discover";
-
-/* ---------------- Avatar ---------------- */
-
-function UserAvatar({
-  name,
-  image,
-  size = 36,
-}: {
-  name?: string | null;
-  image?: string | null;
-  size?: number;
-}) {
-  const initials =
-    (name || "")
-      .split(" ")
-      .filter(Boolean)
-      .map((p) => p[0])
-      .join("")
-      .slice(0, 2) || "?";
-
-  if (image) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className="shrink-0 overflow-hidden rounded-full"
-      >
-        <Image
-          src={image}
-          alt={`${name} avatar`}
-          width={size}
-          height={size}
-          className="h-full w-full object-cover"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{ width: size, height: size }}
-      className="rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0"
-    >
-      {initials}
-    </div>
-  );
-}
 
 /* ---------------- Search Result Row ---------------- */
 

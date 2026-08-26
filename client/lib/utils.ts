@@ -64,6 +64,33 @@ export function getLocationKey(lat: number, lng: number): string {
     return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
 }
 
+/**
+ * Cleans a raw address string by normalizing state+zip and removing US/country/zip-only parts.
+ * `maxParts` controls how many comma-separated segments to keep.
+ * `fromEnd` — when true, keeps the *last* N parts instead of the first N (useful for "City, ST" labels).
+ */
+export function formatAddress(
+  address: string | null | undefined,
+  maxParts = 3,
+  { fromEnd = false } = {},
+): string | null {
+  if (!address) return null;
+  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+  const cleaned = parts
+    .map((part) => {
+      const stateZip = part.match(/^([A-Z]{2})\s+\d{5}(-\d{4})?$/i);
+      if (stateZip) return stateZip[1].toUpperCase();
+      return part;
+    })
+    .filter((part) => {
+      if (/^(USA|United States(?: of America)?|US)$/i.test(part)) return false;
+      if (/^\d{5}(-\d{4})?$/.test(part)) return false;
+      return true;
+    });
+  const slice = fromEnd ? cleaned.slice(-maxParts) : cleaned.slice(0, maxParts);
+  return slice.join(", ") || null;
+}
+
 export function getTripTimestamp(dateValue: string): number {
     const timestamp = Date.parse(dateValue);
     return Number.isNaN(timestamp) ? 0 : timestamp;

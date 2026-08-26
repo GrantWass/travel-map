@@ -5,6 +5,7 @@ import Image from "next/image";
 import { X, Mail, GraduationCap, Trash2, Plus, Settings, Upload, Loader2, Pencil, Timer, Users } from "lucide-react";
 import { ApiError, updateProfileSettings, uploadImage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import ConfirmDialog from "@/components/confirm-dialog";
 import { User } from "@/lib/api-types";
 import { formatTripDate, formatTripDuration, initialsFromName } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
@@ -326,6 +327,7 @@ export default function UserProfileModal({
                                     alt={`${displayState.name} profile photo`}
                                     fill
                                     sizes="80px"
+                                    priority
                                     className="object-cover"
                                     onError={() => setProfileImageFailed(true)}
                                 />
@@ -620,37 +622,18 @@ export default function UserProfileModal({
                 </div>
             </div>
 
-            {/* Delete confirmation dialog */}
-            {tripToDelete && (
-                <>
-                    <div className="fixed inset-0 z-[1700] bg-black/45 backdrop-blur-sm" onClick={() => setTripToDelete(null)} />
-                    <div className="fixed left-1/2 top-1/2 z-[1800] w-[min(400px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl">
-                        <h3 className="text-base font-semibold text-foreground">Delete trip?</h3>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            &ldquo;{tripToDelete.title}&rdquo; will be permanently deleted. This can&apos;t be undone.
-                        </p>
-                        <div className="mt-5 flex items-center justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setTripToDelete(null)}
-                                className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-secondary"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    onDeleteTrip?.(tripToDelete.id);
-                                    setTripToDelete(null);
-                                }}
-                                className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:opacity-90"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </>
-            )}
+            <ConfirmDialog
+                open={!!tripToDelete}
+                title="Delete trip?"
+                description={`"${tripToDelete?.title}" will be permanently deleted. This can't be undone.`}
+                onConfirm={() => {
+                    if (tripToDelete) {
+                        onDeleteTrip?.(tripToDelete.id);
+                        setTripToDelete(null);
+                    }
+                }}
+                onCancel={() => setTripToDelete(null)}
+            />
         </>
     );
 }

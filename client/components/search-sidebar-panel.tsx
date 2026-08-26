@@ -4,28 +4,11 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, SlidersHorizontal, X, DollarSign, User, Tag, MapPin, BedDouble, Timer, ChevronDown, CalendarRange, ArrowUpDown } from "lucide-react";
 
-function formatCityState(address: string | null | undefined): string | null {
-    if (!address) return null;
-    const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
-    const cleaned = parts
-        .map((part) => {
-            const stateZip = part.match(/^([A-Z]{2})\s+\d{5}(-\d{4})?$/i);
-            if (stateZip) return stateZip[1].toUpperCase();
-            return part;
-        })
-        .filter((part) => {
-            if (/^(USA|United States(?: of America)?|US)$/i.test(part)) return false;
-            if (/^\d{5}(-\d{4})?$/.test(part)) return false;
-            return true;
-        });
-    return cleaned.slice(-2).join(", ") || null;
-}
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import type { Trip } from "@/lib/api-types";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
-import { formatTripDate, formatTripDuration } from "@/lib/utils";
+import { formatAddress, formatTripDate, formatTripDuration } from "@/lib/utils";
 import { buildSearchResults, getAvailableTags, MAX_COST, TRIP_DURATION_OPTIONS, useTripSearchStore, type SearchResultSort } from "@/stores/trip-search-store";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] as const;
@@ -356,7 +339,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                             className="flex w-full items-center gap-3 rounded-lg bg-secondary/40 p-3 text-left transition-colors hover:bg-secondary/70 active:bg-secondary"
                                         >
                                             <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                                                <Image src={trip.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={trip.title} fill sizes="48px" className="object-cover" />
+                                                <Image src={trip.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={trip.title} fill sizes="48px" priority className="object-cover" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-medium text-foreground">{trip.title}</p>
@@ -405,13 +388,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill sizes="36px" className="object-cover" />
+                                                            <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill sizes="36px" loading="lazy" className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{activity.title}</p>
                                                             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                                                                 <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-                                                                <span className="truncate">{formatCityState(activity.address)}</span>
+                                                                <span className="truncate">{formatAddress(activity.address, 2, { fromEnd: true })}</span>
                                                             </p>
                                                         </div>
                                                     </button>
@@ -424,13 +407,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
-                                                            <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill sizes="36px" className="object-cover" />
+                                                            <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill sizes="36px" loading="lazy" className="object-cover" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-xs font-medium text-foreground">{lodging.title}</p>
                                                             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                                                                 <BedDouble className="h-2.5 w-2.5 flex-shrink-0" />
-                                                                <span className="truncate">{formatCityState(lodging.address)}</span>
+                                                                <span className="truncate">{formatAddress(lodging.address, 2, { fromEnd: true })}</span>
                                                             </p>
                                                         </div>
                                                     </button>

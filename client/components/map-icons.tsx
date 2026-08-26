@@ -180,7 +180,7 @@ export function createClusterIcon(trip: Trip, count: number): L.DivIcon {
 
 export function createActivityIcon(activity: TripActivity, isActive: boolean): L.DivIcon {
     const safeTitle = escapeHtml(activity.title || "Activity");
-    const imageUrl = sanitizeImageUrl(activity.thumbnail_url || "");
+    const imageUrl = markerImageUrl(activity.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 54 : 42);
 

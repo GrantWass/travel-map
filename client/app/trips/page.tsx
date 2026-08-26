@@ -746,6 +746,7 @@ function TripsPageContent() {
                             alt={collaborator.name || "Collaborator"}
                             width={20}
                             height={20}
+                            sizes="20px"
                             className="h-5 w-5 object-cover"
                           />
                         ) : null}

@@ -13,6 +13,7 @@ import { formatTripDate, formatTripDuration, shareOrCopyUrl } from "@/lib/utils"
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
 import TripItinerary from "@/components/trip-itinerary";
 import StopItemCard, { ACTIVITY_CARD_CONFIG, LODGING_CARD_CONFIG, StopSection } from "@/components/stop-item-card";
+import UserAvatar from "@/components/user-avatar";
 
 function SafeImage({ src, alt, fallback, ...props }: { src: string; alt: string; fallback?: ReactNode } & Omit<React.ComponentProps<typeof Image>, "src" | "alt">) {
     const [failed, setFailed] = useState(false);
@@ -20,7 +21,7 @@ function SafeImage({ src, alt, fallback, ...props }: { src: string; alt: string;
         if (fallback) return <>{fallback}</>;
         return <div className="flex h-full w-full items-center justify-center bg-secondary text-muted-foreground"><User className="h-5 w-5" /></div>;
     }
-    return <Image src={src} alt={alt} onError={() => setFailed(true)} {...props} />;
+    return <Image src={src} alt={alt} quality={75} onError={() => setFailed(true)} {...props} />;
 }
 
 function ContentScroller({ children, mobile }: { children: ReactNode; mobile?: boolean }) {
@@ -176,7 +177,7 @@ export default function SidebarPanel({
         <div className={cn("relative flex flex-col bg-card", !mobileSheetMode && "h-full w-full border-r border-border")}>
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
-                <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="400px" className="object-cover" priority />
+                <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="(max-width: 640px) 100vw, 483px" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                 {locationTripCount > 1 && (
                     <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm">
@@ -269,19 +270,11 @@ export default function SidebarPanel({
                                         onClick={() => onOpenAuthorProfile(collaborator.user_id)}
                                         className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-2.5 py-1 text-xs text-foreground/85 transition-colors hover:bg-secondary"
                                     >
-                                        {collaborator.profile_image_url ? (
-                                            <SafeImage
-                                                src={collaborator.profile_image_url}
-                                                alt={collaborator.name || "Collaborator"}
-                                                width={18}
-                                                height={18}
-                                                className="h-[18px] w-[18px] rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                                                {(collaborator.name || "?").slice(0, 1).toUpperCase()}
-                                            </span>
-                                        )}
+                                        <UserAvatar
+                                            name={collaborator.name}
+                                            image={collaborator.profile_image_url}
+                                            size={18}
+                                        />
                                         <span>{collaborator.name || `User #${collaborator.user_id}`}</span>
                                     </button>
                                 ))}
@@ -438,13 +431,6 @@ export default function SidebarPanel({
                             ) : (
                                 sortedComments.map((comment) => {
                                     const authorName = comment.user_name || "Traveler";
-                                    const initials = authorName
-                                        .split(" ")
-                                        .filter(Boolean)
-                                        .map((part) => part[0])
-                                        .join("")
-                                        .slice(0, 2)
-                                        .toUpperCase() || "?";
                                     const createdAtLabel = comment.created_at
                                         ? new Date(comment.created_at).toLocaleString()
                                         : "";
@@ -452,19 +438,11 @@ export default function SidebarPanel({
                                     return (
                                         <div key={comment.comment_id} className="rounded-xl border border-border bg-background p-3">
                                             <div className="mb-1.5 flex items-center gap-2">
-                                                {comment.user_profile_image_url ? (
-                                                    <SafeImage
-                                                        src={comment.user_profile_image_url}
-                                                        alt={`${authorName} avatar`}
-                                                        width={24}
-                                                        height={24}
-                                                        className="h-6 w-6 rounded-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                                                        {initials}
-                                                    </div>
-                                                )}
+                                                <UserAvatar
+                                                    name={authorName}
+                                                    image={comment.user_profile_image_url}
+                                                    size={24}
+                                                />
                                                 <span className="text-xs font-medium text-foreground">{authorName}</span>
                                                 {createdAtLabel && (
                                                     <span className="text-[11px] text-muted-foreground">· {createdAtLabel}</span>

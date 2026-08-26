@@ -3,27 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { BedDouble, CalendarRange, ExternalLink, MapPin, Notebook, Plane } from "lucide-react";
+import { BedDouble, CalendarRange, MapPin, Notebook, Plane } from "lucide-react";
 
-import type { SharedPlan, SharedPlanGroup } from "@/lib/api-client";
-import { formatStopCost } from "@/components/stop-item-card";
+import type { SharedPlan } from "@/lib/api-client";
+import WebsiteChip from "@/components/website-chip";
+import CostBadge from "@/components/cost-badge";
 
 // Leaflet touches window at import time, so only load the map client-side.
 const SharedPlanMap = dynamic(() => import("@/components/shared-plan-map"), { ssr: false });
-
-function WebsiteChip({ url }: { url: string }) {
-    return (
-        <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-white px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
-        >
-            <ExternalLink className="h-3 w-3" />
-            Website
-        </a>
-    );
-}
 
 /** Thumbnail when a photo exists; otherwise a kind-appropriate icon tile. */
 function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind: "activity" | "lodging" }) {
@@ -34,6 +21,7 @@ function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind:
                 alt={alt}
                 width={48}
                 height={48}
+                sizes="48px"
                 className="h-12 w-12 rounded-md border border-border object-cover"
             />
         );
@@ -43,6 +31,46 @@ function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind:
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-border bg-white text-primary">
             <Icon className="h-5 w-5" />
         </div>
+    );
+}
+
+function StopArticle({
+    title,
+    address,
+    addressIcon: AddressIcon,
+    description,
+    linkUrl,
+    cost,
+    thumbnail,
+    kind,
+}: {
+    title: string;
+    address?: string | null;
+    addressIcon?: React.ReactNode;
+    description?: string | null;
+    linkUrl?: string | null;
+    cost?: number | string | null | undefined;
+    thumbnail?: string | null;
+    kind: "activity" | "lodging";
+}) {
+    return (
+        <article className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3">
+            <StopThumb src={thumbnail} alt={title || kind} kind={kind} />
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">{title || `Untitled ${kind}`}</p>
+                {address && (
+                    <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground">
+                        {AddressIcon}
+                        <span>{address}</span>
+                    </p>
+                )}
+                {description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>}
+                {linkUrl && (
+                    <span className="mt-1"><WebsiteChip url={linkUrl} /></span>
+                )}
+            </div>
+            <CostBadge cost={cost} variant="light" />
+        </article>
     );
 }
 
@@ -82,43 +110,31 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.name}</h2>
 
                                 {group.activities.map((item, index) => (
-                                    <article key={`a-${index}`} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3">
-                                        <StopThumb src={item.thumbnail_url} alt={item.title || "Activity"} kind="activity" />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-foreground">{item.title || "Untitled activity"}</p>
-                                            {item.address && (
-                                                <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground">
-                                                    <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                                    <span>{item.address}</span>
-                                                </p>
-                                            )}
-                                            {item.description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>}
-                                            {item.link_url && (
-                                                <span className="mt-1"><WebsiteChip url={item.link_url} /></span>
-                                            )}
-                                        </div>
-                                        <CostLabel cost={item.cost} />
-                                    </article>
+                                    <StopArticle
+                                        key={`a-${index}`}
+                                        title={item.title || ""}
+                                        address={item.address}
+                                        addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />}
+                                        description={item.description}
+                                        linkUrl={item.link_url}
+                                        cost={item.cost}
+                                        thumbnail={item.thumbnail_url}
+                                        kind="activity"
+                                    />
                                 ))}
 
                                 {group.lodgings.map((item, index) => (
-                                    <article key={`l-${index}`} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3">
-                                        <StopThumb src={item.thumbnail_url} alt={item.title || "Lodging"} kind="lodging" />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-foreground">{item.title || "Untitled lodging"}</p>
-                                            {item.address && (
-                                                <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground">
-                                                    <BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                                                    <span>{item.address}</span>
-                                                </p>
-                                            )}
-                                            {item.description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>}
-                                            {item.link_url && (
-                                                <span className="mt-1"><WebsiteChip url={item.link_url} /></span>
-                                            )}
-                                        </div>
-                                        <CostLabel cost={item.cost} />
-                                    </article>
+                                    <StopArticle
+                                        key={`l-${index}`}
+                                        title={item.title || ""}
+                                        address={item.address}
+                                        addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0" />}
+                                        description={item.description}
+                                        linkUrl={item.link_url}
+                                        cost={item.cost}
+                                        thumbnail={item.thumbnail_url}
+                                        kind="lodging"
+                                    />
                                 ))}
 
                                 {(group.flights ?? []).map((flight, index) => {
@@ -147,9 +163,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                 )}
                                             </div>
                                             {flight.price && (
-                                                <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                                                    {flight.price}
-                                                </span>
+                                                <CostBadge cost={flight.price} variant="light" />
                                             )}
                                         </article>
                                     );
@@ -176,15 +190,5 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                 </div>
             </div>
         </main>
-    );
-}
-
-function CostLabel({ cost }: { cost: number | string | null }) {
-    const label = formatStopCost(cost);
-    if (!label) return null;
-    return (
-        <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {label}
-        </span>
     );
 }

@@ -283,6 +283,7 @@ export function StopEditorCard({
                 alt={stop.title ? `${stop.title} preview` : `${config.noun} photo preview`}
                 width={80}
                 height={80}
+                sizes="80px"
                 className="h-20 w-20 rounded-md border border-border object-cover"
               />
               <div className="min-w-0 flex-1">
@@ -392,6 +393,7 @@ export function StopPreviewList({
                   alt={stop.title ? `${stop.title} preview` : `${config.noun} preview`}
                   width={64}
                   height={64}
+                  sizes="64px"
                   className="h-16 w-16 rounded-md border border-border object-cover"
                 />
                 <div className="min-w-0 flex-1 space-y-1">
