@@ -10,6 +10,7 @@ import {
   ClipboardCopy,
   ExternalLink,
   FolderOpen,
+  ImagePlus,
   Link2,
   MapPin,
   Notebook,
@@ -28,7 +29,7 @@ import StopItemCard, {
   LODGING_CARD_CONFIG,
   StopSection,
 } from "@/components/stop-item-card";
-import { createPlanShare, type CustomPlanItem, type PlanFlight } from "@/lib/api-client";
+import { createPlanShare, uploadImage, type CustomPlanItem, type PlanFlight } from "@/lib/api-client";
 import { looksLikeLink, unfurlLink } from "@/lib/link-unfurl";
 import { parseFlightLink } from "@/lib/flight-link";
 import { shareOrCopyUrl } from "@/lib/utils";
@@ -160,6 +161,27 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
   const [cost, setCost] = useState(initial?.cost || "");
   const [linkUrl, setLinkUrl] = useState(initial?.link_url || "");
   const [notes, setNotes] = useState(initial?.description || initial?.notes || "");
+  const [thumbnailUrl, setThumbnailUrl] = useState(initial?.thumbnail_url || "");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState("");
+
+  async function handleImageUpload(file?: File) {
+    if (!file) {
+      setThumbnailUrl("");
+      setImageError("");
+      return;
+    }
+    setIsUploadingImage(true);
+    setImageError("");
+    try {
+      const url = await uploadImage(file, itemType === "lodging" ? "plans/lodging" : "plans/activity");
+      setThumbnailUrl(url);
+    } catch {
+      setImageError("Could not upload this image. Please try again.");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }
 
   async function handleLinkChange(value: string) {
     setLinkUrl(value);
@@ -184,6 +206,7 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
       description: notes.trim() || undefined,
       latitude: place?.latitude ?? null,
       longitude: place?.longitude ?? null,
+      thumbnail_url: thumbnailUrl || null,
     });
   }
 
@@ -234,9 +257,36 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
         <input
           value={cost}
           onChange={(e) => setCost(e.target.value)}
-          placeholder="Cost"
-          className="w-24 flex-shrink-0 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+          placeholder="Cost / person"
+          className="w-28 flex-shrink-0 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
         />
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+          <ImagePlus className="h-3.5 w-3.5" />
+          {thumbnailUrl ? "Change photo" : "Photo"}
+          <input
+            type="file"
+            accept="image/*"
+            disabled={isUploadingImage}
+            className="sr-only"
+            onChange={(e) => void handleImageUpload(e.target.files?.[0])}
+          />
+        </label>
+        {isUploadingImage ? (
+          <p className="text-xs text-muted-foreground">Uploading...</p>
+        ) : imageError ? (
+          <p className="text-xs text-destructive">{imageError}</p>
+        ) : thumbnailUrl ? (
+          <Image
+            src={thumbnailUrl}
+            alt=""
+            width={32}
+            height={32}
+            unoptimized
+            className="h-8 w-8 rounded-md border border-border object-cover"
+          />
+        ) : null}
       </div>
       <textarea
         value={notes}

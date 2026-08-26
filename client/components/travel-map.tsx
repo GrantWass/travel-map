@@ -220,17 +220,60 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
 
     const collectionActivities = useMemo(() => {
         if (selectedCollection === null) return [];
-        return savedActivities
+        const saved = savedActivities
             .filter((a) => (a.collectionName ?? "") === selectedCollection)
             .map((a) => a.activity);
-    }, [selectedCollection, savedActivities]);
+        const custom = customItems
+            .filter(
+                (c) =>
+                    (c.collection_name ?? "") === selectedCollection &&
+                    (c.item_type ?? "activity") !== "lodging" &&
+                    c.latitude != null &&
+                    c.longitude != null,
+            )
+            .map((c) => ({
+                activity_id: -c.custom_item_id,
+                trip_id: 0,
+                address: c.address,
+                thumbnail_url: c.thumbnail_url ?? null,
+                title: c.title,
+                location: null,
+                description: c.description || c.notes,
+                link_url: c.link_url,
+                latitude: c.latitude,
+                longitude: c.longitude,
+                cost: null,
+            }));
+        return [...custom, ...saved] as TripActivity[];
+    }, [selectedCollection, savedActivities, customItems]);
 
     const collectionLodgings = useMemo(() => {
         if (selectedCollection === null) return [];
-        return savedLodgings
+        const saved = savedLodgings
             .filter((l) => (l.collectionName ?? "") === selectedCollection)
             .map((l) => l.lodging);
-    }, [selectedCollection, savedLodgings]);
+        const custom = customItems
+            .filter(
+                (c) =>
+                    (c.collection_name ?? "") === selectedCollection &&
+                    c.item_type === "lodging" &&
+                    c.latitude != null &&
+                    c.longitude != null,
+            )
+            .map((c) => ({
+                lodge_id: -c.custom_item_id,
+                trip_id: 0,
+                address: c.address,
+                thumbnail_url: c.thumbnail_url ?? null,
+                title: c.title,
+                description: c.description || c.notes,
+                link_url: c.link_url,
+                latitude: c.latitude,
+                longitude: c.longitude,
+                cost: null,
+            }));
+        return [...custom, ...saved] as TripLodging[];
+    }, [selectedCollection, savedLodgings, customItems]);
 
     const selectedLocationContext = useMemo(
         () => deriveSelectedLocationContext(trips, selectedTrip),
