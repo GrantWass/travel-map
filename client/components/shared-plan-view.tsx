@@ -40,7 +40,7 @@ function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind:
     }
     const Icon = kind === "activity" ? MapPin : BedDouble;
     return (
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-stone-100 text-amber-700">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-amber-700">
             <Icon className="h-5 w-5" />
         </div>
     );
