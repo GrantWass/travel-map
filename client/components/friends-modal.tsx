@@ -406,7 +406,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
           <h2 className="text-base font-semibold tracking-tight">Friends</h2>
           <button
             onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
           >
             <X className="h-4 w-4" />
           </button>

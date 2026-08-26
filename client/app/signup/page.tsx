@@ -44,8 +44,8 @@ const strengthBarColor: Record<number, string> = {
     3: "bg-green-500",
 };
 const strengthTextColor: Record<number, string> = {
-    1: "text-red-500",
-    2: "text-amber-600",
+    1: "text-destructive",
+    2: "text-primary",
     3: "text-green-600",
 };
 
@@ -215,7 +215,7 @@ function SignUpContent() {
     }
 
     const inputBase =
-        "w-full rounded-lg border border-stone-200 bg-white/60 px-4 py-3 text-sm text-stone-800 placeholder:text-stone-400 outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-300 disabled:opacity-50";
+        "w-full rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 disabled:opacity-50";
 
     const collapseStyle = (open: boolean): React.CSSProperties => ({
         display: "grid",
@@ -249,19 +249,19 @@ function SignUpContent() {
             {/* TOP HALF */}
             <div className="flex flex-col items-center w-full md:justify-end md:pb-8">
                 <div className="mb-6 md:mb-10 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
                         <MapPin className="h-5 w-5 text-white" />
                     </div>
-                    <BrandNameButton className="text-2xl text-stone-800" />
+                    <BrandNameButton className="text-2xl text-foreground" />
                 </div>
 
-                <h1 className="text-5xl font-bold tracking-tight text-stone-900 sm:text-6xl md:text-7xl text-center">
+                <h1 className="text-5xl font-bold tracking-tight text-foreground sm:text-6xl md:text-7xl text-center">
                     {isSignup ? (
                         <>
                             Your next{" "}
-                            <span className="relative inline-block text-amber-600">
+                            <span className="relative inline-block text-primary">
                                 adventure
-                                <span className="absolute -bottom-1 left-0 right-0 h-px bg-amber-300/70" />
+                                <span className="absolute -bottom-1 left-0 right-0 h-px bg-primary/40" />
                             </span>
                             .
                         </>
@@ -270,7 +270,7 @@ function SignUpContent() {
                     )}
                 </h1>
 
-                <p className="mt-4 text-sm text-stone-400">
+                <p className="mt-4 text-sm text-muted-foreground/70">
                     {mode === "signin"
                         ? "Enter your email and password to continue."
                         : "Explore trips, stays, and activities."}
@@ -314,7 +314,7 @@ function SignUpContent() {
                     {/* Error — prominent banner */}
                     <div style={{ ...collapseStyle(!!error), marginBottom: error ? "0.75rem" : "0", transition: "grid-template-rows 200ms ease, opacity 200ms ease, margin-bottom 200ms ease" }}>
                         <div style={{ overflow: "hidden" }}>
-                            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+                            <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
                         </div>
                     </div>
 
@@ -325,7 +325,7 @@ function SignUpContent() {
                         </div>
                     </div>
 
-                    <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60">
+                    <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60">
                         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                         {isLoading ? "Please wait…" : isSignup ? "Get started" : "Sign in"}
                     </button>
@@ -333,25 +333,25 @@ function SignUpContent() {
                     {/* Forgot password — only visible in signin mode */}
                     <div style={collapseStyle(!isSignup)} className="text-center">
                         <div style={{ overflow: "hidden", paddingTop: "10px" }}>
-                            <button type="button" disabled={isSendingReset || isLoading} onClick={handleForgotPassword} className="text-xs text-stone-400 hover:text-amber-600 transition-colors disabled:opacity-50">
+                            <button type="button" disabled={isSendingReset || isLoading} onClick={handleForgotPassword} className="text-xs text-muted-foreground/70 hover:text-primary transition-colors disabled:opacity-50">
                                 {isSendingReset ? "Sending…" : "Forgot password?"}
                             </button>
                         </div>
                     </div>
                 </form>
 
-                <p className="mt-6 text-sm text-stone-400">
+                <p className="mt-6 text-sm text-muted-foreground/70">
                     {isSignup ? (
                         <>
                             Already have an account?{" "}
-                            <button type="button" onClick={() => { setMode("signin"); setError(""); setResetSent(false); }} className="text-amber-600 hover:underline underline-offset-4">
+                            <button type="button" onClick={() => { setMode("signin"); setError(""); setResetSent(false); }} className="text-primary hover:underline underline-offset-4">
                                 Sign in
                             </button>
                         </>
                     ) : (
                         <>
                             New here?{" "}
-                            <button type="button" onClick={() => { setMode("signup"); setError(""); setResetSent(false); }} className="text-amber-600 hover:underline underline-offset-4">
+                            <button type="button" onClick={() => { setMode("signup"); setError(""); setResetSent(false); }} className="text-primary hover:underline underline-offset-4">
                                 Create an account
                             </button>
                         </>

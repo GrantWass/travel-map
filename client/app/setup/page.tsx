@@ -151,7 +151,7 @@ function SetupContent() {
     if (status === "loading") {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#fdf8f0]">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
         );
     }
@@ -160,11 +160,11 @@ function SetupContent() {
         accountType === "student" ? "Set up your student profile" : "Set up your traveler profile";
 
     return (
-        <div className="min-h-screen bg-[#fdf8f0] px-6 py-12 text-stone-800">
-            <div className="mx-auto flex w-full max-w-xl flex-col rounded-2xl border border-stone-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm md:p-8">
+        <div className="min-h-screen bg-[#fdf8f0] px-6 py-12 text-foreground">
+            <div className="mx-auto flex w-full max-w-xl flex-col rounded-2xl border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm md:p-8">
                 {/* Header */}
                 <div className="mb-7">
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                         {accountType === "student" ? (
                             <>
                                 <GraduationCap className="h-3.5 w-3.5" />
@@ -177,10 +177,10 @@ function SetupContent() {
                             </>
                         )}
                     </div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-stone-900 md:text-3xl">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
                         {headingText}
                     </h1>
-                    <p className="mt-2 text-sm text-stone-500">
+                    <p className="mt-2 text-sm text-muted-foreground">
                         Add a few details so your profile is ready before you jump in.
                     </p>
                     <div className="mt-4 flex items-center gap-2">
@@ -188,7 +188,7 @@ function SetupContent() {
                             <div
                                 key={i}
                                 className={`h-1.5 rounded-full transition-all duration-200 ${
-                                    i === stepIndex ? "w-8 bg-amber-500" : "w-3 bg-stone-200"
+                                    i === stepIndex ? "w-8 bg-primary" : "w-3 bg-muted"
                                 }`}
                             />
                         ))}
@@ -203,13 +203,13 @@ function SetupContent() {
                     {activeStep.type === "photo" && (
                         <div className="flex flex-col gap-5">
                             <div>
-                                <p className="text-lg font-medium text-stone-900">Add a profile picture</p>
-                                <p className="mt-1 text-sm text-stone-500">
+                                <p className="text-lg font-medium text-foreground">Add a profile picture</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     A friendly photo helps people recognize your posts.
                                 </p>
                             </div>
                             <div className="flex items-center gap-4">
-                                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-stone-200 bg-stone-100">
+                                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
                                     {profileImagePreviewUrl ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
@@ -218,11 +218,11 @@ function SetupContent() {
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (
-                                        <UserRound className="h-9 w-9 text-stone-400" />
+                                        <UserRound className="h-9 w-9 text-muted-foreground/70" />
                                     )}
                                 </div>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50">
-                                    <Camera className="h-4 w-4 text-amber-600" />
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
+                                    <Camera className="h-4 w-4 text-primary" />
                                     Upload photo
                                     <input
                                         type="file"
@@ -238,8 +238,8 @@ function SetupContent() {
                     {activeStep.type === "bio" && (
                         <div className="flex flex-col gap-5">
                             <div>
-                                <p className="text-lg font-medium text-stone-900">Write a short bio</p>
-                                <p className="mt-1 text-sm text-stone-500">
+                                <p className="text-lg font-medium text-foreground">Write a short bio</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     {accountType === "student"
                                         ? "Tell people what you study and where you like to explore."
                                         : "Tell people what kind of trips and experiences you enjoy."}
@@ -254,7 +254,7 @@ function SetupContent() {
                                         ? "Example: Journalism major who spends weekends finding underrated food spots."
                                         : "Example: I travel for hiking, architecture, and great local coffee."
                                 }
-                                className="w-full resize-none rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-800 outline-none transition-colors placeholder:text-stone-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300"
+                                className="w-full resize-none rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary focus:ring-1 focus:ring-primary/30"
                             />
                         </div>
                     )}
@@ -262,8 +262,8 @@ function SetupContent() {
                     {activeStep.type === "college" && (
                         <div className="flex flex-col gap-5">
                             <div>
-                                <p className="text-lg font-medium text-stone-900">Where do you attend college?</p>
-                                <p className="mt-1 text-sm text-stone-500">
+                                <p className="text-lg font-medium text-foreground">Where do you attend college?</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     This helps us tailor student-focused suggestions.
                                 </p>
                             </div>
@@ -277,14 +277,14 @@ function SetupContent() {
                                 onFocus={() => setIsCollegeMenuOpen(true)}
                                 onBlur={() => window.setTimeout(() => setIsCollegeMenuOpen(false), 120)}
                                 placeholder="e.g. University of California, Berkeley"
-                                className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-800 outline-none transition-colors placeholder:text-stone-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300"
+                                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary focus:ring-1 focus:ring-primary/30"
                             />
                             {isCollegeMenuOpen && (
-                                <div className="max-h-56 overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-sm">
+                                <div className="max-h-56 overflow-y-auto rounded-xl border border-border bg-white p-1 shadow-sm">
                                     {isSearchingColleges ? (
-                                        <p className="px-3 py-2 text-sm text-stone-500">Searching universities...</p>
+                                        <p className="px-3 py-2 text-sm text-muted-foreground">Searching universities...</p>
                                     ) : collegeSearchError ? (
-                                        <p className="px-3 py-2 text-sm text-red-500">{collegeSearchError}</p>
+                                        <p className="px-3 py-2 text-sm text-destructive">{collegeSearchError}</p>
                                     ) : filteredUniversities.length > 0 ? (
                                         filteredUniversities.map((school) => (
                                             <button
@@ -294,13 +294,13 @@ function SetupContent() {
                                                     setCollege(school);
                                                     setIsCollegeMenuOpen(false);
                                                 }}
-                                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-100"
+                                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-foreground/80 transition-colors hover:bg-secondary"
                                             >
                                                 {school}
                                             </button>
                                         ))
                                     ) : (
-                                        <p className="px-3 py-2 text-sm text-stone-500">No matching universities</p>
+                                        <p className="px-3 py-2 text-sm text-muted-foreground">No matching universities</p>
                                     )}
                                 </div>
                             )}
@@ -315,7 +315,7 @@ function SetupContent() {
                             type="button"
                             onClick={() => transitionToStep(stepIndex + 1)}
                             disabled={isSaving || isTransitioning}
-                            className="rounded-full px-4 py-2 text-sm font-medium text-stone-500 transition-colors hover:text-stone-700 disabled:opacity-60"
+                            className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground/80 disabled:opacity-60"
                         >
                             Skip for now
                         </button>
@@ -326,7 +326,7 @@ function SetupContent() {
                             type="button"
                             onClick={() => transitionToStep(stepIndex - 1)}
                             disabled={isSaving || isTransitioning}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary disabled:opacity-60"
                         >
                             <ArrowLeft className="h-3.5 w-3.5" />
                             Back
@@ -337,14 +337,14 @@ function SetupContent() {
                         type="button"
                         onClick={isLastStep ? () => void handleFinish() : () => transitionToStep(stepIndex + 1)}
                         disabled={isSaving || isTransitioning}
-                        className="ml-auto inline-flex items-center gap-2 rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                        className="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                     >
                         {isLastStep ? (isSaving ? "Setting up..." : "Go to map") : "Next"}
                         <ArrowRight className="h-4 w-4" />
                     </button>
                 </div>
 
-                {saveError && <p className="mt-3 text-sm text-red-500">{saveError}</p>}
+                {saveError && <p className="mt-3 text-sm text-destructive">{saveError}</p>}
             </div>
         </div>
     );

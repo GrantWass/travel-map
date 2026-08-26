@@ -165,18 +165,18 @@ export default function PinMapPicker({
 
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-y-auto rounded-2xl border border-stone-200 bg-white shadow-2xl" style={{ maxHeight: "calc(100vh - 2rem)" }}>
-        <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
+      <div className="w-full max-w-3xl overflow-y-auto rounded-2xl border border-border bg-white shadow-2xl" style={{ maxHeight: "calc(100vh - 2rem)" }}>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <h3 className="text-base font-semibold text-stone-900">Drop a pin</h3>
-            <p className="text-xs text-stone-500">
+            <h3 className="text-base font-semibold text-foreground">Drop a pin</h3>
+            <p className="text-xs text-muted-foreground">
               {cityContext ? `Map centered near ${cityContext.label}` : "Click anywhere to pin a location."}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700"
+            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground/80"
             aria-label="Close map picker"
           >
             <X className="h-4 w-4" />
@@ -185,8 +185,8 @@ export default function PinMapPicker({
 
         <div ref={mapContainerRef} className="h-[420px] w-full" />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 px-4 py-3">
-          <div className="min-h-6 text-sm text-stone-600">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+          <div className="min-h-6 text-sm text-muted-foreground">
             {isResolvingAddress ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -194,7 +194,7 @@ export default function PinMapPicker({
               </span>
             ) : pendingPlace ? (
               <span className="inline-flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-amber-700" />
+                <MapPin className="h-3.5 w-3.5 text-primary" />
                 {pendingPlace.label}
               </span>
             ) : (

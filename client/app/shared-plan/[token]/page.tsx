@@ -31,9 +31,9 @@ export default async function SharedPlanPage({ params }: { params: Promise<{ tok
     if (!plan) {
         return (
             <main className="flex min-h-screen items-center justify-center bg-[#f4f4ef] px-6">
-                <div className="max-w-sm rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-lg">
-                    <h1 className="text-xl font-semibold text-stone-900">This link doesn&apos;t work</h1>
-                    <p className="mt-2 text-sm text-stone-500">
+                <div className="max-w-sm rounded-2xl border border-border bg-card p-8 text-center shadow-lg">
+                    <h1 className="text-xl font-semibold text-foreground">This link doesn&apos;t work</h1>
+                    <p className="mt-2 text-sm text-muted-foreground">
                         The share link may have been removed or mistyped. Ask your friend for a fresh link.
                     </p>
                 </div>

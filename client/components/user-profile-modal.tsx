@@ -351,7 +351,7 @@ export default function UserProfileModal({
                             <h2 className="text-sm font-semibold text-foreground">Profile Settings</h2>
                             <div className="mt-4 grid gap-4">
                                 <label className="grid gap-2">
-                                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                         Username
                                     </span>
                                     <input
@@ -363,7 +363,7 @@ export default function UserProfileModal({
                                 </label>
 
                                 <label className="grid gap-2">
-                                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                         Bio
                                     </span>
                                     <textarea
@@ -376,7 +376,7 @@ export default function UserProfileModal({
                                 </label>
 
                                 <div className="grid gap-2">
-                                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                         Profile Picture
                                     </span>
                                     <div className="flex items-center gap-3">
@@ -412,7 +412,7 @@ export default function UserProfileModal({
 
                                 {!hasSchool ? (
                                     <div className="grid gap-2">
-                                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                             Add School
                                         </span>
                                         <div className="relative">
@@ -439,7 +439,7 @@ export default function UserProfileModal({
                                                             Searching schools...
                                                         </p>
                                                     ) : collegeLookupState.error ? (
-                                                        <p className="px-3 py-2 text-sm text-red-600">
+                                                        <p className="px-3 py-2 text-sm text-destructive">
                                                             {collegeLookupState.error}
                                                         </p>
                                                     ) : collegeLookupState.results.length > 0 ? (
@@ -497,10 +497,10 @@ export default function UserProfileModal({
                                     </Button>
                                 </div>
                                 {saveState.error ? (
-                                    <p className="text-xs font-medium text-red-600">{saveState.error}</p>
+                                    <p className="text-xs font-medium text-destructive">{saveState.error}</p>
                                 ) : null}
                                 {saveState.success ? (
-                                    <p className="text-xs font-medium text-emerald-700">{saveState.success}</p>
+                                    <p className="text-xs font-medium text-success">{saveState.success}</p>
                                 ) : null}
                             </div>
                         </div>

@@ -193,7 +193,7 @@ export default function StopItemCard({
                                 />
                             </AspectRatio>
                             {costLabel && (
-                                <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                                <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
                                     {costLabel}
                                 </span>
                             )}

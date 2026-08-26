@@ -147,10 +147,10 @@ export default function PlacePicker({
 
     return (
         <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">{label}</label>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</label>
             <div className="relative">
-                <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-sm">
-                    <MapPin className="h-4 w-4 text-amber-600" />
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-sm">
+                    <MapPin className="h-4 w-4 text-primary" />
                     <input
                         value={query}
                         onFocus={() => setIsOpen(true)}
@@ -164,7 +164,7 @@ export default function PlacePicker({
                             }
                         }}
                         placeholder={placeholder}
-                        className="w-full bg-transparent text-sm text-stone-900 placeholder:text-stone-500 outline-none"
+                        className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                     />
                     {value ? (
                         <button
@@ -173,7 +173,7 @@ export default function PlacePicker({
                                 setQuery("");
                                 onChange(null);
                             }}
-                            className="rounded-full p-1 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+                            className="rounded-full p-1 text-muted-foreground/70 transition-colors hover:bg-secondary hover:text-foreground/80"
                             aria-label="Clear selected place"
                         >
                             <X className="h-3.5 w-3.5" />
@@ -182,14 +182,14 @@ export default function PlacePicker({
                 </div>
 
                 {showSuggestions ? (
-                    <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-lg">
+                    <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-border bg-white p-1 shadow-lg">
                         {isLoading ? (
-                            <div className="flex items-center gap-2 px-3 py-2 text-sm text-stone-500">
+                            <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 Searching places...
                             </div>
                         ) : isResolvingSelection ? (
-                            <div className="flex items-center gap-2 px-3 py-2 text-sm text-stone-500">
+                            <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 Finding location...
                             </div>
@@ -202,19 +202,19 @@ export default function PlacePicker({
                                         event.preventDefault();
                                         void selectResult(result as PlaceSuggestion);
                                     }}
-                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-100"
+                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-foreground/80 transition-colors hover:bg-secondary"
                                 >
                                     {result.label}
                                     {(result as PlaceSuggestion).address &&
                                         (result as PlaceSuggestion).address !== (result as PlaceSuggestion).label && (
-                                            <span className="block truncate text-xs text-stone-400">
+                                            <span className="block truncate text-xs text-muted-foreground/70">
                                                 {(result as PlaceSuggestion).address}
                                             </span>
                                         )}
                                 </button>
                             ))
                         ) : (
-                            <p className="px-3 py-2 text-sm text-stone-500">No places found.</p>
+                            <p className="px-3 py-2 text-sm text-muted-foreground">No places found.</p>
                         )}
                     </div>
                 ) : null}
@@ -222,11 +222,11 @@ export default function PlacePicker({
 
             <div className="flex flex-wrap items-center justify-between gap-2">
                 {value ? (
-                    <p className="text-xs text-stone-500">
-                        Selected: <span className="font-medium text-stone-700">{value.label}</span>
+                    <p className="text-xs text-muted-foreground">
+                        Selected: <span className="font-medium text-foreground/80">{value.label}</span>
                     </p>
                 ) : (
-                    <span className="text-xs text-stone-500">
+                    <span className="text-xs text-muted-foreground">
                         {mode === "city" && allowMapPin
                             ? "Search a city, or drop a pin for a precise location."
                             : mode === "city"
@@ -239,7 +239,7 @@ export default function PlacePicker({
                     <button
                         type="button"
                         onClick={() => setMapPickerOpen(true)}
-                        className="rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-semibold text-stone-700 transition-colors hover:bg-stone-100"
+                        className="rounded-full border border-input bg-white px-3 py-1 text-xs font-semibold text-foreground/80 transition-colors hover:bg-secondary"
                     >
                         Drop pin on map
                     </button>

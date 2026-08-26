@@ -195,7 +195,7 @@ export default function SidebarPanel({
                     {onEditTrip && (
                         <button
                             onClick={onEditTrip}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white transition-colors hover:bg-black/60"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white transition-colors hover:bg-black/70"
                             aria-label="Edit trip"
                         >
                             <Pencil className="h-3.5 w-3.5" />
@@ -203,7 +203,7 @@ export default function SidebarPanel({
                     )}
                     <button
                         onClick={() => void handleShareTrip()}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white transition-colors hover:bg-black/60"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white transition-colors hover:bg-black/70"
                         aria-label="Share trip"
                         title={shareLabel}
                     >
@@ -211,7 +211,7 @@ export default function SidebarPanel({
                     </button>
                     <button
                         onClick={onClose}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white transition-colors hover:bg-black/60"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white transition-colors hover:bg-black/70"
                         aria-label="Close panel"
                     >
                         <X className="h-4 w-4" />

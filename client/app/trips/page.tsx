@@ -528,18 +528,18 @@ function TripsPageContent() {
   return (
     <main className="h-screen overflow-y-auto bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-6 md:px-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col items-start gap-6 lg:flex-row">
-        <section className="w-full rounded-3xl border border-stone-200/80 bg-white/85 p-5 shadow-xl shadow-stone-200/30 backdrop-blur-sm md:p-7 lg:w-2/3">
+        <section className="w-full rounded-3xl border border-border/80 bg-card/85 p-5 shadow-xl shadow-black/10 backdrop-blur-sm md:p-7 lg:w-2/3">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
               {isEditMode ? (
                 <>
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Trip Editor</p>
-                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Edit your trip</h1>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-primary">Trip Editor</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">Edit your trip</h1>
                 </>
               ) : (
                 <>
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">Trip Composer</p>
-                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">Craft your next post</h1>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-primary">Trip Composer</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">Craft your next post</h1>
                 </>
               )}
             </div>
@@ -551,11 +551,11 @@ function TripsPageContent() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cover Image</p>
+            <div className="rounded-2xl border border-border bg-secondary/50 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Cover Image</p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-100">
-                  <ImagePlus className="h-4 w-4 text-amber-700" />
+                <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
+                  <ImagePlus className="h-4 w-4 text-primary" />
                   {isUploadingImage ? "Uploading..." : "Upload cover image"}
                   <input
                     type="file"
@@ -567,7 +567,7 @@ function TripsPageContent() {
                     }}
                   />
                 </label>
-                <div className="space-y-1 text-sm text-stone-500">
+                <div className="space-y-1 text-sm text-muted-foreground">
                   <p>
                     {isUploadingImage
                       ? "Uploading cover image..."
@@ -575,8 +575,8 @@ function TripsPageContent() {
                         ? "Cover selected. Preview updates live."
                         : "No cover yet. Add one to set the tone."}
                   </p>
-                  {coverImageName ? <p className="text-xs text-stone-500">Selected: {coverImageName}</p> : null}
-                  {coverImageError ? <p className="text-xs font-medium text-red-600">{coverImageError}</p> : null}
+                  {coverImageName ? <p className="text-xs text-muted-foreground">Selected: {coverImageName}</p> : null}
+                  {coverImageError ? <p className="text-xs font-medium text-destructive">{coverImageError}</p> : null}
                 </div>
               </div>
             </div>
@@ -586,7 +586,7 @@ function TripsPageContent() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Title your trip..."
-                className="w-full border-b border-stone-200 bg-transparent pb-3 text-4xl font-semibold tracking-tight text-stone-900 outline-none placeholder:text-stone-300"
+                className="w-full border-b border-border bg-transparent pb-3 text-4xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60"
               />
 
               <PlacePicker
@@ -603,19 +603,19 @@ function TripsPageContent() {
                 onChange={(event) => setDescription(event.target.value)}
                 rows={7}
                 placeholder="Tell the story: what you did, what surprised you, and what someone should know before visiting..."
-                className={`resize-none rounded-2xl border-stone-200 text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
+                className={`resize-none rounded-2xl border-border text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
               />
             </div>
 
             {/* Trip mode: date + cost + duration + visibility + tags */}
-            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
+            <div className="grid gap-4 rounded-2xl border border-border bg-secondary/40 p-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Date</label>
+                  <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Date</label>
                   <div className="flex gap-2">
                     <select
                       value={dateMonth}
                       onChange={(e) => setDateMonth(e.target.value)}
-                      className="h-9 flex-1 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="h-9 flex-1 rounded-md border border-input bg-white px-2 text-sm text-foreground focus:border-primary focus:outline-none"
                     >
                       <option value="">Month</option>
                       {MONTH_LABELS.map((name, i) => (
@@ -625,7 +625,7 @@ function TripsPageContent() {
                     <select
                       value={dateYear}
                       onChange={(e) => setDateYear(e.target.value)}
-                      className="h-9 w-28 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-900 focus:border-amber-500 focus:outline-none"
+                      className="h-9 w-28 rounded-md border border-input bg-white px-2 text-sm text-foreground focus:border-primary focus:outline-none"
                     >
                       <option value="">Year</option>
                       {Array.from({ length: 16 }, (_, i) => new Date().getFullYear() - i).map((year) => (
@@ -635,7 +635,7 @@ function TripsPageContent() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Cost (per person)</label>
+                  <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Cost (per person)</label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -646,7 +646,7 @@ function TripsPageContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Duration</label>
+                  <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Duration</label>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Trip duration">
                     {TRIP_DURATION_OPTIONS.map((option) => {
                       const selected = duration === option.value;
@@ -659,14 +659,14 @@ function TripsPageContent() {
                           onClick={() => setDuration(option.value)}
                           className={`rounded-lg border px-3 py-2 text-left transition-all ${
                             selected
-                              ? "border-amber-600 bg-amber-50 shadow-sm shadow-amber-100"
-                              : "border-stone-300 bg-white hover:border-stone-400"
+                              ? "border-primary bg-primary/10 shadow-sm shadow-primary/15"
+                              : "border-input bg-white hover:border-primary/50"
                           }`}
                         >
-                          <p className={`text-sm font-semibold ${selected ? "text-amber-900" : "text-stone-800"}`}>
+                          <p className={`text-sm font-semibold ${selected ? "text-primary" : "text-foreground"}`}>
                             {option.label}
                           </p>
-                          <p className={`text-xs ${selected ? "text-amber-700" : "text-stone-500"}`}>
+                          <p className={`text-xs ${selected ? "text-primary" : "text-muted-foreground"}`}>
                             {option.hint}
                           </p>
                         </button>
@@ -675,12 +675,12 @@ function TripsPageContent() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Visibility</label>
+                  <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Visibility</label>
                   <VisibilitySelect value={visibility} onChange={setVisibility} />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Tags</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Tags</p>
                   <TagEditor
                     selectedTags={selectedTags}
                     onToggle={toggleTag}
@@ -722,10 +722,10 @@ function TripsPageContent() {
             />
 
           {!isLoadingEditTrip && !editLoadError && (
-            <div className="space-y-3 rounded-xl border border-stone-200/80 bg-stone-50/70 p-3.5">
+            <div className="space-y-3 rounded-xl border border-border/80 bg-secondary/40 p-3.5">
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-stone-600">Collaborators</h2>
-                <p className="mt-1 text-xs text-stone-500">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Collaborators</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
                   {isEditMode
                     ? "Collaborators can edit this trip."
                     : "Choose collaborators now. They will be added when you post this trip."}
@@ -737,9 +737,9 @@ function TripsPageContent() {
                   collaborators.map((collaborator) => (
                     <div
                       key={collaborator.user_id}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-stone-700"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-2.5 py-1 text-[11px] font-medium text-foreground/80"
                     >
-                      <span className="h-5 w-5 overflow-hidden rounded-full bg-stone-200">
+                      <span className="h-5 w-5 overflow-hidden rounded-full bg-muted">
                         {collaborator.profile_image_url ? (
                           <Image
                             src={collaborator.profile_image_url}
@@ -754,7 +754,7 @@ function TripsPageContent() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-stone-500">No collaborators yet.</p>
+                  <p className="text-xs text-muted-foreground">No collaborators yet.</p>
                 )}
               </div>
 
@@ -765,19 +765,19 @@ function TripsPageContent() {
                   placeholder="Search users"
                   className={`${READABLE_INPUT_CLASS} h-9 text-sm`}
                 />
-                {isSearchingCollaborators && <p className="text-xs text-stone-500">Searching...</p>}
-                {collaboratorError && <p className="text-xs font-medium text-red-600">{collaboratorError}</p>}
+                {isSearchingCollaborators && <p className="text-xs text-muted-foreground">Searching...</p>}
+                {collaboratorError && <p className="text-xs font-medium text-destructive">{collaboratorError}</p>}
 
                 {filteredCollaboratorResults.length > 0 && (
-                  <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-lg border border-stone-200/80 bg-white/70 p-1.5">
+                  <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-lg border border-border/80 bg-card/70 p-1.5">
                     {filteredCollaboratorResults.map((candidate) => (
                       <div
                         key={candidate.user_id}
                         className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-medium text-stone-800">{candidate.name || `User #${candidate.user_id}`}</p>
-                          {candidate.bio ? <p className="truncate text-xs text-stone-500">{candidate.bio}</p> : null}
+                          <p className="truncate text-xs font-medium text-foreground">{candidate.name || `User #${candidate.user_id}`}</p>
+                          {candidate.bio ? <p className="truncate text-xs text-muted-foreground">{candidate.bio}</p> : null}
                         </div>
                         <Button
                           type="button"
@@ -799,16 +799,16 @@ function TripsPageContent() {
             </div>
           )}
 
-          {editLoadError ? <p className="text-sm font-medium text-red-600">{editLoadError}</p> : null}
-          {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+          {editLoadError ? <p className="text-sm font-medium text-destructive">{editLoadError}</p> : null}
+          {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
           <div className="flex flex-wrap gap-3">
             {isLoadingEditTrip ? (
-              <p className="text-sm text-stone-500">Loading trip data...</p>
+              <p className="text-sm text-muted-foreground">Loading trip data...</p>
             ) : (
               <Button
                 type="button"
-                className="rounded-full bg-amber-600 px-6 hover:bg-amber-700"
+                className="rounded-full bg-primary px-6 hover:bg-primary/90"
                 onClick={() => void handleSubmitTrip()}
                 disabled={isSavingTrip || Boolean(editLoadError)}
               >
@@ -824,20 +824,20 @@ function TripsPageContent() {
         </section>
 
         <aside className="w-full lg:w-1/3 lg:sticky lg:top-0 lg:self-start">
-          <div className="rounded-3xl border border-stone-200/80 bg-white/90 p-4 shadow-xl shadow-stone-200/30 backdrop-blur-sm">
-            <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+          <div className="rounded-3xl border border-border/80 bg-card/90 p-4 shadow-xl shadow-black/10 backdrop-blur-sm">
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
               <Sparkles className="h-3.5 w-3.5" />
               Live Preview
             </p>
 
-            <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-100">
+            <div className="overflow-hidden rounded-2xl border border-border bg-secondary">
               <div
                 className="relative h-56 w-full bg-cover bg-center"
                 style={{ backgroundImage: `url(${coverImage || BANNER_PLACEHOLDER})` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/80">
+                  <p className="text-xs uppercase tracking-widest text-white/80">
                     {formatPreviewDate(date)}
                   </p>
                   <h2 className="mt-1 text-2xl font-semibold leading-tight">{title || "Your trip title"}</h2>
@@ -860,19 +860,19 @@ function TripsPageContent() {
               </div>
 
               <div className="space-y-4 p-4">
-                <p className="text-sm leading-relaxed text-stone-700">
+                <p className="text-sm leading-relaxed text-foreground/80">
                   {description || "Your trip story preview appears here as you write."}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
                   {selectedTags.length > 0 ? (
                     selectedTags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-stone-900 px-2.5 py-1 text-[11px] font-medium text-white">
+                      <span key={tag} className="rounded-full bg-foreground px-2.5 py-1 text-[11px] font-medium text-white">
                         {tag}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-stone-500">No tags yet.</span>
+                    <span className="text-xs text-muted-foreground">No tags yet.</span>
                   )}
                 </div>
 

@@ -117,19 +117,19 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
 
       {/* Tooltip card — fixed position, never moves between steps */}
       <div
-        className="fixed rounded-2xl border border-stone-200 bg-white shadow-2xl"
+        className="fixed rounded-2xl border border-border bg-white shadow-2xl"
         style={{ zIndex: 3001, top: cardTop, left: cardLeft, width: CARD_W }}
       >
         <div className="p-5">
           {/* Icon */}
           <div className="mb-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-              <Icon className="h-5 w-5 text-amber-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
             </div>
           </div>
 
-          <h3 className="mb-1.5 text-base font-semibold text-stone-900">{step.title}</h3>
-          <p className="text-sm leading-relaxed text-stone-500">{step.description}</p>
+          <h3 className="mb-1.5 text-base font-semibold text-foreground">{step.title}</h3>
+          <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
 
           {/* Progress dots */}
           <div className="my-4 flex items-center gap-1.5">
@@ -137,7 +137,7 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
               <div
                 key={i}
                 className={`h-1.5 rounded-full transition-all duration-200 ${
-                  i === index ? "w-5 bg-amber-500" : "w-1.5 bg-stone-200"
+                  i === index ? "w-5 bg-primary" : "w-1.5 bg-stone-200"
                 }`}
               />
             ))}
@@ -150,7 +150,7 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
                 type="button"
                 onClick={() => setIndex(index - 1)}
                 disabled={isFinishing}
-                className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-stone-50 disabled:opacity-50"
               >
                 <ArrowLeft className="h-3 w-3" />
                 Back
@@ -162,7 +162,7 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
                   type="button"
                   onClick={() => void finish()}
                   disabled={isFinishing}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {isFinishing ? "Done…" : "Get started"}
                   <ArrowRight className="h-3 w-3" />
@@ -172,7 +172,7 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
                   type="button"
                   onClick={() => setIndex(index + 1)}
                   disabled={isFinishing}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   Next
                   <ArrowRight className="h-3 w-3" />
