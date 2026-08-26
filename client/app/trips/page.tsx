@@ -607,9 +607,8 @@ function TripsPageContent() {
               />
             </div>
 
+            {/* Trip mode: date + cost + duration + visibility + tags */}
             <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
-              /* Trip mode: date + cost + duration + visibility + tags */
-              <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Date</label>
                   <div className="flex gap-2">
@@ -690,7 +689,6 @@ function TripsPageContent() {
                     onAddCustomTag={addCustomTag}
                   />
                 </div>
-              </div>
             </div>
 
             <StopEditorSection
