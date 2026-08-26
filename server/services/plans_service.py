@@ -52,6 +52,18 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
         )
         custom_rows = cur.fetchall()
 
+        cur.execute(
+            """
+            SELECT flight_id, airline, flight_number, origin_code, destination_code,
+                   departure_date, departure_time, price, collection_name, link_url, notes
+            FROM plan_flights
+            WHERE owner_user_id = %s
+            ORDER BY created_at DESC, flight_id DESC
+            """,
+            (user_id,),
+        )
+        flight_rows = cur.fetchall()
+
     real_rows = [r for r in rows if r["item_type"] != "collection_anchor"]
     anchor_rows = [r for r in rows if r["item_type"] == "collection_anchor"]
 
@@ -88,13 +100,37 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
     collection_names_from_items = {r["collection_name"] for r in real_rows if r["collection_name"]}
     collection_names_from_anchors = {r["collection_name"] for r in anchor_rows if r["collection_name"]}
     collection_names_from_custom = {r["collection_name"] for r in custom_rows if r["collection_name"]}
-    collections = sorted(collection_names_from_items | collection_names_from_anchors | collection_names_from_custom)
+    collection_names_from_flights = {r["collection_name"] for r in flight_rows if r["collection_name"]}
+    collections = sorted(
+        collection_names_from_items
+        | collection_names_from_anchors
+        | collection_names_from_custom
+        | collection_names_from_flights
+    )
+
+    flights = [
+        {
+            "flight_id": int(r["flight_id"]),
+            "airline": r.get("airline"),
+            "flight_number": r.get("flight_number"),
+            "origin_code": r.get("origin_code"),
+            "destination_code": r.get("destination_code"),
+            "departure_date": r.get("departure_date"),
+            "departure_time": r.get("departure_time"),
+            "price": r.get("price"),
+            "collection_name": r.get("collection_name"),
+            "link_url": r.get("link_url"),
+            "notes": r.get("notes"),
+        }
+        for r in flight_rows
+    ]
 
     return {
         "saved_activity_ids": saved_activity_ids,
         "saved_lodging_ids": saved_lodging_ids,
         "saved_items": saved_items,
         "custom_items": custom_items,
+        "flights": flights,
         "collections": collections,
     }
 
@@ -214,6 +250,14 @@ def delete_collection(user_id: int, name: str) -> dict[str, Any]:
         cur.execute(
             """
             UPDATE plan_custom_items
+            SET collection_name = NULL
+            WHERE owner_user_id = %s AND collection_name = %s
+            """,
+            (user_id, name),
+        )
+        cur.execute(
+            """
+            UPDATE plan_flights
             SET collection_name = NULL
             WHERE owner_user_id = %s AND collection_name = %s
             """,
@@ -355,6 +399,121 @@ def move_custom_item_to_collection(
     return _build_plans_response(user_id)
 
 
+# ── Flights ──────────────────────────────────────────────────────────────────
+
+_FLIGHT_FIELDS = (
+    "airline",
+    "flight_number",
+    "origin_code",
+    "destination_code",
+    "departure_date",
+    "departure_time",
+    "price",
+)
+
+
+def add_flight(
+    user_id: int,
+    *,
+    collection_name: str | None = None,
+    link_url: str | None = None,
+    notes: str | None = None,
+    **fields: str | None,
+) -> dict[str, Any]:
+    values = {key: (str(fields[key]).strip() or None) if fields.get(key) else None for key in _FLIGHT_FIELDS}
+    if link_url and not str(link_url).lower().startswith(("http://", "https://")):
+        raise ValueError("link must start with http:// or https://")
+
+    if not any(values.values()) and not notes:
+        raise ValueError("add at least one flight detail")
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            INSERT INTO plan_flights
+                (owner_user_id, collection_name, airline, flight_number, origin_code,
+                 destination_code, departure_date, departure_time, price, link_url, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING flight_id
+            """,
+            (
+                user_id,
+                collection_name,
+                values["airline"],
+                values["flight_number"],
+                values["origin_code"],
+                values["destination_code"],
+                values["departure_date"],
+                values["departure_time"],
+                values["price"],
+                link_url,
+                notes,
+            ),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise ValueError("failed to create flight")
+
+    response = _build_plans_response(user_id)
+    response["created_flight_id"] = int(row["flight_id"])
+    return response
+
+
+def update_flight(user_id: int, flight_id: int, fields: dict[str, Any]) -> dict[str, Any]:
+    allowed = set(_FLIGHT_FIELDS) | {"notes", "link_url"}
+    updates = {key: value for key, value in fields.items() if key in allowed}
+    if not updates:
+        return _build_plans_response(user_id)
+
+    set_clause = ", ".join(f"{key} = %s" for key in updates)
+    params = list(updates.values()) + [user_id, flight_id]
+
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            f"""
+            UPDATE plan_flights
+            SET {set_clause}
+            WHERE owner_user_id = %s AND flight_id = %s
+            """,
+            params,
+        )
+        if cur.rowcount < 1:
+            raise PlanNotFoundError("flight not found")
+
+    return _build_plans_response(user_id)
+
+
+def delete_flight(user_id: int, flight_id: int) -> dict[str, Any]:
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            "DELETE FROM plan_flights WHERE owner_user_id = %s AND flight_id = %s",
+            (user_id, flight_id),
+        )
+        if cur.rowcount < 1:
+            raise PlanNotFoundError("flight not found")
+
+    return _build_plans_response(user_id)
+
+
+def move_flight_to_collection(
+    user_id: int, flight_id: int, collection_name: str | None
+) -> dict[str, Any]:
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            """
+            UPDATE plan_flights
+            SET collection_name = %s
+            WHERE owner_user_id = %s AND flight_id = %s
+            """,
+            (collection_name, user_id, flight_id),
+        )
+        if cur.rowcount < 1:
+            raise PlanNotFoundError("flight not found")
+
+    return _build_plans_response(user_id)
+
+
 # ── Share links ──────────────────────────────────────────────────────────────
 
 def create_plan_share(user_id: int, collection_name: str | None) -> dict[str, Any]:
@@ -444,6 +603,20 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
         if scope_collection is not None:
             custom_items = [r for r in custom_items if r["collection_name"] == scope_collection]
 
+        cur.execute(
+            """
+            SELECT flight_id, airline, flight_number, origin_code, destination_code,
+                   departure_date, departure_time, price, collection_name, link_url, notes
+            FROM plan_flights
+            WHERE owner_user_id = %s
+            ORDER BY created_at DESC, flight_id DESC
+            """,
+            (owner_user_id,),
+        )
+        flight_rows = cur.fetchall()
+        if scope_collection is not None:
+            flight_rows = [r for r in flight_rows if r["collection_name"] == scope_collection]
+
     def _group_name(value: Any) -> str:
         return value if value else "Unsorted"
 
@@ -455,6 +628,7 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
             "activities": [],
             "lodgings": [],
             "custom_items": [],
+            "flights": [],
         })
 
     for row in saved_rows:
@@ -493,6 +667,20 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
             collection["lodgings"].append(stop)
         else:
             collection["activities"].append(stop)
+
+    for row in flight_rows:
+        collection = _group(_group_name(row["collection_name"]))
+        collection["flights"].append({
+            "airline": row.get("airline"),
+            "flight_number": row.get("flight_number"),
+            "origin_code": row.get("origin_code"),
+            "destination_code": row.get("destination_code"),
+            "departure_date": row.get("departure_date"),
+            "departure_time": row.get("departure_time"),
+            "price": row.get("price"),
+            "link_url": row.get("link_url"),
+            "notes": row.get("notes"),
+        })
 
     ordered_groups = sorted(groups.values(), key=lambda g: (g["name"] == "Unsorted", g["name"]))
 

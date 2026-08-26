@@ -19,7 +19,7 @@ const FriendsModal = dynamic(() => import("@/components/friends-modal"));
 
 import OwnerFilterSlider from "@/components/owner-filter-slider";
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken, persistInviteToken } from "@/lib/auth-navigation";
-import { toUserProfileFromApi, addCustomPlanItem, createPlanCollection, createPlanShare, deleteCustomPlanItem, deletePlanCollection, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveCustomPlanItemToCollection, moveLodgingToCollection, updateCustomPlanItem, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
+import { toUserProfileFromApi, addCustomPlanItem, addPlanFlight, createPlanCollection, createPlanShare, deleteCustomPlanItem, deletePlanCollection, deletePlanFlight, deleteTrip, getUnreadCommentCounts, getSavedPlans, getTrip, getUserProfile, markTripCommentsRead, moveActivityToCollection, moveCustomPlanItemToCollection, moveLodgingToCollection, movePlanFlightToCollection, updateCustomPlanItem, updatePlanFlight, toggleSavedActivity as toggleSavedActivityApi, toggleSavedLodging as toggleSavedLodgingApi } from "@/lib/api-client";
 import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/components/ui/use-mobile";
@@ -118,9 +118,11 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
     const setSavedLodgingIds = useTripMapStore((state) => state.setSavedLodgingIds);
     const setSavedItems = useTripMapStore((state) => state.setSavedItems);
     const setCustomItems = useTripMapStore((state) => state.setCustomItems);
+    const setFlights = useTripMapStore((state) => state.setFlights);
     const setCollections = useTripMapStore((state) => state.setCollections);
     const collections = useTripMapStore((state) => state.collections);
     const customItems = useTripMapStore((state) => state.customItems);
+    const flights = useTripMapStore((state) => state.flights);
     const selectedCollection = useTripMapStore((state) => state.selectedCollection);
     const setSelectedCollection = useTripMapStore((state) => state.setSelectedCollection);
     const toggleSavedActivityId = useTripMapStore((state) => state.toggleSavedActivityId);
@@ -178,8 +180,9 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
         setSavedLodgingIds(plans.saved_lodging_ids);
         setSavedItems(plans.saved_items ?? []);
         setCustomItems(plans.custom_items ?? []);
+        setFlights(plans.flights ?? []);
         setCollections(plans.collections ?? []);
-    }, [setSavedActivityIds, setSavedLodgingIds, setSavedItems, setCustomItems, setCollections]);
+    }, [setSavedActivityIds, setSavedLodgingIds, setSavedItems, setCustomItems, setFlights, setCollections]);
 
     const withPlans = useCallback(
         (op: () => Promise<Awaited<ReturnType<typeof getSavedPlans>>>) => {
@@ -962,6 +965,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                             savedActivities={savedActivities}
                             savedLodgings={savedLodgings}
                             customItems={customItems}
+                            flights={flights}
                             collections={collections}
                             selectedCollection={selectedCollection}
                             onSelectCollection={setSelectedCollection}
@@ -981,8 +985,20 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                             onDeleteCustomItem={(itemId) =>
                                 withPlans(() => deleteCustomPlanItem(itemId))
                             }
-                            onMoveCustomItem={(itemId, collectionName) =>
+                                            onMoveCustomItem={(itemId, collectionName) =>
                                 withPlans(() => moveCustomPlanItemToCollection(itemId, collectionName))
+                            }
+                            onAddFlight={(payload) =>
+                                withPlans(() => addPlanFlight(payload))
+                            }
+                            onUpdateFlight={(flightId, patch) =>
+                                withPlans(() => updatePlanFlight(flightId, patch))
+                            }
+                            onDeleteFlight={(flightId) =>
+                                withPlans(() => deletePlanFlight(flightId))
+                            }
+                            onMoveFlight={(flightId, collectionName) =>
+                                withPlans(() => movePlanFlightToCollection(flightId, collectionName))
                             }
                             onToggleSavedActivity={(activityId) => {
                                 requirePlansAuth(() => {

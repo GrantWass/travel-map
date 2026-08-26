@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BedDouble, CalendarRange, ExternalLink, MapPin, Notebook } from "lucide-react";
+import { BedDouble, CalendarRange, ExternalLink, MapPin, Notebook, Plane } from "lucide-react";
 
 import type { SharedPlan, SharedPlanGroup } from "@/lib/api-client";
 import { DEFAULT_FALLBACK_IMAGE } from "@/lib/trip-constants";
@@ -102,6 +102,40 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         <CostLabel cost={item.cost} />
                                     </article>
                                 ))}
+
+                                {(group.flights ?? []).map((flight, index) => {
+                                    const route =
+                                        flight.origin_code && flight.destination_code
+                                            ? `${flight.origin_code} → ${flight.destination_code}`
+                                            : flight.airline || "Flight";
+                                    const details = [
+                                        flight.airline && route !== flight.airline ? flight.airline : null,
+                                        flight.flight_number ? `#${flight.flight_number}` : null,
+                                        [flight.departure_date, flight.departure_time].filter(Boolean).join(" "),
+                                        flight.notes,
+                                    ].filter(Boolean);
+                                    return (
+                                        <article key={`f-${index}`} className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50/80 p-3">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-stone-200 bg-white text-amber-700">
+                                                <Plane className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium text-stone-800">{route}</p>
+                                                {details.length > 0 && (
+                                                    <p className="mt-0.5 text-xs leading-relaxed text-stone-600">{details.join(" · ")}</p>
+                                                )}
+                                                {flight.link_url && (
+                                                    <span className="mt-1"><WebsiteChip url={flight.link_url} /></span>
+                                                )}
+                                            </div>
+                                            {flight.price && (
+                                                <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-stone-600">
+                                                    {flight.price}
+                                                </span>
+                                            )}
+                                        </article>
+                                    );
+                                })}
                             
                             </section>
                         ))}

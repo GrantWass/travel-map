@@ -8,11 +8,13 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCopy,
+  ExternalLink,
   FolderOpen,
   Link2,
   MapPin,
   Notebook,
   Pencil,
+  Plane,
   Plus,
   Share2,
   Trash2,
@@ -26,8 +28,9 @@ import StopItemCard, {
   LODGING_CARD_CONFIG,
   StopSection,
 } from "@/components/stop-item-card";
-import { createPlanShare, type CustomPlanItem } from "@/lib/api-client";
+import { createPlanShare, type CustomPlanItem, type PlanFlight } from "@/lib/api-client";
 import { looksLikeLink, unfurlLink } from "@/lib/link-unfurl";
+import { parseFlightLink } from "@/lib/flight-link";
 import { shareOrCopyUrl } from "@/lib/utils";
 import type { PlaceOption } from "@/lib/client-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
@@ -52,11 +55,24 @@ export interface CustomItemPayload {
   thumbnail_url?: string | null;
 }
 
+export interface FlightPayload {
+  airline?: string;
+  flight_number?: string;
+  origin_code?: string;
+  destination_code?: string;
+  departure_date?: string;
+  departure_time?: string;
+  price?: string;
+  link_url?: string;
+  notes?: string;
+}
+
 interface PlansSidebarPanelProps {
   error?: string | null;
   savedActivities: SavedActivityEntry[];
   savedLodgings: SavedLodgingEntry[];
   customItems: CustomPlanItem[];
+  flights: PlanFlight[];
   collections: string[];
   selectedCollection: string | null;
   onClose: () => void;
@@ -71,6 +87,10 @@ interface PlansSidebarPanelProps {
   onUpdateCustomItem: (itemId: number, patch: CustomItemPayload) => void;
   onDeleteCustomItem: (itemId: number) => void;
   onMoveCustomItem: (itemId: number, collectionName: string | null) => void;
+  onAddFlight: (payload: FlightPayload & { collection_name?: string | null }) => void;
+  onUpdateFlight: (flightId: number, patch: FlightPayload) => void;
+  onDeleteFlight: (flightId: number) => void;
+  onMoveFlight: (flightId: number, collectionName: string | null) => void;
   onSelectCollection: (name: string | null) => void;
 }
 
@@ -334,6 +354,273 @@ interface SavedStopActionsProps {
   onMove: (collectionName: string | null) => void;
 }
 
+const flightInputClass =
+  "min-w-0 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground";
+
+/** Add/edit form for a plan flight. Pasting a Google Flights link pre-fills what it can. */
+function FlightForm({
+  initial,
+  targetCollectionLabel,
+  onSubmit,
+  onCancel,
+}: {
+  initial?: PlanFlight | null;
+  targetCollectionLabel: string | null;
+  onSubmit: (payload: FlightPayload) => void;
+  onCancel: () => void;
+}) {
+  const [linkUrl, setLinkUrl] = useState(initial?.link_url || "");
+  const [airline, setAirline] = useState(initial?.airline || "");
+  const [flightNumber, setFlightNumber] = useState(initial?.flight_number || "");
+  const [origin, setOrigin] = useState(initial?.origin_code || "");
+  const [destination, setDestination] = useState(initial?.destination_code || "");
+  const [departureDate, setDepartureDate] = useState(
+    /^\d{4}-\d{2}-\d{2}$/.test(initial?.departure_date ?? "") ? initial!.departure_date! : "",
+  );
+  const [departureTime, setDepartureTime] = useState(initial?.departure_time || "");
+  const [price, setPrice] = useState(initial?.price || "");
+  const [notes, setNotes] = useState(initial?.notes || "");
+
+  async function handleLinkChange(value: string) {
+    setLinkUrl(value);
+    const trimmed = value.trim();
+    if (!looksLikeLink(trimmed)) return;
+
+    // Parse what the URL itself encodes first (Google Flights has no OG tags).
+    const parsed = parseFlightLink(trimmed);
+    if (!origin.trim() && parsed.origin_code) setOrigin(parsed.origin_code);
+    if (!destination.trim() && parsed.destination_code) setDestination(parsed.destination_code);
+    if (!departureDate && parsed.departure_date) setDepartureDate(parsed.departure_date);
+    if (!airline.trim() && parsed.airline) setAirline(parsed.airline);
+    if (!flightNumber.trim() && parsed.flight_number) setFlightNumber(parsed.flight_number);
+
+    const preview = await unfurlLink(trimmed);
+    if (!preview) return;
+    if (!airline.trim() && preview.title) setAirline(preview.title.split(/[|(·—-]/)[0].trim());
+    if (!notes.trim()) setNotes(preview.description ?? "");
+  }
+
+  function submit() {
+    const hasDetails =
+      airline.trim() ||
+      flightNumber.trim() ||
+      origin.trim() ||
+      destination.trim() ||
+      departureDate ||
+      departureTime.trim() ||
+      price.trim();
+    if (!hasDetails && !linkUrl.trim()) return;
+    onSubmit({
+      airline: airline.trim() || undefined,
+      flight_number: flightNumber.trim() || undefined,
+      origin_code: origin.trim().toUpperCase() || undefined,
+      destination_code: destination.trim().toUpperCase() || undefined,
+      departure_date: departureDate || undefined,
+      departure_time: departureTime.trim() || undefined,
+      price: price.trim() || undefined,
+      link_url: normalizeLink(linkUrl),
+      notes: notes.trim() || undefined,
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <input
+        autoFocus
+        value={linkUrl}
+        onChange={(e) => void handleLinkChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+          if (e.key === "Escape") onCancel();
+        }}
+        placeholder="Paste a Google Flights link — we'll fill in details"
+        type="url"
+        className="w-full rounded-md border border-dashed border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+      />
+      <div className="flex gap-2">
+        <input
+          value={origin}
+          onChange={(e) => setOrigin(e.target.value.toUpperCase().slice(0, 3))}
+          placeholder="From"
+          className={`${flightInputClass} w-20 flex-shrink-0 uppercase`}
+        />
+        <Plane className="mt-2 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+        <input
+          value={destination}
+          onChange={(e) => setDestination(e.target.value.toUpperCase().slice(0, 3))}
+          placeholder="To"
+          className={`${flightInputClass} w-20 flex-shrink-0 uppercase`}
+        />
+        <input
+          value={departureDate}
+          onChange={(e) => setDepartureDate(e.target.value)}
+          placeholder="Date"
+          type="date"
+          className={`${flightInputClass} min-w-0 flex-1`}
+        />
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={airline}
+          onChange={(e) => setAirline(e.target.value)}
+          placeholder="Airline"
+          className={`${flightInputClass} min-w-0 flex-1`}
+        />
+        <input
+          value={flightNumber}
+          onChange={(e) => setFlightNumber(e.target.value)}
+          placeholder="Flight #"
+          className={`${flightInputClass} w-24 flex-shrink-0`}
+        />
+        <input
+          value={departureTime}
+          onChange={(e) => setDepartureTime(e.target.value)}
+          placeholder="Time"
+          className={`${flightInputClass} w-20 flex-shrink-0`}
+        />
+        <input
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="Price"
+          className={`${flightInputClass} w-24 flex-shrink-0`}
+        />
+      </div>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={2}
+        placeholder="Notes (optional)"
+        className="w-full resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary placeholder:text-muted-foreground"
+      />
+      <div className="flex items-center justify-between">
+        {targetCollectionLabel ? (
+          <p className="text-xs text-muted-foreground">Saving to &ldquo;{targetCollectionLabel}&rdquo;</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">Not in any collection</p>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!linkUrl.trim() && !(origin.trim() && destination.trim())}
+            className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {initial ? "Save" : "Add"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface FlightCardProps {
+  flight: PlanFlight;
+  collections: string[];
+  onSave: (patch: FlightPayload) => void;
+  onDelete: () => void;
+  onMove: (collectionName: string | null) => void;
+}
+
+/** Card showing a saved flight, expandable with edit/move/delete actions. */
+function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  if (isEditing) {
+    return (
+      <div className="rounded-xl border border-primary/30 bg-secondary/40 p-3">
+        <FlightForm
+          initial={flight}
+          targetCollectionLabel={flight.collection_name}
+          onSubmit={(payload) => {
+            onSave(payload);
+            setIsEditing(false);
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+      </div>
+    );
+  }
+
+  const route =
+    flight.origin_code && flight.destination_code
+      ? `${flight.origin_code} → ${flight.destination_code}`
+      : flight.airline || "Flight";
+  const metaParts = [
+    flight.airline && flight.origin_code ? flight.airline : null,
+    flight.flight_number ? `#${flight.flight_number}` : null,
+    flight.departure_time,
+  ].filter(Boolean);
+
+  return (
+    <div className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Plane className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <p className="truncate text-sm font-semibold text-foreground">{route}</p>
+            {flight.price && (
+              <span className="ml-auto flex-shrink-0 rounded-full bg-secondary/70 px-2 py-0.5 text-xs font-medium text-foreground">
+                {flight.price}
+              </span>
+            )}
+          </div>
+          {metaParts.length > 0 && (
+            <p className="truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
+          )}
+          {(flight.departure_date || flight.notes) && (
+            <p className="truncate text-xs text-muted-foreground">
+              {[flight.departure_date, flight.notes].filter(Boolean).join(" — ")}
+            </p>
+          )}
+          <div className="mt-1.5 flex items-center gap-2">
+            {flight.link_url && (
+              <a
+                href={flight.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                title={flight.link_url}
+              >
+                <ExternalLink className="h-3 w-3" />
+                View
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+            <div className="ml-auto flex items-center gap-1">
+              <MoveMenu collections={collections} currentCollection={flight.collection_name} onMove={onMove} />
+              <button
+                type="button"
+                onClick={onDelete}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Delete flight"
+                title="Delete"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SavedStopActions({ entry, collections, currentCollection, onRemove, onMove }: SavedStopActionsProps) {
   return (
     <>
@@ -359,6 +646,7 @@ export default function PlansSidebarPanel({
   savedActivities,
   savedLodgings,
   customItems,
+  flights,
   collections,
   selectedCollection,
   onClose,
@@ -373,6 +661,10 @@ export default function PlansSidebarPanel({
   onUpdateCustomItem,
   onDeleteCustomItem,
   onMoveCustomItem,
+  onAddFlight,
+  onUpdateFlight,
+  onDeleteFlight,
+  onMoveFlight,
   onSelectCollection,
 }: PlansSidebarPanelProps) {
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -381,9 +673,10 @@ export default function PlansSidebarPanel({
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   // Which collection the add-form targets (null = unsorted). Null means form closed.
   const [addFormTarget, setAddFormTarget] = useState<string | null | undefined>(undefined);
+  const [addFlightFormTarget, setAddFlightFormTarget] = useState<string | null | undefined>(undefined);
   const [openCollection, setOpenCollection] = useState<string | null>(null);
 
-  const totalCount = savedActivities.length + savedLodgings.length + customItems.length;
+  const totalCount = savedActivities.length + savedLodgings.length + customItems.length + flights.length;
 
   function handleCreateCollection() {
     const name = newCollectionName.trim();
@@ -404,7 +697,12 @@ export default function PlansSidebarPanel({
   const unsortedActivities = savedActivities.filter((a) => !a.collectionName);
   const unsortedLodgings = savedLodgings.filter((l) => !l.collectionName);
   const unsortedCustomItems = customItems.filter((c) => !c.collection_name);
-  const hasUnsorted = unsortedActivities.length > 0 || unsortedLodgings.length > 0 || unsortedCustomItems.length > 0;
+  const unsortedFlights = flights.filter((f) => !f.collection_name);
+  const hasUnsorted =
+    unsortedActivities.length > 0 ||
+    unsortedLodgings.length > 0 ||
+    unsortedCustomItems.length > 0 ||
+    unsortedFlights.length > 0;
 
   function activitiesFor(collection: string | null): SavedActivityEntry[] {
     return collection === null
@@ -422,6 +720,12 @@ export default function PlansSidebarPanel({
     return collection === null
       ? unsortedCustomItems
       : customItems.filter((c) => c.collection_name === collection);
+  }
+
+  function flightsFor(collection: string | null): PlanFlight[] {
+    return collection === null
+      ? unsortedFlights
+      : flights.filter((f) => f.collection_name === collection);
   }
 
   async function handleShare(collectionName: string | null) {
@@ -450,9 +754,31 @@ export default function PlansSidebarPanel({
       const colActivities = activitiesFor(col === "Unsorted" ? null : col);
       const colLodgings = lodgingsFor(col === "Unsorted" ? null : col);
       const colCustomItems = customItemsFor(col === "Unsorted" ? null : col);
-      if (colActivities.length === 0 && colLodgings.length === 0 && colCustomItems.length === 0) continue;
+      const colFlights = flightsFor(col === "Unsorted" ? null : col);
+      if (
+        colActivities.length === 0 &&
+        colLodgings.length === 0 &&
+        colCustomItems.length === 0 &&
+        colFlights.length === 0
+      ) {
+        continue;
+      }
 
       sections.push(col);
+      for (const flight of colFlights) {
+        const route =
+          flight.origin_code && flight.destination_code
+            ? `${flight.origin_code} → ${flight.destination_code}`
+            : flight.airline || "Flight";
+        const details = [
+          flight.airline && route !== flight.airline ? flight.airline : null,
+          flight.flight_number ? `#${flight.flight_number}` : null,
+          flight.departure_date,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        sections.push(`- Fly: ${route}${details ? ` (${details})` : ""}`);
+      }
       for (const { activity } of colActivities) {
         sections.push(`- Do: ${activity.title || "Untitled activity"}${activity.address ? ` (${activity.address})` : ""}`);
       }
@@ -513,6 +839,19 @@ export default function PlansSidebarPanel({
     );
   }
 
+  function flightRow(flight: PlanFlight) {
+    return (
+      <FlightCard
+        key={flight.flight_id}
+        flight={flight}
+        collections={allCollectionNames}
+        onSave={(patch) => onUpdateFlight(flight.flight_id, patch)}
+        onDelete={() => onDeleteFlight(flight.flight_id)}
+        onMove={(col) => onMoveFlight(flight.flight_id, col)}
+      />
+    );
+  }
+
   /** Trip-like detail view centered on lodging + activities for one collection. */
   function CollectionDetailView({ name }: { name: string }) {
     const lodgingRows = [
@@ -568,6 +907,15 @@ export default function PlansSidebarPanel({
             </button>
             <button
               type="button"
+              onClick={() => setAddFlightFormTarget(name)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+              aria-label="Add flight to this collection"
+              title="Add flight"
+            >
+              <Plane className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               onClick={() => void handleShare(name)}
               className="flex h-8 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
               aria-label={`Share "${name}" via link`}
@@ -593,6 +941,11 @@ export default function PlansSidebarPanel({
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-5 p-5">
+            {/* Flights */}
+            <StopSection title={<><Plane className="h-3.5 w-3.5" /> Flights</>} emptyMessage="No flights added yet.">
+              {flightsFor(name).map(flightRow)}
+            </StopSection>
+
             {/* Places Stayed — same layout as a trip */}
             <StopSection title={<><BedDouble className="h-3.5 w-3.5" /> Places Stayed</>} emptyMessage="No places stayed added yet.">
               {lodgingRows}
@@ -626,7 +979,9 @@ export default function PlansSidebarPanel({
     const colActivities = activitiesFor(name);
     const colLodgings = lodgingsFor(name);
     const colCustomItems = customItemsFor(name);
-    const count = colActivities.length + colLodgings.length + colCustomItems.length;
+    const colFlights = flightsFor(name);
+    const count =
+      colActivities.length + colLodgings.length + colCustomItems.length + colFlights.length;
     const collectionKey = name ?? "";
     const isShowingOnMap = selectedCollection === collectionKey;
 
@@ -674,6 +1029,14 @@ export default function PlansSidebarPanel({
               </button>
               <button
                 type="button"
+                onClick={() => setAddFlightFormTarget(name)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                title={`Add flight to "${name}"`}
+              >
+                <Plane className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
                 onClick={() => void handleShare(name)}
                 className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 title={`Share "${name}" via link`}
@@ -708,6 +1071,7 @@ export default function PlansSidebarPanel({
 
         {!collapsed && (
           <div className="flex flex-col gap-2 pl-1">
+            {colFlights.map(flightRow)}
             {colLodgings.map((entry) => (
               <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />
             ))}
@@ -740,6 +1104,15 @@ export default function PlansSidebarPanel({
               )}
             </div>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setAddFlightFormTarget(selectedCollection)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+                aria-label="Add a flight"
+                title="Add a flight"
+              >
+                <Plane className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => setAddFormTarget(selectedCollection)}
@@ -819,6 +1192,31 @@ export default function PlansSidebarPanel({
                   setAddFormTarget(undefined);
                 }}
                 onCancel={() => setAddFormTarget(undefined)}
+              />
+            </div>
+          )}
+
+          {addFlightFormTarget !== undefined && (
+            <div className="border-b border-border bg-secondary/20 px-4 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  New flight{addFlightFormTarget ? ` → ${addFlightFormTarget}` : ""}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAddFlightFormTarget(undefined)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+              <FlightForm
+                targetCollectionLabel={addFlightFormTarget}
+                onSubmit={(payload) => {
+                  onAddFlight({ ...payload, collection_name: addFlightFormTarget });
+                  setAddFlightFormTarget(undefined);
+                }}
+                onCancel={() => setAddFlightFormTarget(undefined)}
               />
             </div>
           )}

@@ -471,6 +471,7 @@ interface SavedPlans {
   saved_lodging_ids: number[];
   saved_items: SavedPlanItem[];
   custom_items?: CustomPlanItem[];
+  flights?: PlanFlight[];
   collections: string[];
 }
 
@@ -610,6 +611,69 @@ export async function moveCustomPlanItemToCollection(
   });
 }
 
+// ── Plan flights ─────────────────────────────────────────────────────────────
+
+export interface PlanFlight {
+  flight_id: number;
+  airline: string | null;
+  flight_number: string | null;
+  origin_code: string | null;
+  destination_code: string | null;
+  departure_date: string | null;
+  departure_time: string | null;
+  price: string | null;
+  collection_name: string | null;
+  link_url?: string | null;
+  notes?: string | null;
+}
+
+export interface PlanFlightPayload {
+  airline?: string;
+  flight_number?: string;
+  origin_code?: string;
+  destination_code?: string;
+  departure_date?: string;
+  departure_time?: string;
+  price?: string;
+  link_url?: string;
+  notes?: string;
+}
+
+export async function addPlanFlight(
+  payload: PlanFlightPayload & { collection_name?: string | null },
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>("/users/me/plans/flights", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePlanFlight(
+  flightId: number,
+  payload: Partial<PlanFlightPayload>,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/flights/${flightId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePlanFlight(flightId: number): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/flights/${flightId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function movePlanFlightToCollection(
+  flightId: number,
+  collectionName: string | null,
+): Promise<SavedPlans> {
+  return requestJson<SavedPlans>(`/users/me/plans/flights/${flightId}/collection`, {
+    method: "PATCH",
+    body: JSON.stringify({ collection_name: collectionName }),
+  });
+}
+
 // ── Trip itineraries ─────────────────────────────────────────────────────────
 
 export interface ItineraryItem {
@@ -660,10 +724,23 @@ export interface SharedPlanStop {
   description?: string | null;
 }
 
+export interface SharedPlanFlight {
+  airline: string | null;
+  flight_number: string | null;
+  origin_code: string | null;
+  destination_code: string | null;
+  departure_date: string | null;
+  departure_time: string | null;
+  price: string | null;
+  link_url?: string | null;
+  notes?: string | null;
+}
+
 export interface SharedPlanGroup {
   name: string;
   activities: SharedPlanStop[];
   lodgings: SharedPlanStop[];
+  flights?: SharedPlanFlight[];
 }
 
 export interface SharedPlan {

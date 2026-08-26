@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
-import type { CustomPlanItem, SavedPlanItem } from "@/lib/api-client";
+import type { CustomPlanItem, PlanFlight, SavedPlanItem } from "@/lib/api-client";
 import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 import {
     fetchDeferredTripsWithChildren,
@@ -27,6 +27,7 @@ interface TripMapStoreState {
     savedLodgingIds: number[];
     savedItems: SavedPlanItem[];
     customItems: CustomPlanItem[];
+    flights: PlanFlight[];
     collections: string[];
     isLoadingTrips: boolean;
     isLoadingTripById: boolean;
@@ -50,6 +51,7 @@ interface TripMapStoreState {
     setSavedLodgingIds: (ids: number[]) => void;
     setSavedItems: (items: SavedPlanItem[]) => void;
     setCustomItems: (items: CustomPlanItem[]) => void;
+    setFlights: (flights: PlanFlight[]) => void;
     setCollections: (collections: string[]) => void;
     setSelectedCollection: (name: string | null) => void;
     toggleSavedActivityId: (id: number) => void;
@@ -146,6 +148,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     savedLodgingIds: [],
     savedItems: [],
     customItems: [],
+    flights: [],
     collections: [],
     isLoadingTrips: true,
     isLoadingTripById: false,
@@ -338,6 +341,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
     setSavedLodgingIds: (savedLodgingIds) => set({ savedLodgingIds }),
     setSavedItems: (savedItems) => set({ savedItems }),
     setCustomItems: (customItems) => set({ customItems }),
+    setFlights: (flights) => set({ flights }),
     setCollections: (collections) => set({ collections }),
     setSelectedCollection: (selectedCollection) => set({ selectedCollection }),
     toggleSavedActivityId: (id) =>

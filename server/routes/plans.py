@@ -8,17 +8,21 @@ from services.auth_service import get_authenticated_user, require_authenticated_
 from services.plans_service import (
     PlanNotFoundError,
     add_custom_item,
+    add_flight,
     create_collection,
     create_plan_share,
     delete_collection,
     delete_custom_item,
+    delete_flight,
     get_shared_plan,
     get_user_plans,
     move_custom_item_to_collection,
+    move_flight_to_collection,
     move_item_to_collection,
     toggle_saved_activity,
     toggle_saved_lodging,
     update_custom_item,
+    update_flight,
 )
 
 plans_bp = Blueprint("plans", __name__)
@@ -171,6 +175,74 @@ def move_custom_plan_item_collection(custom_item_id: int):
     collection_name = to_nullable_string(body.get("collection_name")) or None
     try:
         plans = move_custom_item_to_collection(user["user_id"], custom_item_id, collection_name)
+    except PlanNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    return jsonify(plans), 200
+
+
+@plans_bp.route("/users/me/plans/flights", methods=["POST"])
+def add_plan_flight():
+    user = require_authenticated_user()
+
+    body = request.get_json(silent=True) or {}
+    link_url = to_nullable_string(body.get("link_url"))
+    if link_url and not link_url.lower().startswith(("http://", "https://")):
+        return jsonify({"error": "link must start with http:// or https://"}), 400
+
+    try:
+        plans = add_flight(
+            user["user_id"],
+            collection_name=to_nullable_string(body.get("collection_name")) or None,
+            link_url=link_url,
+            notes=to_nullable_string(body.get("notes")),
+            airline=to_nullable_string(body.get("airline")),
+            flight_number=to_nullable_string(body.get("flight_number")),
+            origin_code=to_nullable_string(body.get("origin_code")),
+            destination_code=to_nullable_string(body.get("destination_code")),
+            departure_date=to_nullable_string(body.get("departure_date")),
+            departure_time=to_nullable_string(body.get("departure_time")),
+            price=to_nullable_string(body.get("price")),
+        )
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(plans), 201
+
+
+@plans_bp.route("/users/me/plans/flights/<int:flight_id>", methods=["PUT"])
+def update_plan_flight(flight_id: int):
+    user = require_authenticated_user()
+
+    body = request.get_json(silent=True) or {}
+    if "link_url" in body:
+        link_url = to_nullable_string(body.get("link_url"))
+        if link_url and not link_url.lower().startswith(("http://", "https://")):
+            return jsonify({"error": "link must start with http:// or https://"}), 400
+    try:
+        plans = update_flight(user["user_id"], flight_id, body)
+    except PlanNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    return jsonify(plans), 200
+
+
+@plans_bp.route("/users/me/plans/flights/<int:flight_id>", methods=["DELETE"])
+def delete_plan_flight(flight_id: int):
+    user = require_authenticated_user()
+
+    try:
+        plans = delete_flight(user["user_id"], flight_id)
+    except PlanNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
+    return jsonify(plans), 200
+
+
+@plans_bp.route("/users/me/plans/flights/<int:flight_id>/collection", methods=["PATCH"])
+def move_plan_flight_collection(flight_id: int):
+    user = require_authenticated_user()
+
+    body = request.get_json(silent=True) or {}
+    collection_name = to_nullable_string(body.get("collection_name")) or None
+    try:
+        plans = move_flight_to_collection(user["user_id"], flight_id, collection_name)
     except PlanNotFoundError as error:
         return jsonify({"error": str(error)}), 404
     return jsonify(plans), 200
