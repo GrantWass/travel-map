@@ -129,7 +129,7 @@ function focusMapOnTrip(map: L.Map, trip: Trip) {
         return;
     }
 
-    map.flyToBounds(bounds, { padding: [100, 56], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+    map.flyToBounds(bounds, { padding: [120, 100], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
 }
 
 export default function MapView({
@@ -515,7 +515,7 @@ export default function MapView({
         if (points.length > 0) {
             const bounds = L.latLngBounds(points);
             if (bounds.isValid()) {
-                map.flyToBounds(bounds, { padding: [80, 80], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+                map.flyToBounds(bounds, { padding: [120, 100], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
             }
         }
     }, [collectionActivities, collectionLodgings]);
@@ -533,7 +533,7 @@ export default function MapView({
         // so a single-point trip (which would return maxZoom) doesn't set an
         // absurdly high threshold.
         const fitZoom = Math.min(
-            map.getBoundsZoom(bounds, false, L.point(100, 56)),
+            map.getBoundsZoom(bounds, false, L.point(120, 100)),
             TRIP_MAX_ZOOM,
         );
 
