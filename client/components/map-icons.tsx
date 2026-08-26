@@ -181,23 +181,11 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
         style="width:100%;height:100%;object-fit:cover;"
         />` : `<div style="
         position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-        width:${Math.max(Math.round(size * 0.78), 24)}px;
-        height:${Math.max(Math.round(size * 0.78), 24)}px;
         display:flex;align-items:center;justify-content:center;
-        border-radius:50%;
-        border:${Math.max(Math.round(size * 0.04), 1)}px solid ${MARKER_SECONDARY_COLOR};
-        background:${MARKER_PRIMARY_COLOR};
         " aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="${Math.max(Math.round(size * 0.64), 14)}" height="${Math.max(Math.round(size * 0.64), 14)}" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="100" cy="40" r="12" stroke="#111" stroke-width="4"></circle>
-                <line x1="100" y1="52" x2="100" y2="100" stroke="#111" stroke-width="4"></line>
-                <line x1="100" y1="65" x2="70" y2="85" stroke="#111" stroke-width="4"></line>
-                <line x1="100" y1="65" x2="130" y2="55" stroke="#111" stroke-width="4"></line>
-                <line x1="100" y1="100" x2="70" y2="140" stroke="#111" stroke-width="4"></line>
-                <line x1="100" y1="100" x2="130" y2="130" stroke="#111" stroke-width="4"></line>
-                <line x1="50" y1="60" x2="65" y2="60" stroke="#6b7280" stroke-width="2"></line>
-                <line x1="45" y1="80" x2="65" y2="80" stroke="#6b7280" stroke-width="2"></line>
-                <line x1="50" y1="100" x2="70" y2="100" stroke="#6b7280" stroke-width="2"></line>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${Math.max(Math.round(size * 0.62), 18)}" height="${Math.max(Math.round(size * 0.62), 18)}">
+                <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" fill="${MARKER_POPUP_BADGE_COLOR}"></path>
+                <circle cx="12" cy="10" r="3" fill="${MARKER_PRIMARY_COLOR}"></circle>
             </svg>
         </div>`}
     </div>
@@ -211,6 +199,35 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
     const imageUrl = markerImageUrl(lodging.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 70 : 50);
+    const safeTitle = escapeHtml(lodging.title || "Lodging");
+    const borderColor = isActive ? MARKER_ACTIVE_BORDER_COLOR : MARKER_PRIMARY_COLOR;
+    const iconPx = Math.max(Math.round(size * 0.62), 18);
+
+    const houseGlyph = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${iconPx}" height="${iconPx}">
+                <path d="M12 2.8 3.2 9.9a1.6 1.6 0 0 0-.6 1.25V19.4c0 .88.72 1.6 1.6 1.6h15.6c.88 0 1.6-.72 1.6-1.6v-8.25c0-.49-.22-.95-.6-1.25Z" fill="${MARKER_POPUP_BADGE_COLOR}"></path>
+                <path d="M10.1 21v-5.1c0-.61.49-1.1 1.1-1.1h1.6c.61 0 1.1.49 1.1 1.1V21Z" fill="${MARKER_PRIMARY_COLOR}"></path>
+                <rect x="15.4" y="13.4" width="2.4" height="2.4" rx="0.4" fill="${MARKER_PRIMARY_COLOR}"></rect>
+                <rect x="6.2" y="13.4" width="2.4" height="2.4" rx="0.4" fill="${MARKER_PRIMARY_COLOR}"></rect>
+            </svg>`;
+
+    // No photo: clean circular badge with an amber house glyph, matching the
+    // activity pin's style.
+    if (!hasImage) {
+        return L.divIcon({
+            className: "lodging-marker",
+            html: `
+    <div style="
+        width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;
+        border:${isActive ? `3px solid ${borderColor}` : `2px solid ${borderColor}`};
+        box-shadow:0 2px 12px ${MARKER_SHADOW};cursor:pointer;background:${MARKER_PRIMARY_COLOR};
+        position:relative;display:flex;align-items:center;justify-content:center;
+    " aria-hidden="true">${houseGlyph}</div>
+    `,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+        });
+    }
+
     const roofHeight = Math.round(size * 0.34);
     const roofHalfWidth = Math.round(size / 2);
     const roofBorderWidth = isActive ? 3 : 2;
@@ -218,14 +235,7 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
     const roofInnerWidth = Math.max((roofHalfWidth - roofBorderWidth) * 2, 2);
     const bodyWidth = Math.round(size * 0.78);
     const bodyHeight = size - roofHeight;
-    const safeTitle = escapeHtml(lodging.title || "Lodging");
-    const bodyTop = hasImage ? Math.max(roofHeight - roofBorderWidth, 0) : Math.max(roofHeight - 2, 0);
-    const doorWidth = Math.max(Math.round(size * 0.16), 8);
-    const doorHeight = Math.max(Math.round(bodyHeight * 0.45), 10);
-    const windowSize = Math.max(Math.round(size * 0.16), 8);
-    const houseBorderColor = isActive
-        ? MARKER_ACTIVE_BORDER_COLOR
-        : (hasImage ? MARKER_PRIMARY_COLOR : MARKER_SECONDARY_COLOR);
+    const bodyTop = Math.max(roofHeight - roofBorderWidth, 0);
     const roofOverhang = Math.max(Math.floor((size - bodyWidth) / 2), 0);
     const roofConnectorLength = Math.max(roofOverhang, 1);
 
@@ -238,10 +248,10 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
         width:0;height:0;
         border-left:${roofHalfWidth}px solid transparent;
         border-right:${roofHalfWidth}px solid transparent;
-        border-bottom:${roofHeight}px solid ${houseBorderColor};
+        border-bottom:${roofHeight}px solid ${borderColor};
         filter:drop-shadow(0 3px 8px ${MARKER_SHADOW});
         "></div>
-        ${hasImage ? `<div style="
+        <div style="
         position:absolute;
         top:${roofBorderWidth}px;
         left:50%;
@@ -253,14 +263,14 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
         background-position:center top;
         background-repeat:no-repeat;
         clip-path:polygon(50% 0%, 100% 100%, 0% 100%);
-        "></div>` : ""}
-        ${hasImage ? `<div style="
+        "></div>
+        <div style="
         position:absolute;
         top:${bodyTop}px;
         left:3px;
         width:${roofConnectorLength}px;
         height:${roofBorderWidth}px;
-        background:${houseBorderColor};
+        background:${borderColor};
         border-top-left-radius:999px;
         "></div>
         <div style="
@@ -269,39 +279,20 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
         right:3px;
         width:${roofConnectorLength}px;
         height:${roofBorderWidth}px;
-        background:${houseBorderColor};
+        background:${borderColor};
         border-top-right-radius:999px;
-        "></div>` : ""}
+        "></div>
         <div style="
         position:absolute;top:${bodyTop}px;left:50%;transform:translateX(-50%);
         width:${bodyWidth}px;height:${bodyHeight}px;
         border-radius:0 0 10px 10px;overflow:hidden;
-        border:${isActive ? `3px solid ${houseBorderColor}` : `2px solid ${houseBorderColor}`};
-        border-top:${hasImage ? "0" : (isActive ? `3px solid ${houseBorderColor}` : `2px solid ${houseBorderColor}`)};
-        background:${hasImage ? `url('${imageUrl}')` : MARKER_PRIMARY_COLOR};
-        background-size:${hasImage ? `${size}px ${size}px` : "auto"};
-        background-position:${hasImage ? `center -${bodyTop}px` : "initial"};
-        background-repeat:${hasImage ? "no-repeat" : "initial"};
-        ">
-        ${hasImage ? "" : `<div style="position:absolute;inset:0;">
-            <div style="
-                position:absolute;
-                left:70%;bottom:0;
-                transform:translateX(-50%);
-                width:${doorWidth}px;height:${doorHeight}px;
-                border-radius:3px 3px 0 0;
-                background:${MARKER_SECONDARY_COLOR};
-            " aria-hidden="true"></div>
-            <div style="
-                position:absolute;
-                top:${Math.max(Math.round(bodyHeight * 0.3), 4)}px;
-                left:${Math.max(Math.round(size * 0.12), 4)}px;
-                width:${windowSize}px;height:${windowSize}px;
-                border-radius:2px;
-                background:${MARKER_SECONDARY_COLOR};
-            " aria-hidden="true"></div>
-        </div>`}
-        </div>
+        border:${isActive ? `3px solid ${borderColor}` : `2px solid ${borderColor}`};
+        border-top:0;
+        background-image:url('${imageUrl}');
+        background-size:${size}px ${size}px;
+        background-position:center -${bodyTop}px;
+        background-repeat:no-repeat;
+        "></div>
     </div>
     `,
         iconSize: [size, size],
