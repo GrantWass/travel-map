@@ -33,7 +33,7 @@ import StopItemCard, {
 } from "@/components/stop-item-card";
 import WebsiteChip from "@/components/website-chip";
 import { INPUT_CLASS, TEXTAREA_CLASS } from "@/lib/ui-constants";
-import { createPlanShare, uploadImage, type CustomPlanItem, type PlanFlight } from "@/lib/api-client";
+import { createPlanShare, uploadImage, type CustomPlanItem, type FlightLeg, type PlanFlight } from "@/lib/api-client";
 import { looksLikeLink, unfurlLink } from "@/lib/link-unfurl";
 import { parseFlightLink } from "@/lib/flight-link";
 import { formatFlightPrice, shareOrCopyUrl } from "@/lib/utils";
@@ -67,8 +67,14 @@ export interface FlightPayload {
   origin_code?: string;
   destination_code?: string;
   departure_date?: string;
+  outbound_date?: string;
+  return_date?: string;
+  outbound_legs?: FlightLeg[];
+  return_legs?: FlightLeg[];
   departure_time?: string;
   price?: string;
+  price_minor?: number;
+  currency?: string;
   link_url?: string;
   notes?: string;
 }
@@ -441,10 +447,15 @@ function FlightForm({
   const [origin, setOrigin] = useState(initial?.origin_code || "");
   const [destination, setDestination] = useState(initial?.destination_code || "");
   const [departureDate, setDepartureDate] = useState(
-    /^\d{4}-\d{2}-\d{2}$/.test(initial?.departure_date ?? "") ? initial!.departure_date! : "",
+    /^\d{4}-\d{2}-\d{2}$/.test(initial?.outbound_date ?? initial?.departure_date ?? "")
+      ? (initial?.outbound_date ?? initial?.departure_date ?? "") : "",
   );
+  const [returnDate, setReturnDate] = useState(initial?.return_date || "");
+  const [outboundLegs, setOutboundLegs] = useState<FlightLeg[]>(initial?.outbound_legs ?? []);
+  const [returnLegs, setReturnLegs] = useState<FlightLeg[]>(initial?.return_legs ?? []);
   const [departureTime, setDepartureTime] = useState(initial?.departure_time || "");
   const [price, setPrice] = useState(initial?.price || "");
+  const [currency, setCurrency] = useState(initial?.currency || "USD");
   const [notes, setNotes] = useState(initial?.notes || "");
 
   async function handleLinkChange(value: string) {
@@ -457,9 +468,13 @@ function FlightForm({
     if (!origin.trim() && parsed.origin_code) setOrigin(parsed.origin_code);
     if (!destination.trim() && parsed.destination_code) setDestination(parsed.destination_code);
     if (!departureDate && parsed.departure_date) setDepartureDate(parsed.departure_date);
+    if (!returnDate && parsed.return_date) setReturnDate(parsed.return_date);
+    if (parsed.outbound_legs?.length) setOutboundLegs(parsed.outbound_legs);
+    if (parsed.return_legs?.length) setReturnLegs(parsed.return_legs);
     if (!airline.trim() && parsed.airline) setAirline(parsed.airline);
     if (!flightNumber.trim() && parsed.flight_number) setFlightNumber(parsed.flight_number);
     if (!price.trim() && parsed.price) setPrice(parsed.price);
+    if (parsed.currency) setCurrency(parsed.currency);
     if (!notes.trim() && parsed.notes) setNotes(parsed.notes);
 
     const preview = await unfurlLink(trimmed);
@@ -484,8 +499,14 @@ function FlightForm({
       origin_code: origin.trim().toUpperCase() || undefined,
       destination_code: destination.trim().toUpperCase() || undefined,
       departure_date: departureDate || undefined,
+      outbound_date: departureDate || undefined,
+      return_date: returnDate || undefined,
+      outbound_legs: outboundLegs,
+      return_legs: returnLegs,
       departure_time: departureTime.trim() || undefined,
       price: price.trim() || undefined,
+      price_minor: price.trim() && Number.isFinite(Number(price)) ? Math.round(Number(price) * 100) : undefined,
+      currency: price.trim() ? currency : undefined,
       link_url: normalizeLink(linkUrl),
       notes: notes.trim() || undefined,
     });
@@ -522,7 +543,14 @@ function FlightForm({
         <input
           value={departureDate}
           onChange={(e) => setDepartureDate(e.target.value)}
-          placeholder="Date"
+          placeholder="Outbound"
+          type="date"
+          className={`${flightInputClass} min-w-0 flex-1`}
+        />
+        <input
+          value={returnDate}
+          onChange={(e) => setReturnDate(e.target.value)}
+          aria-label="Return date"
           type="date"
           className={`${flightInputClass} min-w-0 flex-1`}
         />
@@ -549,7 +577,7 @@ function FlightForm({
         <input
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          placeholder="Price (USD)"
+          placeholder={`Price (${currency})`}
           className={`${flightInputClass} w-24 flex-shrink-0`}
         />
       </div>
@@ -661,9 +689,13 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
           {metaParts.length > 0 && (
             <p className="text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
           )}
-          {(flight.departure_date || flight.notes) && (
+          {(flight.outbound_date || flight.departure_date || flight.return_date || flight.notes) && (
             <p className="text-xs text-muted-foreground">
-              {[flight.departure_date, flight.notes].filter(Boolean).join(" — ")}
+              {[
+                flight.outbound_date || flight.departure_date,
+                flight.return_date ? `return ${flight.return_date}` : null,
+                flight.notes,
+              ].filter(Boolean).join(" — ")}
             </p>
           )}
           {flight.link_url && (

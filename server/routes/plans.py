@@ -200,8 +200,14 @@ def add_plan_flight():
             origin_code=to_nullable_string(body.get("origin_code")),
             destination_code=to_nullable_string(body.get("destination_code")),
             departure_date=to_nullable_string(body.get("departure_date")),
+            outbound_date=to_nullable_string(body.get("outbound_date")),
+            return_date=to_nullable_string(body.get("return_date")),
+            outbound_legs=body.get("outbound_legs"),
+            return_legs=body.get("return_legs"),
             departure_time=to_nullable_string(body.get("departure_time")),
             price=to_nullable_string(body.get("price")),
+            price_minor=body.get("price_minor"),
+            currency=to_nullable_string(body.get("currency")),
         )
     except ValueError as error:
         return jsonify({"error": str(error)}), 400

@@ -143,7 +143,8 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                             const details = [
                                                 flight.airline && route !== flight.airline ? flight.airline : null,
                                                 flight.flight_number ? `#${flight.flight_number}` : null,
-                                                [flight.departure_date, flight.departure_time].filter(Boolean).join(" "),
+                                                [flight.outbound_date || flight.departure_date, flight.departure_time].filter(Boolean).join(" "),
+                                                flight.return_date ? `Return ${flight.return_date}` : null,
                                                 flight.notes,
                                             ].filter(Boolean);
                                             return (

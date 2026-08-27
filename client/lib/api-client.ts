@@ -631,6 +631,18 @@ export async function moveCustomPlanItemToCollection(
 
 // ── Plan flights ─────────────────────────────────────────────────────────────
 
+export interface FlightLeg {
+  airline_code?: string | null;
+  airline?: string | null;
+  flight_number?: string | null;
+  origin_code: string;
+  destination_code: string;
+  departure_date: string;
+  departure_time?: string | null;
+  arrival_date?: string | null;
+  arrival_time?: string | null;
+}
+
 export interface PlanFlight {
   flight_id: number;
   airline: string | null;
@@ -638,8 +650,14 @@ export interface PlanFlight {
   origin_code: string | null;
   destination_code: string | null;
   departure_date: string | null;
+  outbound_date: string | null;
+  return_date: string | null;
+  outbound_legs: FlightLeg[];
+  return_legs: FlightLeg[];
   departure_time: string | null;
   price: string | null;
+  price_minor: number | null;
+  currency: string | null;
   collection_name: string | null;
   link_url?: string | null;
   notes?: string | null;
@@ -651,8 +669,14 @@ export interface PlanFlightPayload {
   origin_code?: string;
   destination_code?: string;
   departure_date?: string;
+  outbound_date?: string;
+  return_date?: string;
+  outbound_legs?: FlightLeg[];
+  return_legs?: FlightLeg[];
   departure_time?: string;
   price?: string;
+  price_minor?: number;
+  currency?: string;
   link_url?: string;
   notes?: string;
 }
@@ -750,8 +774,14 @@ export interface SharedPlanFlight {
   origin_code: string | null;
   destination_code: string | null;
   departure_date: string | null;
+  outbound_date: string | null;
+  return_date: string | null;
+  outbound_legs: FlightLeg[];
+  return_legs: FlightLeg[];
   departure_time: string | null;
   price: string | null;
+  price_minor: number | null;
+  currency: string | null;
   link_url?: string | null;
   notes?: string | null;
 }

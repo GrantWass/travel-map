@@ -14,7 +14,17 @@ export interface ParsedFlightLink {
   return_flight_numbers?: string;
   price?: string;
   currency?: string;
+  outbound_legs?: ParsedFlightLeg[];
+  return_legs?: ParsedFlightLeg[];
   notes?: string;
+}
+
+export interface ParsedFlightLeg {
+  airline_code?: string;
+  flight_number?: string;
+  origin_code: string;
+  destination_code: string;
+  departure_date: string;
 }
 
 function titleCaseAirline(value: string): string {
@@ -156,6 +166,17 @@ function parseTfsParam(tfs: string): ParsedFlightLink | null {
     result.return_date = returnSegments[0].date;
     result.return_flight_numbers = returnSegments.map((segment) => segment.flight).filter(Boolean).join(" / ");
   }
+  const toLeg = (segment: TfsSegment): ParsedFlightLeg => ({
+    origin_code: segment.origin,
+    destination_code: segment.destination,
+    departure_date: segment.date,
+    ...(segment.flight ? {
+      flight_number: segment.flight,
+      airline_code: segment.flight.slice(0, 2),
+    } : {}),
+  });
+  result.outbound_legs = outboundSegments.map(toLeg);
+  result.return_legs = returnSegments.map(toLeg);
 
   // Multi-leg itineraries don't fit the single route fields — summarize them.
   if (segments.length > 1) {

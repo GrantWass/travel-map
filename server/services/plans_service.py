@@ -5,6 +5,7 @@ import secrets
 from typing import Any
 
 import psycopg2
+from psycopg2.extras import Json
 from db import get_cursor
 
 
@@ -57,7 +58,8 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
             cur.execute(
                 """
                 SELECT flight_id, airline, flight_number, origin_code, destination_code,
-                       departure_date, departure_time, price, collection_name, link_url, notes
+                       departure_date, outbound_date, return_date, outbound_legs, return_legs,
+                       departure_time, price, price_minor, currency, collection_name, link_url, notes
                 FROM plan_flights
                 WHERE owner_user_id = %s
                 ORDER BY created_at DESC, flight_id DESC
@@ -123,8 +125,14 @@ def _build_plans_response(user_id: int) -> dict[str, Any]:
             "origin_code": r.get("origin_code"),
             "destination_code": r.get("destination_code"),
             "departure_date": r.get("departure_date"),
+            "outbound_date": r.get("outbound_date") or r.get("departure_date"),
+            "return_date": r.get("return_date"),
+            "outbound_legs": r.get("outbound_legs") or [],
+            "return_legs": r.get("return_legs") or [],
             "departure_time": r.get("departure_time"),
             "price": r.get("price"),
+            "price_minor": r.get("price_minor"),
+            "currency": r.get("currency"),
             "collection_name": r.get("collection_name"),
             "link_url": r.get("link_url"),
             "notes": r.get("notes"),
@@ -414,9 +422,13 @@ _FLIGHT_FIELDS = (
     "origin_code",
     "destination_code",
     "departure_date",
+    "outbound_date",
+    "return_date",
     "departure_time",
     "price",
+    "currency",
 )
+_FLIGHT_JSON_FIELDS = ("outbound_legs", "return_legs")
 
 
 def add_flight(
@@ -425,9 +437,11 @@ def add_flight(
     collection_name: str | None = None,
     link_url: str | None = None,
     notes: str | None = None,
-    **fields: str | None,
+    **fields: Any,
 ) -> dict[str, Any]:
     values = {key: (str(fields[key]).strip() or None) if fields.get(key) else None for key in _FLIGHT_FIELDS}
+    legs = {key: fields.get(key) if isinstance(fields.get(key), list) else [] for key in _FLIGHT_JSON_FIELDS}
+    price_minor = fields.get("price_minor") if isinstance(fields.get("price_minor"), int) else None
     if link_url and not str(link_url).lower().startswith(("http://", "https://")):
         raise ValueError("link must start with http:// or https://")
 
@@ -439,8 +453,9 @@ def add_flight(
             """
             INSERT INTO plan_flights
                 (owner_user_id, collection_name, airline, flight_number, origin_code,
-                 destination_code, departure_date, departure_time, price, link_url, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 destination_code, departure_date, outbound_date, return_date, outbound_legs,
+                 return_legs, departure_time, price, price_minor, currency, link_url, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING flight_id
             """,
             (
@@ -451,8 +466,14 @@ def add_flight(
                 values["origin_code"],
                 values["destination_code"],
                 values["departure_date"],
+                values["outbound_date"] or values["departure_date"],
+                values["return_date"],
+                Json(legs["outbound_legs"]),
+                Json(legs["return_legs"]),
                 values["departure_time"],
                 values["price"],
+                price_minor,
+                values["currency"],
                 link_url,
                 notes,
             ),
@@ -468,13 +489,13 @@ def add_flight(
 
 
 def update_flight(user_id: int, flight_id: int, fields: dict[str, Any]) -> dict[str, Any]:
-    allowed = set(_FLIGHT_FIELDS) | {"notes", "link_url"}
+    allowed = set(_FLIGHT_FIELDS) | set(_FLIGHT_JSON_FIELDS) | {"price_minor", "notes", "link_url"}
     updates = {key: value for key, value in fields.items() if key in allowed}
     if not updates:
         return _build_plans_response(user_id)
 
     set_clause = ", ".join(f"{key} = %s" for key in updates)
-    params = list(updates.values()) + [user_id, flight_id]
+    params = [Json(value) if key in _FLIGHT_JSON_FIELDS else value for key, value in updates.items()] + [user_id, flight_id]
 
     with get_cursor(commit=True) as cur:
         cur.execute(
@@ -616,7 +637,8 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
             cur.execute(
                 """
                 SELECT flight_id, airline, flight_number, origin_code, destination_code,
-                       departure_date, departure_time, price, collection_name, link_url, notes
+                       departure_date, outbound_date, return_date, outbound_legs, return_legs,
+                       departure_time, price, price_minor, currency, collection_name, link_url, notes
                 FROM plan_flights
                 WHERE owner_user_id = %s
                 ORDER BY created_at DESC, flight_id DESC
@@ -695,8 +717,14 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
             "origin_code": row.get("origin_code"),
             "destination_code": row.get("destination_code"),
             "departure_date": row.get("departure_date"),
+            "outbound_date": row.get("outbound_date") or row.get("departure_date"),
+            "return_date": row.get("return_date"),
+            "outbound_legs": row.get("outbound_legs") or [],
+            "return_legs": row.get("return_legs") or [],
             "departure_time": row.get("departure_time"),
             "price": row.get("price"),
+            "price_minor": row.get("price_minor"),
+            "currency": row.get("currency"),
             "link_url": row.get("link_url"),
             "notes": row.get("notes"),
         })
