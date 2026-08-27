@@ -22,14 +22,16 @@ function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind:
                 width={48}
                 height={48}
                 sizes="48px"
-                className="h-12 w-12 rounded-md border border-border object-cover"
+                className="h-12 w-12 rounded-full object-cover"
             />
         );
     }
     const Icon = kind === "activity" ? MapPin : BedDouble;
-    const colorClass = kind === "activity" ? "text-violet-600 bg-violet-50" : "text-emerald-600 bg-emerald-50";
+    const wrapClass = kind === "activity"
+        ? "bg-gradient-to-br from-violet-100 to-violet-50 text-violet-600"
+        : "bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600";
     return (
-        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-border ${colorClass}`}>
+        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${wrapClass}`}>
             <Icon className="h-5 w-5" />
         </div>
     );
@@ -57,7 +59,7 @@ function StopArticle({
     kind: "activity" | "lodging";
 }) {
     return (
-        <article id={id} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3 scroll-mt-20 transition-shadow">
+        <article id={id} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 scroll-mt-20 transition-shadow">
             <StopThumb src={thumbnail} alt={title || kind} kind={kind} />
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">{title || `Untitled ${kind}`}</p>
@@ -154,9 +156,9 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         flight.notes,
                                     ].filter(Boolean);
                                     return (
-                                        <article key={`f-${index}`} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-600">
-                                                <Plane className="h-4 w-4" />
+                                        <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3">
+                                            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600">
+                                                <Plane className="h-5 w-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-medium text-foreground">{route}</p>
