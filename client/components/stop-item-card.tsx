@@ -38,7 +38,7 @@ export interface StopCardConfig {
 }
 
 export const LODGING_CARD_CONFIG: StopCardConfig = {
-    label: "Lodging",
+    label: "Stay",
     icon: null,
     fallbackIcon: <BedDouble className="h-5 w-5 text-emerald-600" />,
     fallbackIconWrapClass: "bg-gradient-to-br from-emerald-100 to-emerald-50",
@@ -61,7 +61,7 @@ export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     collapsedPhotoBorderClass: "border-l-3 border-l-violet-400",
 };
 
-/** Shared "Places Stayed" / "Activities" section: heading + cards or hidden if empty. */
+/** Shared "Places" / "Activities" section: heading + cards or hidden if empty. */
 export function StopSection({
     title,
     children,

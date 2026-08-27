@@ -17,13 +17,26 @@ interface MapPoint {
     itemIndex: number;
 }
 
+function hasValidCoordinates(
+    item: { latitude?: number | null; longitude?: number | null },
+): item is { latitude: number; longitude: number } {
+    return typeof item.latitude === "number"
+        && typeof item.longitude === "number"
+        && Number.isFinite(item.latitude)
+        && Number.isFinite(item.longitude)
+        && item.latitude >= -90
+        && item.latitude <= 90
+        && item.longitude >= -180
+        && item.longitude <= 180;
+}
+
 function collectPoints(plan: SharedPlan): MapPoint[] {
     const points: MapPoint[] = [];
     for (let gi = 0; gi < plan.groups.length; gi++) {
         const group = plan.groups[gi];
         for (let ai = 0; ai < group.activities.length; ai++) {
             const item = group.activities[ai];
-            if (typeof item.latitude === "number" && typeof item.longitude === "number") {
+            if (hasValidCoordinates(item)) {
                 points.push({
                     kind: "activity",
                     title: item.title || "Untitled activity",
@@ -37,10 +50,10 @@ function collectPoints(plan: SharedPlan): MapPoint[] {
         }
         for (let li = 0; li < group.lodgings.length; li++) {
             const item = group.lodgings[li];
-            if (typeof item.latitude === "number" && typeof item.longitude === "number") {
+            if (hasValidCoordinates(item)) {
                 points.push({
                     kind: "lodging",
-                    title: item.title || "Untitled lodging",
+                    title: item.title || "Untitled stay",
                     latitude: item.latitude,
                     longitude: item.longitude,
                     thumbnailUrl: item.thumbnail_url,
@@ -96,17 +109,19 @@ export default function SharedPlanMap({ plan }: { plan: SharedPlan }) {
 
             marker.on("mouseover", function (this: L.Marker) {
                 const el = this.getElement();
-                if (el) {
-                    el.style.transition = "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)";
-                    el.style.transform = "scale(1.2)";
-                    el.style.zIndex = "1000";
+                const visual = el?.firstElementChild as HTMLElement | null;
+                if (visual) {
+                    visual.style.transition = "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)";
+                    visual.style.transform = "scale(1.2)";
+                    this.setZIndexOffset(1000);
                 }
             });
             marker.on("mouseout", function (this: L.Marker) {
                 const el = this.getElement();
-                if (el) {
-                    el.style.transform = "scale(1)";
-                    el.style.zIndex = "";
+                const visual = el?.firstElementChild as HTMLElement | null;
+                if (visual) {
+                    visual.style.transform = "scale(1)";
+                    this.setZIndexOffset(0);
                 }
             });
 
@@ -132,8 +147,14 @@ export default function SharedPlanMap({ plan }: { plan: SharedPlan }) {
             }
         }
 
+        const resizeObserver = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+        resizeObserver.observe(container);
+        const animationFrame = window.requestAnimationFrame(() => map.invalidateSize({ pan: false }));
+
         mapRef.current = map;
         return () => {
+            window.cancelAnimationFrame(animationFrame);
+            resizeObserver.disconnect();
             map.remove();
             mapRef.current = null;
         };

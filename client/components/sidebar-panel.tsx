@@ -338,7 +338,7 @@ export default function SidebarPanel({
                                 onSelect={() =>
                                     setSelectedLodging(selectedLodgingId === lodging.lodge_id ? null : lodging)
                                 }
-                                onExpandImage={() => onExpandImage({ src: lodging.thumbnail_url!, alt: lodging.title || "Lodging" })}
+                                onExpandImage={() => onExpandImage({ src: lodging.thumbnail_url!, alt: lodging.title || "Stay" })}
                                 config={LODGING_CARD_CONFIG}
                             />
                         ))}

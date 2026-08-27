@@ -31,7 +31,7 @@ export const SHARED_STEPS: OnboardingStep[] = [
     id: "map",
     title: "Explore the map",
     description:
-      "Every pin is a trip. Tap any pin to browse photos, activities, lodging, and stories from that adventure.",
+      "Every pin is a trip. Tap any pin to browse photos, activities, stays, and stories from that adventure.",
     targetSelector: '[data-spotlight="map"]',
     Icon: MapPin,
     // Spotlight only the usable map area — below the control bar, right of the onboarding card.
@@ -70,7 +70,7 @@ export const SHARED_STEPS: OnboardingStep[] = [
     id: "plans",
     title: "Your plans",
     description:
-      "Save lodging and activities from other trips to your personal plan. Build your next adventure piece by piece.",
+      "Save stays and activities from other trips to your personal plan. Build your next adventure piece by piece.",
     targetSelector: '[data-spotlight="plans"]',
     Icon: Notebook,
   },

@@ -7,6 +7,7 @@ import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 import {
     fetchDeferredTripsWithChildren,
     fetchPublicTripsLightweight,
+    hydrateTripChildrenOnly,
 } from "@/stores/trip-search-store";
 import { getDeferredTripIds } from "@/lib/api-client";
 
@@ -173,10 +174,20 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                 // Background hydration should never clear the already rendered public set.
                 try {
                     const deferredTripIds = await deferredTripIdsPromise;
-                    const deferredTrips = await fetchDeferredTripsWithChildren(deferredTripIds);
+                    const [publicChildren, deferredTrips] = await Promise.all([
+                        hydrateTripChildrenOnly(publicTrips.map((trip) => trip.trip_id)),
+                        fetchDeferredTripsWithChildren(deferredTripIds),
+                    ]);
+                    const childrenByTripId = new Map(
+                        publicChildren.map((children) => [children.trip_id, children]),
+                    );
+                    const hydratedPublicTrips = publicTrips.map((trip) => ({
+                        ...trip,
+                        ...childrenByTripId.get(trip.trip_id),
+                    }));
 
                     set((state) => {
-                        const updatedTrips = [...publicTrips, ...deferredTrips].sort(
+                        const updatedTrips = [...hydratedPublicTrips, ...deferredTrips].sort(
                             (left, right) => right.trip_id - left.trip_id,
                         );
                         const hydratedMap = new Map(updatedTrips.map((trip) => [trip.trip_id, trip]));

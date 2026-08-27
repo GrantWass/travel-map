@@ -215,7 +215,7 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
     const imageUrl = markerImageUrl(lodging.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
     const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 54 : 42);
-    const safeTitle = escapeHtml(lodging.title || "Lodging");
+    const safeTitle = escapeHtml(lodging.title || "Stay");
     const borderColor = isActive ? MARKER_ACTIVE_BORDER_COLOR : MARKER_PRIMARY_COLOR;
     const iconPx = Math.max(Math.round(size * 0.62), 14);
 

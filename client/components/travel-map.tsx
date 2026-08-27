@@ -70,7 +70,7 @@ const SIGNUP_PROMPT_COPY: Record<SignupPromptIntent, { title: string; descriptio
     },
     "save-to-plans": {
         title: "Create an account to save to plans",
-        description: "Sign up or sign in to save activities and lodgings for later.",
+        description: "Sign up or sign in to save activities and stays for later.",
     },
     comment: {
         title: "Create an account to comment",
@@ -326,14 +326,6 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             if (!searchPanelOpen) openSearchPanel();
         }
     }, [mapPanels.showAnyLeftSidebar, lastViewedPanelType, lastViewedTrip, plansPanelOpen, searchPanelOpen, togglePlansPanel, setSelectedTrip, openSearchPanel]);
-
-    const handlePanelMouseLeave = useCallback(() => {
-        if (!isQuickOpen) return;
-        setIsQuickOpen(false);
-        clearSelections();
-        closeSearchPanel();
-        closePlansPanel();
-    }, [isQuickOpen, clearSelections, closeSearchPanel, closePlansPanel]);
 
     const handleContinueToSignup = useCallback(() => {
         const search = new URLSearchParams(window.location.search);
@@ -1018,7 +1010,6 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                                 mapPanels.showSidebar || mapPanels.showSearchPanel || mapPanels.showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
                     }}
 
-                    onMouseLeave={handlePanelMouseLeave}
                     onPointerDown={() => { if (isQuickOpen) setIsQuickOpen(false); }}
                 >
                     <div className="h-full" style={{ minWidth: REVIEW_PANEL_WIDTH }}>
