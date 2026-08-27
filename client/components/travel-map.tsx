@@ -919,7 +919,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             )}
 
             <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${mapPanels.showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
-                <div className="hidden h-11 items-center gap-2 rounded-full border border-border px-5 shadow-md bg-card/80 backdrop-blur-sm sm:flex">
+                <div className="hidden h-11 items-center gap-2 rounded-full border border-border px-4 shadow-md bg-card/80 backdrop-blur-sm sm:flex w-fit">
                     <MapPin className="h-5 w-5 text-primary" />
                     <BrandNameButton
                         className="text-lg text-foreground"

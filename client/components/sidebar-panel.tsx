@@ -174,7 +174,7 @@ export default function SidebarPanel({
     }
 
     return (
-        <div className={cn("relative flex flex-col bg-card", !mobileSheetMode && "h-full w-full border-r border-border")}>
+        <div className={cn("relative flex flex-col bg-card", !mobileSheetMode && "h-full w-full border-r border-border/50")}>
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
                 <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="(max-width: 640px) 100vw, 483px" priority className="object-cover" />
@@ -353,7 +353,7 @@ export default function SidebarPanel({
                         canEdit={isTripOwner}
                     />
 
-                    <div className="flex flex-col gap-3 border-t border-border pt-4">
+                    <div className="flex flex-col gap-3 border-t border-border/40 pt-4">
                         <div className="flex items-center justify-between gap-2">
                             <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                                 <MessageCircle className="h-3.5 w-3.5" />
@@ -387,7 +387,7 @@ export default function SidebarPanel({
                         {likeError && <p className="text-xs text-destructive">{likeError}</p>}
 
                         {isAuthenticated ? (
-                            <div className="rounded-xl border border-border bg-secondary/30 p-2 shadow-xs">
+                            <div className="rounded-2xl border border-border/50 bg-secondary/20 p-2 shadow-xs">
                                 <textarea
                                     value={commentInput}
                                     onChange={(event) => {
@@ -416,7 +416,7 @@ export default function SidebarPanel({
                                 </div>
                             </div>
                         ) : (
-                            <div className="rounded-xl border border-dashed border-border p-3">
+                            <div className="rounded-2xl border border-dashed border-border/50 p-3">
                                 <p className="text-sm text-muted-foreground">Sign up or sign in to leave a comment.</p>
                                 <Button type="button" size="sm" className="mt-2" onClick={onRequireSignInToComment}>
                                     Sign up to comment
@@ -439,7 +439,7 @@ export default function SidebarPanel({
                                         : "";
 
                                     return (
-                                        <div key={comment.comment_id} className="rounded-xl border border-border border-l-2 border-l-primary/20 bg-background p-3">
+                                        <div key={comment.comment_id} className="rounded-2xl border border-border/40 border-l-2 border-l-primary/15 bg-background p-3">
                                             <div className="mb-1.5 flex items-center gap-2">
                                                 <UserAvatar
                                                     name={authorName}
@@ -466,7 +466,7 @@ export default function SidebarPanel({
                 <div className="absolute bottom-5 right-5 flex flex-col items-end gap-2">
                     {/* Collection picker popover */}
                     {showCollectionPicker && !fabSaved && (
-                        <div className="rounded-xl border border-border bg-card py-1.5 shadow-lg">
+                        <div className="rounded-2xl border border-border/50 bg-card py-1.5 shadow-lg">
                             <p className="px-3 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                                 Save to collection
                             </p>

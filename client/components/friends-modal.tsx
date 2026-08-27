@@ -45,7 +45,7 @@ function SearchUserRow({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <UserAvatar name={user.name} image={user.profile_image_url} />
         <div className="flex min-w-0 flex-col">
@@ -98,7 +98,7 @@ function RequestRow({
   busy,
 }: any) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <UserAvatar name={name} image={image} />
         <button
@@ -375,7 +375,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="flex items-center justify-between border-b border-border/40 px-5 py-4">
           <h2 className="text-base font-semibold tracking-tight">Friends</h2>
           <button
             onClick={onClose}
@@ -386,7 +386,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
         </div>
 
         {/* tab bar */}
-        <div className="flex border-b border-border px-4">
+        <div className="flex border-b border-border/40 px-4">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -425,7 +425,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                 friendsList.map((f, idx) => (
                   <div
                     key={f.id}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-all duration-200 hover:bg-muted/30 hover:shadow-xs"
+                    className="flex items-center gap-3 rounded-2xl border border-border/40 bg-background p-3 transition-all duration-200 hover:bg-muted/30 hover:shadow-xs"
                   >
                     {/* number badge */}
                     <span className="shrink-0 w-6 text-center text-xs font-semibold text-muted-foreground tabular-nums hidden sm:inline">

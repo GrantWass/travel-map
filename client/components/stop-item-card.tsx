@@ -29,24 +29,30 @@ export interface StopCardConfig {
     label: string;
     icon: ReactNode;
     fallbackIcon: ReactNode;
-    unexpandedHoverClass: string;
+    fallbackIconWrapClass: string;
+    expandedBorderClass: string;
+    expandedShadowClass: string;
     noImageBorderClass: string;
 }
 
 export const LODGING_CARD_CONFIG: StopCardConfig = {
     label: "Lodging",
     icon: null,
-    fallbackIcon: <BedDouble className="h-5 w-5 text-primary" />,
-    unexpandedHoverClass: "bg-secondary/30 hover:bg-secondary/50",
-    noImageBorderClass: "border-border bg-secondary/30",
+    fallbackIcon: <BedDouble className="h-5 w-5 text-emerald-600" />,
+    fallbackIconWrapClass: "bg-gradient-to-br from-emerald-100 to-emerald-50",
+    expandedBorderClass: "border-emerald-400/50 bg-emerald-50/30 shadow-md shadow-emerald-400/5",
+    expandedShadowClass: "shadow-emerald-400/5",
+    noImageBorderClass: "border-border bg-emerald-50/30",
 };
 
 export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     label: "Activity",
     icon: null,
-    fallbackIcon: <MapPin className="h-5 w-5 text-primary" />,
-    unexpandedHoverClass: "bg-secondary/40 hover:bg-secondary/70",
-    noImageBorderClass: "border-border bg-secondary/40",
+    fallbackIcon: <MapPin className="h-5 w-5 text-amber-600" />,
+    fallbackIconWrapClass: "bg-gradient-to-br from-amber-100 to-amber-50",
+    expandedBorderClass: "border-amber-400/50 bg-amber-50/30 shadow-md shadow-amber-400/5",
+    expandedShadowClass: "shadow-amber-400/5",
+    noImageBorderClass: "border-border bg-amber-50/30",
 };
 
 /** Shared "Places Stayed" / "Activities" section: heading + cards or empty state. */
@@ -114,7 +120,7 @@ export default function StopItemCard({
                 )}
             >
                 <div className="flex items-center gap-3 p-3">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-coral/10">
+                    <div className={cn("flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full", config.fallbackIconWrapClass)}>
                         {config.fallbackIcon}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -146,8 +152,8 @@ export default function StopItemCard({
             className={cn(
                 "w-full cursor-pointer rounded-xl border text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
                 isExpanded
-                    ? "border-primary bg-primary/8 shadow-md shadow-primary/5"
-                    : "border-border hover:shadow-sm hover:-translate-y-px " + config.unexpandedHoverClass,
+                    ? config.expandedBorderClass
+                    : "border-border hover:shadow-sm hover:-translate-y-px " + config.noImageBorderClass,
             )}
         >
             {isExpanded ? (

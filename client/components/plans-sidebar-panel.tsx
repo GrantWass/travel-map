@@ -7,6 +7,7 @@ import {
   BedDouble,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   ClipboardCopy,
   FolderOpen,
   ImagePlus,
@@ -341,7 +342,7 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
 
   if (isEditing) {
     return (
-      <div className="rounded-xl border border-primary/30 bg-secondary/40 p-3">
+      <div className="rounded-2xl border border-primary/30 bg-secondary/40 p-3">
         <StopForm
           defaultType={(item.item_type as StopType) ?? "activity"}
           initial={item}
@@ -592,12 +593,13 @@ interface FlightCardProps {
 
 /** Card showing a saved flight, expandable with edit/move/delete actions. */
 function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (isEditing) {
     return (
-      <div className="rounded-xl border border-primary/30 bg-secondary/40 p-3">
+      <div className="rounded-2xl border border-sky-300/40 bg-sky-50/50 p-3">
         <FlightForm
           initial={flight}
           targetCollectionLabel={flight.collection_name}
@@ -621,34 +623,55 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
     flight.departure_time,
   ].filter(Boolean);
 
+  const toggle = () => setIsExpanded((v) => !v);
+
   return (
     <>
-    <div className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-all duration-200 hover:shadow-md">
-      <div className="flex items-start gap-2.5">
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Plane className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <p className="truncate text-sm font-semibold text-foreground">{route}</p>
-            {flight.price && (
-              <span className="ml-auto flex-shrink-0 rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
-                {flight.price}
-              </span>
-            )}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={toggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      }}
+      className={`w-full cursor-pointer rounded-xl border text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/35 ${
+        isExpanded
+          ? "border-sky-400/50 bg-sky-50/40 shadow-md shadow-sky-400/5"
+          : "border-border hover:shadow-sm hover:-translate-y-px bg-card"
+      }`}
+    >
+      {isExpanded ? (
+        <div className="flex flex-col gap-3 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                <Plane className="h-4 w-4" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">{route}</p>
+            </div>
+            <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           </div>
           {metaParts.length > 0 && (
-            <p className="truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
+            <p className="text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
           )}
           {(flight.departure_date || flight.notes) && (
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {[flight.departure_date, flight.notes].filter(Boolean).join(" — ")}
             </p>
           )}
-          <div className="mt-1.5 flex items-center gap-2">
-            {flight.link_url && (
-              <WebsiteChip url={flight.link_url} variant="subtle" />
-            )}
+          {flight.link_url && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <WebsiteChip url={flight.link_url} />
+            </div>
+          )}
+          <div
+            className="flex items-center gap-1 border-t border-border/40 pt-2"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setIsEditing(true)}
@@ -662,7 +685,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-destructive/10 hover:text-destructive"
                 aria-label="Delete flight"
                 title="Delete"
               >
@@ -671,7 +694,27 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center gap-3 p-3">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600">
+            <Plane className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <p className="truncate text-sm font-medium text-foreground">{route}</p>
+              {flight.price && (
+                <span className="ml-auto flex-shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+                  {flight.price}
+                </span>
+              )}
+            </div>
+            {metaParts.length > 0 && (
+              <p className="truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
+            )}
+          </div>
+          <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground self-center" />
+        </div>
+      )}
     </div>
     <ConfirmDialog
       open={confirmDelete}
@@ -933,7 +976,7 @@ export default function PlansSidebarPanel({
 
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border px-4">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border/40 px-4">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
@@ -1166,12 +1209,12 @@ export default function PlansSidebarPanel({
   const addFormOpen = addFormTarget !== undefined;
 
   return (
-    <div className="flex h-full w-full flex-col border-r border-border bg-card">
+    <div className="flex h-full w-full flex-col border-r border-border/50 bg-card">
       {openCollection !== null ? (
         <CollectionDetailView name={openCollection} />
       ) : (
         <>
-          <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-border px-5">
+          <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-border/40 px-5">
             <div className="flex items-center gap-2">
               <Notebook className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold tracking-tight text-foreground">Plans</h2>
@@ -1249,7 +1292,7 @@ export default function PlansSidebarPanel({
           )}
 
           {addFormOpen && (
-            <div className="border-b border-border bg-secondary/20 px-4 py-3">
+            <div className="border-b border-border/40 bg-secondary/20 px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   New stop{addFormTarget ? ` → ${addFormTarget}` : ""}
@@ -1275,7 +1318,7 @@ export default function PlansSidebarPanel({
           )}
 
           {addFlightFormTarget !== undefined && (
-            <div className="border-b border-border bg-secondary/20 px-4 py-3">
+            <div className="border-b border-border/40 bg-secondary/20 px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   New flight{addFlightFormTarget ? ` → ${addFlightFormTarget}` : ""}
@@ -1300,7 +1343,7 @@ export default function PlansSidebarPanel({
           )}
 
           {showNewCollectionInput && (
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2 border-b border-border/40 px-4 py-3">
               <input
                 autoFocus
                 value={newCollectionName}
@@ -1326,7 +1369,7 @@ export default function PlansSidebarPanel({
           <ScrollArea className="min-h-0 flex-1">
             <div className="flex flex-col gap-5 p-5">
               {totalCount === 0 && collections.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 p-4">
+                <div className="rounded-2xl border border-dashed border-primary/20 bg-primary/5 p-4">
                   <p className="text-sm font-semibold text-foreground">Nothing saved yet</p>
                   <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                     Select an activity or lodging in a trip, then tap &quot;Save to Plans&quot;. Or add your own stops with <span className="font-medium text-primary">+</span>.

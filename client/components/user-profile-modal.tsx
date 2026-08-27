@@ -357,7 +357,7 @@ export default function UserProfileModal({
                 {/* Scrollable content */}
                 <div className="flex-1 overflow-y-auto px-5 sm:px-10 py-6">
                     {canEditProfile && settingsOpen ? (
-                        <div className="mb-6 rounded-xl border border-border bg-background/80 p-4 sm:p-5">
+                        <div className="mb-6 rounded-2xl border border-border/50 bg-background/80 p-4 sm:p-5">
                             <h2 className="text-sm font-semibold text-foreground">Profile Settings</h2>
                             <div className="mt-4 grid gap-4">
                                 <label className="grid gap-2">
@@ -531,7 +531,7 @@ export default function UserProfileModal({
                                         onClose();
                                         onAddTrip?.();
                                     }}
-                                    className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow-sm"
+                                    className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/50 bg-background text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow-sm"
                                 >
                                     <Plus className="h-6 w-6" />
                                     <span className="text-sm font-medium">Add Trip</span>
@@ -540,7 +540,7 @@ export default function UserProfileModal({
                             {profile.trips?.map((trip) => (
                                 <div
                                     key={trip.trip_id}
-                                    className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background transition-all duration-200 hover:border-primary/30 hover:shadow-md"
+                                    className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-background transition-all duration-200 hover:border-primary/30 hover:shadow-md"
                                 >
                                     {notifiedTripIds?.has(trip.trip_id) && (
                                         <span className="absolute left-2 top-2 z-20 h-5 w-5 rounded-full bg-coral border-2 border-card" />
