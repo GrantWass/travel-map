@@ -9,6 +9,7 @@ import type { FlightLeg, SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
 import CostBadge from "@/components/cost-badge";
 import { formatAddress, formatFlightPrice } from "@/lib/utils";
+import { parseFlightLink } from "@/lib/flight-link";
 
 // Leaflet touches window at import time, so only load the map client-side.
 const SharedPlanMap = dynamic(() => import("@/components/shared-plan-map"), { ssr: false });
@@ -151,6 +152,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                     <div className="flex flex-col gap-3">
                                         <CategoryHeading icon={<Plane className="h-3.5 w-3.5" />} label="Flights" className="text-sky-600" />
                                         {(group.flights ?? []).map((flight, index) => {
+                                            const parsedLink = flight.link_url ? parseFlightLink(flight.link_url) : {};
                                             const route = flight.origin_code && flight.destination_code
                                                 ? `${flight.origin_code} → ${flight.destination_code}`
                                                 : flight.airline || "Flight";
@@ -158,6 +160,9 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                 flight.airline && route !== flight.airline ? flight.airline : null,
                                                 flight.departure_time,
                                             ].filter(Boolean);
+                                            const outboundLegs = flight.outbound_legs?.length ? flight.outbound_legs : parsedLink.outbound_legs;
+                                            const returnLegs = flight.return_legs?.length ? flight.return_legs : parsedLink.return_legs;
+                                            const displayNotes = flight.notes && flight.notes !== parsedLink.notes ? flight.notes : null;
                                             return (
                                                 <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 transition-all duration-200 hover:-translate-y-px hover:shadow-md">
                                                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600"><Plane className="h-5 w-5" /></div>
@@ -165,10 +170,10 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                         <p className="text-sm font-medium text-foreground">{route}</p>
                                                         {details.length > 0 && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</p>}
                                                         <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-                                                            <FlightDirection label="Departure" date={flight.outbound_date || flight.departure_date} legs={flight.outbound_legs} fallback={flight.flight_number} />
-                                                            <FlightDirection label="Return" date={flight.return_date} legs={flight.return_legs} />
+                                                            <FlightDirection label="Departure" date={flight.outbound_date || flight.departure_date || parsedLink.departure_date} legs={outboundLegs} fallback={flight.flight_number} />
+                                                            <FlightDirection label="Return" date={flight.return_date || parsedLink.return_date} legs={returnLegs} fallback={parsedLink.return_flight_numbers} />
                                                         </div>
-                                                        {flight.notes && <p className="mt-2 whitespace-pre-line border-l-2 border-border/70 pl-2 text-[10px] italic leading-relaxed text-muted-foreground/80">{flight.notes}</p>}
+                                                        {displayNotes && <p className="mt-2 whitespace-pre-line border-l-2 border-border/70 pl-2 text-[10px] italic leading-relaxed text-muted-foreground/80">{displayNotes}</p>}
                                                         {flight.link_url && <span className="mt-1"><WebsiteChip url={flight.link_url} /></span>}
                                                     </div>
                                                     {flight.price && <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">{formatFlightPrice(flight.price)}</span>}

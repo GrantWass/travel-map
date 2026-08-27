@@ -663,9 +663,18 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
     flight.airline && flight.origin_code ? flight.airline : null,
     flight.departure_time,
   ].filter(Boolean);
-  const outboundDate = flight.outbound_date || flight.departure_date;
-  const outboundSummary = flightLegSummary(flight.outbound_legs, flight.flight_number);
-  const returnSummary = flightLegSummary(flight.return_legs);
+  const parsedLink = flight.link_url ? parseFlightLink(flight.link_url) : {};
+  const outboundDate = flight.outbound_date || flight.departure_date || parsedLink.departure_date;
+  const returnDate = flight.return_date || parsedLink.return_date;
+  const outboundSummary = flightLegSummary(
+    flight.outbound_legs?.length ? flight.outbound_legs : parsedLink.outbound_legs,
+    flight.flight_number,
+  );
+  const returnSummary = flightLegSummary(
+    flight.return_legs?.length ? flight.return_legs : parsedLink.return_legs,
+    parsedLink.return_flight_numbers,
+  );
+  const displayNotes = flight.notes && flight.notes !== parsedLink.notes ? flight.notes : null;
 
   return (
     <>
@@ -705,13 +714,13 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
               {outboundSummary && <p className="mt-0.5 text-xs text-foreground">{outboundSummary}</p>}
             </div>
           )}
-          {(flight.return_date || returnSummary) && (
+          {(returnDate || returnSummary) && (
             <div className="rounded-lg bg-sky-50 px-2.5 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">Return{flight.return_date ? ` · ${flight.return_date}` : ""}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">Return{returnDate ? ` · ${returnDate}` : ""}</p>
               {returnSummary && <p className="mt-0.5 text-xs text-foreground">{returnSummary}</p>}
             </div>
           )}
-          {flight.notes && <p className="whitespace-pre-line text-[11px] leading-relaxed text-muted-foreground">{flight.notes}</p>}
+          {displayNotes && <p className="whitespace-pre-line text-[11px] leading-relaxed text-muted-foreground">{displayNotes}</p>}
           {flight.link_url && (
             <div onClick={(e) => e.stopPropagation()}>
               <WebsiteChip url={flight.link_url} />
@@ -761,11 +770,11 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
             {metaParts.length > 0 && (
               <p className="truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
             )}
-            {(outboundDate || flight.return_date) && (
+            {(outboundDate || returnDate) && (
               <p className="truncate text-[11px] text-muted-foreground">
                 {[
                   outboundDate ? `Departure ${outboundDate}` : null,
-                  flight.return_date ? `Return ${flight.return_date}` : null,
+                  returnDate ? `Return ${returnDate}` : null,
                 ].filter(Boolean).join(" · ")}
               </p>
             )}
