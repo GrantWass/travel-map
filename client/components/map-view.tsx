@@ -156,6 +156,8 @@ export default function MapView({
     useEffect(() => { onSelectTripByIdRef.current = onSelectTripById; }, [onSelectTripById]);
     const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
     const tripMarkersRef = useRef<L.Marker[]>([]);
+    const tripMarkersByLocationRef = useRef(new Map<string, { marker: L.Marker; trip: Trip }>());
+    const activeTripLocationRef = useRef<string | null>(null);
     const detailMarkersRef = useRef<L.Marker[]>([]);
     const collectionMarkersRef = useRef<L.Marker[]>([]);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
@@ -201,12 +203,17 @@ export default function MapView({
             maxBoundsViscosity: 1.0,
             zoomControl: false,
             attributionControl: false,
+            zoomAnimationThreshold: 3,
+            wheelDebounceTime: 50,
+            wheelPxPerZoomLevel: 90,
         });
 
         L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${process.env.NEXT_PUBLIC_CARTO_API_KEY ?? ""}`, {
             maxZoom: 19,
             minZoom: 5,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+            updateWhenIdle: true,
+            keepBuffer: 3,
         }).addTo(map);
 
         L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -296,6 +303,7 @@ export default function MapView({
         }
         clearMarkers(tripMarkersRef.current);
         tripMarkersRef.current = [];
+        tripMarkersByLocationRef.current.clear();
 
         const mostRecentTrips = getMostRecentTripsByLocation(trips);
 
@@ -307,6 +315,8 @@ export default function MapView({
                 icon: createTripIcon(representative, true),
             }).addTo(map);
             tripMarkersRef.current.push(marker);
+            tripMarkersByLocationRef.current.set(fullScreenKey, { marker, trip: representative });
+            activeTripLocationRef.current = fullScreenKey;
             return;
         }
 
@@ -358,10 +368,34 @@ export default function MapView({
                 });
             clusterGroup.addLayer(marker);
             tripMarkersRef.current.push(marker);
+            tripMarkersByLocationRef.current.set(tripLocationKey, { marker, trip });
         }
 
         map.addLayer(clusterGroup);
-    }, [trips, selectedTrip, fullScreenTrip, onSelectTripById, setSelectedActivity, setSelectedLodging]);
+        activeTripLocationRef.current = selectedTripRef.current
+            ? getLocationKey(selectedTripRef.current.latitude, selectedTripRef.current.longitude)
+            : null;
+    }, [trips, fullScreenTrip, setSelectedActivity, setSelectedLodging]);
+
+    // Selection changes are frequent. Update only the affected marker icons instead
+    // of destroying and recreating the complete marker cluster.
+    useEffect(() => {
+        if (fullScreenTrip) return;
+
+        const previousKey = activeTripLocationRef.current;
+        const nextKey = selectedTrip ? getLocationKey(selectedTrip.latitude, selectedTrip.longitude) : null;
+        if (previousKey === nextKey) return;
+
+        if (previousKey) {
+            const previous = tripMarkersByLocationRef.current.get(previousKey);
+            if (previous) previous.marker.setIcon(createTripIcon(previous.trip, false));
+        }
+        if (nextKey) {
+            const next = tripMarkersByLocationRef.current.get(nextKey);
+            if (next) next.marker.setIcon(createTripIcon(next.trip, true));
+        }
+        activeTripLocationRef.current = nextKey;
+    }, [selectedTrip, fullScreenTrip]);
 
     useEffect(() => {
         const map = mapRef.current;

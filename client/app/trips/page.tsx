@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ImagePlus, MapPin, Sparkles, Timer } from "lucide-react";
 
+import ImageCropModal from "@/components/image-crop-modal";
 import {
   READABLE_INPUT_CLASS,
   READABLE_TEXTAREA_CLASS,
@@ -125,6 +126,25 @@ function TripsPageContent() {
   const [isSearchingCollaborators, setIsSearchingCollaborators] = useState(false);
   const [collaboratorError, setCollaboratorError] = useState("");
   const [addingCollaboratorUserId, setAddingCollaboratorUserId] = useState<number | null>(null);
+
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const cropCallbackRef = useState<((file: File) => void) | null>(null);
+
+  function requestCrop(file: File, callback: (cropped: File) => void) {
+    cropCallbackRef[1](() => callback);
+    setCropFile(file);
+  }
+
+  function handleCropComplete(croppedFile: File) {
+    cropCallbackRef[0]?.(croppedFile);
+    cropCallbackRef[1](null);
+    setCropFile(null);
+  }
+
+  function handleCropCancel() {
+    cropCallbackRef[1](null);
+    setCropFile(null);
+  }
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -398,26 +418,28 @@ function TripsPageContent() {
       return;
     }
 
-    updateStop(kind, id, {
-      imageError: "",
-      isProcessingImage: true,
-    });
-
-    try {
-      const imageUrl = await uploadImage(file, kind === "lodging" ? "trips/lodging" : "trips/activity");
+    requestCrop(file, async (croppedFile) => {
       updateStop(kind, id, {
-        imageUrl,
-        imageName: file.name,
         imageError: "",
-        isProcessingImage: false,
+        isProcessingImage: true,
       });
-    } catch {
-      updateStop(kind, id, {
-        imageError: "Could not upload this image. Please try again.",
-        isProcessingImage: false,
-      });
-      setError("Could not upload one of the stop images. Please try again.");
-    }
+
+      try {
+        const imageUrl = await uploadImage(croppedFile, kind === "lodging" ? "trips/lodging" : "trips/activity");
+        updateStop(kind, id, {
+          imageUrl,
+          imageName: croppedFile.name,
+          imageError: "",
+          isProcessingImage: false,
+        });
+      } catch {
+        updateStop(kind, id, {
+          imageError: "Could not upload this image. Please try again.",
+          isProcessingImage: false,
+        });
+        setError("Could not upload one of the stop images. Please try again.");
+      }
+    });
   }
 
   async function handleCoverImageUpload(file?: File) {
@@ -428,21 +450,23 @@ function TripsPageContent() {
       return;
     }
 
-    setIsUploadingImage(true);
-    setCoverImageError("");
+    requestCrop(file, async (croppedFile) => {
+      setIsUploadingImage(true);
+      setCoverImageError("");
 
-    try {
-      const imageUrl = await uploadImage(file, "trips/cover");
-      setCoverImage(imageUrl);
-      setCoverImageName(file.name);
-    } catch {
-      setCoverImage("");
-      setCoverImageName("");
-      setCoverImageError("Could not upload cover image. Please try again.");
-      setError("Could not upload cover image. Please try again.");
-    } finally {
-      setIsUploadingImage(false);
-    }
+      try {
+        const imageUrl = await uploadImage(croppedFile, "trips/cover");
+        setCoverImage(imageUrl);
+        setCoverImageName(croppedFile.name);
+      } catch {
+        setCoverImage("");
+        setCoverImageName("");
+        setCoverImageError("Could not upload cover image. Please try again.");
+        setError("Could not upload cover image. Please try again.");
+      } finally {
+        setIsUploadingImage(false);
+      }
+    });
   }
 
   async function handleSubmitTrip() {
@@ -554,7 +578,7 @@ function TripsPageContent() {
             <div className="rounded-2xl border border-border bg-secondary/50 p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Cover Image</p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
+                <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
                   <ImagePlus className="h-4 w-4 text-primary" />
                   {isUploadingImage ? "Uploading..." : "Upload cover image"}
                   <input
@@ -615,7 +639,7 @@ function TripsPageContent() {
                     <select
                       value={dateMonth}
                       onChange={(e) => setDateMonth(e.target.value)}
-                      className="h-9 flex-1 rounded-md border border-input bg-white px-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                      className="h-9 flex-1 rounded-md border border-input bg-card px-2 text-sm text-foreground focus:border-primary focus:outline-none"
                     >
                       <option value="">Month</option>
                       {MONTH_LABELS.map((name, i) => (
@@ -625,7 +649,7 @@ function TripsPageContent() {
                     <select
                       value={dateYear}
                       onChange={(e) => setDateYear(e.target.value)}
-                      className="h-9 w-28 rounded-md border border-input bg-white px-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                      className="h-9 w-28 rounded-md border border-input bg-card px-2 text-sm text-foreground focus:border-primary focus:outline-none"
                     >
                       <option value="">Year</option>
                       {Array.from({ length: 16 }, (_, i) => new Date().getFullYear() - i).map((year) => (
@@ -660,7 +684,7 @@ function TripsPageContent() {
                           className={`rounded-lg border px-3 py-2 text-left transition-all ${
                             selected
                               ? "border-primary bg-primary/10 shadow-sm shadow-primary/15"
-                              : "border-input bg-white hover:border-primary/50"
+                              : "border-input bg-card hover:border-primary/50"
                           }`}
                         >
                           <p className={`text-sm font-semibold ${selected ? "text-primary" : "text-foreground"}`}>
@@ -774,7 +798,7 @@ function TripsPageContent() {
                     {filteredCollaboratorResults.map((candidate) => (
                       <div
                         key={candidate.user_id}
-                        className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5"
+                        className="flex items-center justify-between gap-2 rounded-md bg-card px-2.5 py-1.5"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-xs font-medium text-foreground">{candidate.name || `User #${candidate.user_id}`}</p>
@@ -847,12 +871,12 @@ function TripsPageContent() {
                     {tripLocation?.label || "Pick a primary location"}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-card/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
                       <Timer className="h-3 w-3" />
                       {formatTripDuration(duration)}
                     </span>
                     {cost && (
-                      <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      <span className="inline-flex items-center rounded-full bg-card/15 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
                         ${cost}/person
                       </span>
                     )}
@@ -886,6 +910,14 @@ function TripsPageContent() {
           </div>
         </aside>
       </div>
+
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          onCrop={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </main>
   );
 }

@@ -13,12 +13,16 @@ interface MapPoint {
     latitude: number;
     longitude: number;
     thumbnailUrl?: string | null;
+    groupIndex: number;
+    itemIndex: number;
 }
 
 function collectPoints(plan: SharedPlan): MapPoint[] {
     const points: MapPoint[] = [];
-    for (const group of plan.groups) {
-        for (const item of group.activities) {
+    for (let gi = 0; gi < plan.groups.length; gi++) {
+        const group = plan.groups[gi];
+        for (let ai = 0; ai < group.activities.length; ai++) {
+            const item = group.activities[ai];
             if (typeof item.latitude === "number" && typeof item.longitude === "number") {
                 points.push({
                     kind: "activity",
@@ -26,10 +30,13 @@ function collectPoints(plan: SharedPlan): MapPoint[] {
                     latitude: item.latitude,
                     longitude: item.longitude,
                     thumbnailUrl: item.thumbnail_url,
+                    groupIndex: gi,
+                    itemIndex: ai,
                 });
             }
         }
-        for (const item of group.lodgings) {
+        for (let li = 0; li < group.lodgings.length; li++) {
+            const item = group.lodgings[li];
             if (typeof item.latitude === "number" && typeof item.longitude === "number") {
                 points.push({
                     kind: "lodging",
@@ -37,6 +44,8 @@ function collectPoints(plan: SharedPlan): MapPoint[] {
                     latitude: item.latitude,
                     longitude: item.longitude,
                     thumbnailUrl: item.thumbnail_url,
+                    groupIndex: gi,
+                    itemIndex: li,
                 });
             }
         }
@@ -84,7 +93,35 @@ export default function SharedPlanMap({ plan }: { plan: SharedPlan }) {
                               false,
                           ),
             }).addTo(map);
-            marker.bindPopup(`<strong>${point.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</strong>`);
+
+            marker.on("mouseover", function (this: L.Marker) {
+                const el = this.getElement();
+                if (el) {
+                    el.style.transition = "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)";
+                    el.style.transform = "scale(1.2)";
+                    el.style.zIndex = "1000";
+                }
+            });
+            marker.on("mouseout", function (this: L.Marker) {
+                const el = this.getElement();
+                if (el) {
+                    el.style.transform = "scale(1)";
+                    el.style.zIndex = "";
+                }
+            });
+
+            const cardId = `shared-stop-${point.groupIndex}-${point.kind}-${point.itemIndex}`;
+            marker.on("click", function () {
+                const card = document.getElementById(cardId);
+                if (card) {
+                    card.scrollIntoView({ behavior: "smooth", block: "center" });
+                    card.classList.remove("shared-stop-highlight");
+                    void card.offsetWidth;
+                    card.classList.add("shared-stop-highlight");
+                    card.addEventListener("animationend", () => card.classList.remove("shared-stop-highlight"), { once: true });
+                }
+            });
+
             bounds.push([point.latitude, point.longitude]);
         }
 

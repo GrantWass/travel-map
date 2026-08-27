@@ -14,8 +14,8 @@ import type { TripVisibility } from "@/lib/api-types";
 import { unfurlLink, looksLikeLink } from "@/lib/link-unfurl";
 import { hasStopContent, type StopDraft } from "@/app/trips/stop-draft";
 
-export const READABLE_INPUT_CLASS = "bg-white text-foreground placeholder:text-muted-foreground";
-export const READABLE_TEXTAREA_CLASS = "bg-white text-foreground placeholder:text-muted-foreground";
+export const READABLE_INPUT_CLASS = "bg-card text-foreground placeholder:text-muted-foreground";
+export const READABLE_TEXTAREA_CLASS = "bg-card text-foreground placeholder:text-muted-foreground";
 
 const STOP_KIND_CONFIG = {
   lodging: {
@@ -49,7 +49,7 @@ export function VisibilitySelect({
 }) {
   return (
     <select
-      className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-foreground"
+      className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
       value={value}
       onChange={(event) => onChange(event.target.value as TripVisibility)}
     >
@@ -85,7 +85,7 @@ export function TagEditor({
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
               selected
                 ? "border-primary bg-primary text-white"
-                : "border-input bg-white text-foreground/80 hover:border-stone-400"
+                : "border-input bg-card text-foreground/80 hover:border-stone-400"
             }`}
           >
             {tag}
@@ -116,7 +116,7 @@ export function TagEditor({
             }
           }}
           placeholder="Other..."
-          className="w-24 rounded-full border border-input bg-white px-3 py-1.5 text-xs font-semibold text-foreground/80 outline-none focus:border-primary"
+          className="w-24 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-semibold text-foreground/80 outline-none focus:border-primary"
         />
         {customTagInput.trim() && (
           <button
@@ -193,7 +193,7 @@ export function StopEditorCard({
                 <button
                     type="button"
                     onClick={onRemove}
-                    className="rounded-full p-1 text-muted-foreground/70 transition-colors hover:bg-white hover:text-foreground/80"
+                    className="rounded-full p-1 text-muted-foreground/70 transition-colors hover:bg-card hover:text-foreground/80"
                     aria-label={`Remove ${kind === "lodging" ? "stay" : "activity"}`}
                 >
                     <Trash2 className="h-4 w-4" />
@@ -255,7 +255,7 @@ export function StopEditorCard({
             placeholder="Cost per person (optional)"
             className={READABLE_INPUT_CLASS}
           />
-          <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary">
+          <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary">
             <ImagePlus className="h-4 w-4 text-primary" />
             {stop.imageUrl ? "Change photo" : "Add photo"}
             <input
@@ -276,7 +276,7 @@ export function StopEditorCard({
         )}
         {stop.imageError ? <p className="text-xs font-medium text-destructive">{stop.imageError}</p> : null}
         {stop.imageUrl ? (
-          <div className="rounded-lg border border-border bg-white p-2">
+          <div className="rounded-lg border border-border bg-card p-2">
             <div className="flex items-center gap-3">
               <Image
                 src={stop.imageUrl}
@@ -339,7 +339,7 @@ export function StopEditorSection({
   const config = STOP_KIND_CONFIG[kind];
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-white p-4">
+    <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">{heading}</h2>
         <Button type="button" variant="outline" className="rounded-full" onClick={onAdd}>
@@ -386,7 +386,7 @@ export function StopPreviewList({
       {previewStops.length > 0 ? (
         <div className="mt-2 space-y-2">
           {previewStops.map((stop) => (
-            <article key={stop.id} className="rounded-xl border border-border bg-white p-2">
+            <article key={stop.id} className="rounded-xl border border-border bg-card p-2">
               <div className="flex items-start gap-3">
                 <Image
                   src={stop.imageUrl || "/placeholder-trip.svg"}

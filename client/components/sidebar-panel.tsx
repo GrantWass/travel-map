@@ -199,7 +199,7 @@ export default function SidebarPanel({
                             type="button"
                             onClick={onShowPreviousTripAtLocation}
                             disabled={!canShowPreviousTripAtLocation}
-                            className="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-white/15 disabled:cursor-default disabled:opacity-40"
+                            className="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-card/15 disabled:cursor-default disabled:opacity-40"
                             aria-label="Show previous trip at this location"
                         >
                             <ChevronLeft className="h-4 w-4" />
@@ -211,7 +211,7 @@ export default function SidebarPanel({
                             type="button"
                             onClick={onShowNextTripAtLocation}
                             disabled={!canShowNextTripAtLocation}
-                            className="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-white/15 disabled:cursor-default disabled:opacity-40"
+                            className="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-card/15 disabled:cursor-default disabled:opacity-40"
                             aria-label="Show next trip at this location"
                         >
                             <ChevronRight className="h-4 w-4" />

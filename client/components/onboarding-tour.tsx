@@ -121,7 +121,7 @@ export default function OnboardingTour({ steps, onComplete }: OnboardingTourProp
 
       {/* Tooltip card */}
       <div
-        className="fixed rounded-2xl border border-border bg-white shadow-2xl"
+        className="fixed rounded-2xl border border-border bg-card shadow-2xl"
         style={{ zIndex: 3001, top: cardTop, left: cardLeft, width: CARD_W }}
       >
         <div className="p-5">

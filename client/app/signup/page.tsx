@@ -14,7 +14,7 @@ type Mode = "signup" | "signin";
 
 export default function SignUpPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-[#fdf8f0]" />}>
+        <Suspense fallback={<div className="app-page" />}>
             <SignUpContent />
         </Suspense>
     );
@@ -214,8 +214,7 @@ function SignUpContent() {
         }
     }
 
-    const inputBase =
-        "w-full rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-all duration-200 focus:border-coral focus:ring-2 focus:ring-coral/20 focus:shadow-md focus:shadow-coral/5 disabled:opacity-50";
+    const inputBase = "app-field h-12 px-4";
 
     const collapseStyle = (open: boolean): React.CSSProperties => ({
         display: "grid",
@@ -225,30 +224,7 @@ function SignUpContent() {
     });
 
     return (
-        <div className="relative h-screen overflow-y-auto overflow-x-hidden bg-[#fdf8f0] px-6 flex flex-col items-center py-12 md:grid md:grid-rows-2 md:py-0 md:items-stretch">
-            {/* Decorative travel paths */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                <svg className="absolute -left-8 top-8 opacity-[0.30]" width="280" height="200" fill="none">
-                    <path d="M10 180 Q80 80 200 120 Q240 135 270 100" stroke="#b87a30" strokeWidth="1.5" strokeDasharray="7 10" strokeLinecap="round" />
-                    <circle cx="200" cy="120" r="3.5" fill="#b87a30" />
-                    <circle cx="270" cy="100" r="3.5" fill="#b87a30" />
-                </svg>
-                <svg className="absolute -right-8 bottom-8 opacity-[0.30]" width="280" height="200" fill="none">
-                    <path d="M270 20 Q190 80 140 60 Q80 40 20 100" stroke="#b87a30" strokeWidth="1.5" strokeDasharray="7 10" strokeLinecap="round" />
-                    <circle cx="140" cy="60" r="3.5" fill="#b87a30" />
-                    <circle cx="20" cy="100" r="3.5" fill="#b87a30" />
-                </svg>
-                <svg className="absolute right-16 top-12 opacity-[0.20]" width="120" height="80" fill="none">
-                    <path d="M10 70 Q50 20 110 40" stroke="#b87a30" strokeWidth="1" strokeDasharray="5 8" strokeLinecap="round" />
-                </svg>
-                <svg className="absolute bottom-16 right-24 opacity-[0.18]" width="100" height="70" fill="none">
-                    <path d="M10 10 Q50 60 90 30" stroke="#c45a4a" strokeWidth="1" strokeDasharray="5 8" strokeLinecap="round" />
-                    <circle cx="90" cy="30" r="3" fill="#c45a4a" />
-                </svg>
-                <svg className="absolute bottom-12 left-16 opacity-[0.20]" width="120" height="80" fill="none">
-                    <path d="M110 10 Q70 60 10 40" stroke="#b87a30" strokeWidth="1" strokeDasharray="5 8" strokeLinecap="round" />
-                </svg>
-            </div>
+        <div className="app-page relative h-screen overflow-y-auto overflow-x-hidden px-6 flex flex-col items-center py-12 md:grid md:grid-rows-2 md:py-0 md:items-stretch">
 
             {/* TOP HALF */}
             <div className="flex flex-col items-center w-full md:justify-end md:pb-8">

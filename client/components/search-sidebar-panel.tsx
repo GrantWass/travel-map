@@ -93,7 +93,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     const noFiltersOrQuery = query.trim() === "" && !hasActiveFilters;
 
     return (
-        <div className="flex h-full w-full flex-col border-r border-border/50 bg-card">
+        <div className="app-panel flex h-full w-full flex-col">
             {/* Header with embedded search input */}
             <div className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-border/40 px-4 bg-card/80 backdrop-blur-sm">
                 <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />

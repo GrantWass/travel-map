@@ -15,7 +15,7 @@ const TRANSITION_MS = 260;
 
 export default function SetupPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-[#fdf8f0]" />}>
+        <Suspense fallback={<div className="app-page" />}>
             <SetupContent />
         </Suspense>
     );
@@ -150,7 +150,7 @@ function SetupContent() {
 
     if (status === "loading") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#fdf8f0]">
+            <div className="app-page flex items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
         );
@@ -160,8 +160,8 @@ function SetupContent() {
         accountType === "student" ? "Set up your student profile" : "Set up your traveler profile";
 
     return (
-        <div className="min-h-screen bg-[#fdf8f0] px-6 py-12 text-foreground">
-            <div className="mx-auto flex w-full max-w-xl flex-col rounded-2xl border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm md:p-8">
+        <div className="app-page px-5 py-10 md:px-6 md:py-12">
+            <div className="app-surface mx-auto flex w-full max-w-xl flex-col rounded-3xl p-6 md:p-8">
                 {/* Header */}
                 <div className="mb-7">
                     <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -221,7 +221,7 @@ function SetupContent() {
                                         <UserRound className="h-9 w-9 text-muted-foreground/70" />
                                     )}
                                 </div>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
                                     <Camera className="h-4 w-4 text-primary" />
                                     Upload photo
                                     <input
@@ -254,7 +254,7 @@ function SetupContent() {
                                         ? "Example: Journalism major who spends weekends finding underrated food spots."
                                         : "Example: I travel for hiking, architecture, and great local coffee."
                                 }
-                                className="w-full resize-none rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary focus:ring-1 focus:ring-primary/30"
+                                className="app-field min-h-32 resize-y py-3"
                             />
                         </div>
                     )}
@@ -277,10 +277,10 @@ function SetupContent() {
                                 onFocus={() => setIsCollegeMenuOpen(true)}
                                 onBlur={() => window.setTimeout(() => setIsCollegeMenuOpen(false), 120)}
                                 placeholder="e.g. University of California, Berkeley"
-                                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary focus:ring-1 focus:ring-primary/30"
+                                className="app-field h-11"
                             />
                             {isCollegeMenuOpen && (
-                                <div className="max-h-56 overflow-y-auto rounded-xl border border-border bg-white p-1 shadow-sm">
+                                <div className="max-h-56 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-sm">
                                     {isSearchingColleges ? (
                                         <p className="px-3 py-2 text-sm text-muted-foreground">Searching universities...</p>
                                     ) : collegeSearchError ? (
@@ -326,7 +326,7 @@ function SetupContent() {
                             type="button"
                             onClick={() => transitionToStep(stepIndex - 1)}
                             disabled={isSaving || isTransitioning}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary disabled:opacity-60"
                         >
                             <ArrowLeft className="h-3.5 w-3.5" />
                             Back

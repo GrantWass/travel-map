@@ -165,7 +165,7 @@ export default function PinMapPicker({
 
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-y-auto rounded-2xl border border-border bg-white shadow-2xl" style={{ maxHeight: "calc(100vh - 2rem)" }}>
+      <div className="w-full max-w-3xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl" style={{ maxHeight: "calc(100vh - 2rem)" }}>
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <h3 className="text-base font-semibold text-foreground">Drop a pin</h3>
