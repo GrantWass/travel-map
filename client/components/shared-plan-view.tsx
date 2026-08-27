@@ -98,9 +98,10 @@ function CategoryHeading({
     );
 }
 
-function FlightDirection({ label, date, legs, fallback }: { label: string; date?: string | null; legs: FlightLeg[]; fallback?: string | null }) {
-    const summary = legs.length > 0
-        ? legs.map((leg) => [leg.flight_number, `${leg.origin_code}→${leg.destination_code}`].filter(Boolean).join(" ")).join(" · ")
+function FlightDirection({ label, date, legs, fallback }: { label: string; date?: string | null; legs?: FlightLeg[] | null; fallback?: string | null }) {
+    const safeLegs = legs ?? [];
+    const summary = safeLegs.length > 0
+        ? safeLegs.map((leg) => [leg.flight_number, `${leg.origin_code}→${leg.destination_code}`].filter(Boolean).join(" ")).join(" · ")
         : fallback;
     if (!date && !summary) return null;
     return (

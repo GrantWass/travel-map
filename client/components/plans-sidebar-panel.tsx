@@ -626,7 +626,8 @@ interface FlightCardProps {
   onMove: (collectionName: string | null) => void;
 }
 
-function flightLegSummary(legs: FlightLeg[], fallbackFlightNumber?: string | null): string | null {
+function flightLegSummary(legs: FlightLeg[] | null | undefined, fallbackFlightNumber?: string | null): string | null {
+  legs ??= [];
   if (legs.length > 0) {
     return legs.map((leg) => [leg.flight_number, `${leg.origin_code}→${leg.destination_code}`].filter(Boolean).join(" ")).join(" · ");
   }
