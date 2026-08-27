@@ -339,7 +339,7 @@ export function StopEditorSection({
   const config = STOP_KIND_CONFIG[kind];
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
+    <div className="space-y-4 border-l-2 border-border/70 pl-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">{heading}</h2>
         <Button type="button" variant="outline" className="rounded-full" onClick={onAdd}>
