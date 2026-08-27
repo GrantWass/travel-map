@@ -329,14 +329,15 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
 interface CustomStopCardProps {
   item: CustomPlanItem;
   collections: string[];
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
   onSave: (patch: CustomItemPayload) => void;
   onDelete: () => void;
   onMove: (collectionName: string | null) => void;
 }
 
 /** Trip-style card for a user-authored plan item, expandable with edit/move/delete actions. */
-function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomStopCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function CustomStopCard({ item, collections, isExpanded, onToggleExpanded, onSave, onDelete, onMove }: CustomStopCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -371,7 +372,7 @@ function CustomStopCard({ item, collections, onSave, onDelete, onMove }: CustomS
       }}
       thumbnailUrl={item.thumbnail_url ?? null}
       isExpanded={isExpanded}
-      onSelect={() => setIsExpanded((v) => !v)}
+      onSelect={onToggleExpanded}
       config={config}
       actions={
         <>
@@ -586,14 +587,15 @@ function FlightForm({
 interface FlightCardProps {
   flight: PlanFlight;
   collections: string[];
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
   onSave: (patch: FlightPayload) => void;
   onDelete: () => void;
   onMove: (collectionName: string | null) => void;
 }
 
 /** Card showing a saved flight, expandable with edit/move/delete actions. */
-function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave, onDelete, onMove }: FlightCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -623,18 +625,16 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
     flight.departure_time,
   ].filter(Boolean);
 
-  const toggle = () => setIsExpanded((v) => !v);
-
   return (
     <>
     <div
       role="button"
       tabIndex={0}
-      onClick={toggle}
+      onClick={onToggleExpanded}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          toggle();
+          onToggleExpanded();
         }
       }}
       className={`w-full cursor-pointer rounded-xl border text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/35 ${
@@ -783,6 +783,7 @@ export default function PlansSidebarPanel({
   const [addFlightFormTarget, setAddFlightFormTarget] = useState<string | null | undefined>(undefined);
   const [openCollection, setOpenCollection] = useState<string | null>(null);
   const [creationStatus, setCreationStatus] = useState<string | null>(null);
+  const [expandedPlanItemKey, setExpandedPlanItemKey] = useState<string | null>(null);
 
   const totalCount = savedActivities.length + savedLodgings.length + customItems.length + flights.length;
 
@@ -964,11 +965,14 @@ export default function PlansSidebarPanel({
   }
 
   function customRow(item: CustomPlanItem) {
+    const itemKey = `custom-${item.custom_item_id}`;
     return (
       <CustomStopCard
         key={item.custom_item_id}
         item={item}
         collections={allCollectionNames}
+        isExpanded={expandedPlanItemKey === itemKey}
+        onToggleExpanded={() => setExpandedPlanItemKey((current) => current === itemKey ? null : itemKey)}
         onSave={(patch) => onUpdateCustomItem(item.custom_item_id, patch)}
         onDelete={() => onDeleteCustomItem(item.custom_item_id)}
         onMove={(col) => onMoveCustomItem(item.custom_item_id, col)}
@@ -977,11 +981,14 @@ export default function PlansSidebarPanel({
   }
 
   function flightRow(flight: PlanFlight) {
+    const itemKey = `flight-${flight.flight_id}`;
     return (
       <FlightCard
         key={flight.flight_id}
         flight={flight}
         collections={allCollectionNames}
+        isExpanded={expandedPlanItemKey === itemKey}
+        onToggleExpanded={() => setExpandedPlanItemKey((current) => current === itemKey ? null : itemKey)}
         onSave={(patch) => onUpdateFlight(flight.flight_id, patch)}
         onDelete={() => onDeleteFlight(flight.flight_id)}
         onMove={(col) => onMoveFlight(flight.flight_id, col)}

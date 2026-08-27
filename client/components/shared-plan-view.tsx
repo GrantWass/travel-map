@@ -8,6 +8,7 @@ import { ArrowRight, BedDouble, CalendarRange, MapPin, Notebook, Plane } from "l
 import type { SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
 import CostBadge from "@/components/cost-badge";
+import { formatAddress } from "@/lib/utils";
 
 // Leaflet touches window at import time, so only load the map client-side.
 const SharedPlanMap = dynamic(() => import("@/components/shared-plan-map"), { ssr: false });
@@ -58,15 +59,16 @@ function StopArticle({
     thumbnail?: string | null;
     kind: "activity" | "lodging";
 }) {
+    const displayAddress = formatAddress(address);
     return (
         <article id={id} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 scroll-mt-20 transition-all duration-200 hover:shadow-md hover:-translate-y-px">
             <StopThumb src={thumbnail} alt={title || kind} kind={kind} />
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">{title || `Untitled ${kind}`}</p>
-                {address && (
+                {displayAddress && (
                     <p className="mt-0.5 flex w-fit items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                         {AddressIcon}
-                        <span>{address}</span>
+                        <span>{displayAddress}</span>
                     </p>
                 )}
                 {description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>}

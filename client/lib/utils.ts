@@ -87,7 +87,28 @@ export function formatAddress(
       if (/^\d{5}(-\d{4})?$/.test(part)) return false;
       return true;
     });
-  const slice = fromEnd ? cleaned.slice(-maxParts) : cleaned.slice(0, maxParts);
+  let displayParts = cleaned;
+
+  // Google place labels often repeat a POI followed by its street, neighborhood,
+  // city, region, and country. Keep the named place, but drop the street when the
+  // first segment is clearly the destination rather than the street address.
+  const looksLikeStreet = (part: string) =>
+    /^\d+\s/.test(part) || /^(?:calle|street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|lane|ln\.?|highway|hwy\.?|route|rue|via)\b/i.test(part);
+  if (displayParts.length > maxParts && !looksLikeStreet(displayParts[0]) && looksLikeStreet(displayParts[1])) {
+    displayParts = [displayParts[0], ...displayParts.slice(2)];
+  }
+
+  // Prefer the more specific locality when adjacent levels repeat it, e.g.
+  // "Viejo San Juan, San Juan" becomes "Viejo San Juan".
+  displayParts = displayParts.filter((part, index, all) => {
+    const previous = all[index - 1];
+    if (!previous) return true;
+    const normalizedPart = part.toLocaleLowerCase();
+    const normalizedPrevious = previous.toLocaleLowerCase();
+    return normalizedPrevious !== normalizedPart && !normalizedPrevious.endsWith(` ${normalizedPart}`);
+  });
+
+  const slice = fromEnd ? displayParts.slice(-maxParts) : displayParts.slice(0, maxParts);
   return slice.join(", ") || null;
 }
 
