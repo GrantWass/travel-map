@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { BedDouble, CalendarRange, MapPin, Notebook, Plane } from "lucide-react";
+import { ArrowRight, BedDouble, CalendarRange, Compass, MapPin, Notebook, Plane } from "lucide-react";
 
 import type { SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
@@ -27,8 +27,9 @@ function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind:
         );
     }
     const Icon = kind === "activity" ? MapPin : BedDouble;
+    const colorClass = kind === "activity" ? "text-violet-600 bg-violet-50" : "text-emerald-600 bg-emerald-50";
     return (
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-border bg-white text-primary">
+        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-border ${colorClass}`}>
             <Icon className="h-5 w-5" />
         </div>
     );
@@ -114,7 +115,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         key={`a-${index}`}
                                         title={item.title || ""}
                                         address={item.address}
-                                        addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />}
+                                        addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-violet-500" />}
                                         description={item.description}
                                         linkUrl={item.link_url}
                                         cost={item.cost}
@@ -128,7 +129,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         key={`l-${index}`}
                                         title={item.title || ""}
                                         address={item.address}
-                                        addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0" />}
+                                        addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0 text-emerald-500" />}
                                         description={item.description}
                                         linkUrl={item.link_url}
                                         cost={item.cost}
@@ -150,7 +151,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                     ].filter(Boolean);
                                     return (
                                         <article key={`f-${index}`} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border bg-white text-primary">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-600">
                                                 <Plane className="h-4 w-4" />
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -179,13 +180,20 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                     Plans are a live snapshot of saved places.
                 </p>
 
-                <div className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-6 text-center backdrop-blur-sm">
-                    <p className="text-sm text-muted-foreground">Want to plan your own trips?</p>
+                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 px-8 py-10 text-center ring-1 ring-amber-200/50">
+                    <Compass className="mx-auto mb-3 h-8 w-8 text-primary/60" />
+                    <p className="font-[family-name:var(--font-brand-display)] text-2xl text-primary/80">
+                        Want to plan your own trips?
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Create your dream itinerary with Travela
+                    </p>
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+                        className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:shadow-lg hover:brightness-110"
                     >
                         Explore Travela
+                        <ArrowRight className="h-4 w-4" />
                     </Link>
                 </div>
             </div>

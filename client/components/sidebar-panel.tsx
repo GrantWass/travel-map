@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
-import { X, Calendar, FolderOpen, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer, Pencil, MessageCircle, SendHorizontal, Heart, Share2 } from "lucide-react";
+import { X, Calendar, FolderOpen, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer, Pencil, MessageCircle, SendHorizontal, Heart, Share2, MapPin } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -308,8 +308,8 @@ export default function SidebarPanel({
                     <StopSection
                         title={
                             <>
-                                <BedDouble className="h-3.5 w-3.5" />
-                                Places Stayed
+                                <BedDouble className="h-3.5 w-3.5 text-emerald-500" />
+                                <span className="text-emerald-600">Places Stayed</span>
                             </>
                         }
                         emptyMessage="No places stayed were added for this trip."
@@ -330,7 +330,7 @@ export default function SidebarPanel({
                     </StopSection>
 
                     {/* Activities */}
-                    <StopSection title="Activities" emptyMessage="No activities were added for this trip.">
+                    <StopSection title={<><MapPin className="h-3.5 w-3.5 text-violet-500" /> <span className="text-violet-600">Activities</span></>} emptyMessage="No activities were added for this trip.">
                         {review.activities.map((activity) => (
                             <StopItemCard
                                 key={activity.activity_id}

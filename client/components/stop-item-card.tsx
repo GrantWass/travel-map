@@ -33,6 +33,8 @@ export interface StopCardConfig {
     expandedBorderClass: string;
     expandedShadowClass: string;
     noImageBorderClass: string;
+    addressPillClass: string;
+    collapsedPhotoBorderClass: string;
 }
 
 export const LODGING_CARD_CONFIG: StopCardConfig = {
@@ -43,16 +45,20 @@ export const LODGING_CARD_CONFIG: StopCardConfig = {
     expandedBorderClass: "border-emerald-400/50 bg-emerald-50/30 shadow-md shadow-emerald-400/5",
     expandedShadowClass: "shadow-emerald-400/5",
     noImageBorderClass: "border-border bg-emerald-50/30",
+    addressPillClass: "bg-emerald-50 text-emerald-700",
+    collapsedPhotoBorderClass: "border-l-3 border-l-emerald-400",
 };
 
 export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     label: "Activity",
     icon: null,
-    fallbackIcon: <MapPin className="h-5 w-5 text-amber-600" />,
-    fallbackIconWrapClass: "bg-gradient-to-br from-amber-100 to-amber-50",
-    expandedBorderClass: "border-amber-400/50 bg-amber-50/30 shadow-md shadow-amber-400/5",
-    expandedShadowClass: "shadow-amber-400/5",
-    noImageBorderClass: "border-border bg-amber-50/30",
+    fallbackIcon: <MapPin className="h-5 w-5 text-violet-600" />,
+    fallbackIconWrapClass: "bg-gradient-to-br from-violet-100 to-violet-50",
+    expandedBorderClass: "border-violet-400/50 bg-violet-50/30 shadow-md shadow-violet-400/5",
+    expandedShadowClass: "shadow-violet-400/5",
+    noImageBorderClass: "border-border bg-violet-50/30",
+    addressPillClass: "bg-violet-50 text-violet-700",
+    collapsedPhotoBorderClass: "border-l-3 border-l-violet-400",
 };
 
 /** Shared "Places Stayed" / "Activities" section: heading + cards or empty state. */
@@ -126,7 +132,7 @@ export default function StopItemCard({
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
                         {addressLabel && (
-                            <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                            <span className={cn("mt-0.5 flex w-full items-start gap-1 rounded-full px-2 py-0.5 text-xs", config.addressPillClass)}>
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words">{addressLabel}</span>
                             </span>
@@ -153,7 +159,7 @@ export default function StopItemCard({
                 "w-full cursor-pointer rounded-xl border text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
                 isExpanded
                     ? config.expandedBorderClass
-                    : "border-border hover:shadow-sm hover:-translate-y-px " + config.noImageBorderClass,
+                    : cn("border-border hover:shadow-sm hover:-translate-y-px", config.noImageBorderClass, hasImage && config.collapsedPhotoBorderClass),
             )}
         >
             {isExpanded ? (
@@ -194,7 +200,7 @@ export default function StopItemCard({
                     )}
                     <div className="flex flex-col gap-1.5">
                         {addressLabel && (
-                            <span className="inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground break-words whitespace-normal">
+                            <span className={cn("inline-flex max-w-[60%] flex-shrink-0 items-start gap-1 rounded-full px-2 py-0.5 text-xs break-words whitespace-normal", config.addressPillClass)}>
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words whitespace-normal">{addressLabel}</span>
                             </span>
@@ -229,7 +235,7 @@ export default function StopItemCard({
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
                         {addressLabel && (
-                            <span className="mt-0.5 flex w-full items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                            <span className={cn("mt-0.5 flex w-full items-start gap-1 rounded-full px-2 py-0.5 text-xs", config.addressPillClass)}>
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words">{addressLabel}</span>
                             </span>

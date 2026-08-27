@@ -1054,17 +1054,17 @@ export default function PlansSidebarPanel({
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-5 p-5">
             {/* Flights */}
-            <StopSection title={<><Plane className="h-3.5 w-3.5" /> Flights</>} emptyMessage="No flights added yet.">
+            <StopSection title={<><Plane className="h-3.5 w-3.5 text-sky-500" /> <span className="text-sky-600">Flights</span></>} emptyMessage="No flights added yet.">
               {flightsFor(name).map(flightRow)}
             </StopSection>
 
             {/* Places Stayed — same layout as a trip */}
-            <StopSection title={<><BedDouble className="h-3.5 w-3.5" /> Places Stayed</>} emptyMessage="No places stayed added yet.">
+            <StopSection title={<><BedDouble className="h-3.5 w-3.5 text-emerald-500" /> <span className="text-emerald-600">Places Stayed</span></>} emptyMessage="No places stayed added yet.">
               {lodgingRows}
             </StopSection>
 
             {/* Activities — same layout as a trip */}
-            <StopSection title="Activities" emptyMessage="No activities added yet.">
+            <StopSection title={<><MapPin className="h-3.5 w-3.5 text-violet-500" /> <span className="text-violet-600">Activities</span></>} emptyMessage="No activities added yet.">
               {activityRows}
             </StopSection>
 
