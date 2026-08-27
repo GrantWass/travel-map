@@ -60,6 +60,12 @@ export function formatTripDuration(value: string | null | undefined): string {
     .join(" ")
 }
 
+export function formatFlightPrice(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return /^\d+(?:\.\d{1,2})?$/.test(trimmed) ? `$${trimmed}` : trimmed;
+}
+
 export function getLocationKey(lat: number, lng: number): string {
     return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
 }

@@ -70,7 +70,7 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
             return;
         }
 
-        if (status === "authenticated" && isPublicRoute) {
+        if (status === "authenticated" && isPublicRoute && pathname !== "/") {
             router.replace("/");
             return;
         }

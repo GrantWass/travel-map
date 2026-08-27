@@ -8,7 +8,7 @@ import { ArrowRight, BedDouble, CalendarRange, MapPin, Notebook, Plane } from "l
 import type { SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
 import CostBadge from "@/components/cost-badge";
-import { formatAddress } from "@/lib/utils";
+import { formatAddress, formatFlightPrice } from "@/lib/utils";
 
 // Leaflet touches window at import time, so only load the map client-side.
 const SharedPlanMap = dynamic(() => import("@/components/shared-plan-map"), { ssr: false });
@@ -154,7 +154,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                         {details.length > 0 && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</p>}
                                                         {flight.link_url && <span className="mt-1"><WebsiteChip url={flight.link_url} /></span>}
                                                     </div>
-                                                    {flight.price && <CostBadge cost={flight.price} variant="light" />}
+                                                    {flight.price && <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">{formatFlightPrice(flight.price)}</span>}
                                                 </article>
                                             );
                                         })}

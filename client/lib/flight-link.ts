@@ -10,6 +10,10 @@ export interface ParsedFlightLink {
   departure_date?: string; // ISO YYYY-MM-DD when found
   airline?: string;
   flight_number?: string;
+  return_date?: string;
+  return_flight_numbers?: string;
+  price?: string;
+  currency?: string;
   notes?: string;
 }
 
@@ -121,24 +125,92 @@ function parseTfsParam(tfs: string): ParsedFlightLink | null {
   }
 
   const first = segments[0];
+  let returnStart = -1;
+  if (segments.length > 1 && segments.at(-1)?.destination === first.origin) {
+    let largestGap = 0;
+    for (let index = 1; index < segments.length; index++) {
+      const previousDate = Date.parse(`${segments[index - 1].date}T00:00:00Z`);
+      const currentDate = Date.parse(`${segments[index].date}T00:00:00Z`);
+      const gap = currentDate - previousDate;
+      if (gap > largestGap) {
+        largestGap = gap;
+        returnStart = index;
+      }
+    }
+  }
+  const outboundSegments = returnStart > 0 ? segments.slice(0, returnStart) : segments;
+  const returnSegments = returnStart > 0 ? segments.slice(returnStart) : [];
   const result: ParsedFlightLink = {
     origin_code: first.origin,
-    destination_code: first.destination,
+    destination_code: outboundSegments.at(-1)?.destination ?? first.destination,
     departure_date: first.date,
   };
-  if (first.flight) {
-    const carrierMatch = /^([A-Z]{2})/.exec(first.flight);
-    result.flight_number = first.flight;
+  const outboundFlightNumbers = outboundSegments.map((segment) => segment.flight).filter(Boolean) as string[];
+  if (outboundFlightNumbers.length > 0) {
+    const carrierMatch = /^([A-Z]{2})/.exec(outboundFlightNumbers[0]);
+    result.flight_number = outboundFlightNumbers.join(" / ");
     if (carrierMatch) result.airline = AIRLINE_CODE_TO_NAME[carrierMatch[1]];
+  }
+
+  if (returnSegments.length > 0) {
+    result.return_date = returnSegments[0].date;
+    result.return_flight_numbers = returnSegments.map((segment) => segment.flight).filter(Boolean).join(" / ");
   }
 
   // Multi-leg itineraries don't fit the single route fields — summarize them.
   if (segments.length > 1) {
-    result.notes = segments
-      .map((s) => `${s.flight ? `${s.flight} ` : ""}${s.origin}→${s.destination}${s.date ? ` ${s.date}` : ""}`)
+    const summarize = (items: TfsSegment[]) => items
+      .map((segment) => `${segment.flight ? `${segment.flight} ` : ""}${segment.origin}→${segment.destination} (${segment.date})`)
       .join(" · ");
+    result.notes = returnSegments.length > 0
+      ? `Outbound: ${summarize(outboundSegments)}\nReturn: ${summarize(returnSegments)}`
+      : summarize(outboundSegments);
   }
   return result;
+}
+
+function parseGoogleFare(tfu: string): Pick<ParsedFlightLink, "price" | "currency"> | null {
+  try {
+    const decode = (value: string) => atob(value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4));
+    const outer = decode(tfu);
+    const embedded = outer.charCodeAt(0) === 0x0a && outer.length > 2
+      ? outer.slice(2, 2 + outer.charCodeAt(1))
+      : outer.match(/[A-Za-z0-9+/]{40,}={0,2}/)?.[0];
+    if (!embedded) return null;
+    const bytes = Uint8Array.from(decode(embedded), (character) => character.charCodeAt(0));
+    let currencyIndex = -1;
+    for (let index = 0; index <= bytes.length - 5; index++) {
+      if (bytes[index] === 0x1a && bytes[index + 1] === 0x03
+          && bytes[index + 2] >= 65 && bytes[index + 2] <= 90
+          && bytes[index + 3] >= 65 && bytes[index + 3] <= 90
+          && bytes[index + 4] >= 65 && bytes[index + 4] <= 90) {
+        currencyIndex = index + 2;
+      }
+    }
+    if (currencyIndex < 1) return null;
+    const currency = String.fromCharCode(...bytes.slice(currencyIndex, currencyIndex + 3));
+
+    let marker = -1;
+    for (let index = currencyIndex - 1; index >= Math.max(0, currencyIndex - 16); index--) {
+      if (bytes[index] === 0x08) { marker = index; break; }
+    }
+    if (marker < 0) return null;
+
+    let cents = 0;
+    let shift = 0;
+    for (let index = marker + 1; index < bytes.length && shift < 35; index++) {
+      cents |= (bytes[index] & 0x7f) << shift;
+      if ((bytes[index] & 0x80) === 0) break;
+      shift += 7;
+    }
+    if (cents <= 0) return null;
+    return {
+      price: Number.isInteger(cents / 100) ? String(cents / 100) : (cents / 100).toFixed(2),
+      currency,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -162,8 +234,10 @@ export function parseFlightLink(rawUrl: string): ParsedFlightLink {
     if (url.pathname.startsWith("/travel/flights")) {
       Object.assign(result, parseGoogleFlightsQuery(url.searchParams.get("q")) ?? {});
       if (!result.origin_code) {
-        const tfs = url.searchParams.get("tfs");
-        if (tfs) Object.assign(result, parseTfsParam(tfs) ?? {});
+      const tfs = url.searchParams.get("tfs");
+      if (tfs) Object.assign(result, parseTfsParam(tfs) ?? {});
+      const tfu = url.searchParams.get("tfu");
+      if (tfu) Object.assign(result, parseGoogleFare(tfu) ?? {});
       }
     }
   } else if (/\.ao|\.air|airlines?|airway|air\./i.test(host)) {

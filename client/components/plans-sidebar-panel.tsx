@@ -36,7 +36,7 @@ import { INPUT_CLASS, TEXTAREA_CLASS } from "@/lib/ui-constants";
 import { createPlanShare, uploadImage, type CustomPlanItem, type PlanFlight } from "@/lib/api-client";
 import { looksLikeLink, unfurlLink } from "@/lib/link-unfurl";
 import { parseFlightLink } from "@/lib/flight-link";
-import { shareOrCopyUrl } from "@/lib/utils";
+import { formatFlightPrice, shareOrCopyUrl } from "@/lib/utils";
 import type { PlaceOption } from "@/lib/client-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
 import { ALL_PLANS_COLLECTION_SCOPE } from "@/stores/trip-map-store";
@@ -459,6 +459,7 @@ function FlightForm({
     if (!departureDate && parsed.departure_date) setDepartureDate(parsed.departure_date);
     if (!airline.trim() && parsed.airline) setAirline(parsed.airline);
     if (!flightNumber.trim() && parsed.flight_number) setFlightNumber(parsed.flight_number);
+    if (!price.trim() && parsed.price) setPrice(parsed.price);
     if (!notes.trim() && parsed.notes) setNotes(parsed.notes);
 
     const preview = await unfurlLink(trimmed);
@@ -548,7 +549,7 @@ function FlightForm({
         <input
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          placeholder="Price"
+          placeholder="Price (USD)"
           className={`${flightInputClass} w-24 flex-shrink-0`}
         />
       </div>
@@ -707,7 +708,7 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
               <p className="truncate text-sm font-medium text-foreground">{route}</p>
               {flight.price && (
                 <span className="ml-auto flex-shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
-                  {flight.price}
+                  {formatFlightPrice(flight.price)}
                 </span>
               )}
             </div>
