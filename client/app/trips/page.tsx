@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ImagePlus, MapPin, Sparkles, Timer } from "lucide-react";
+import { Check, Circle, ImagePlus, MapPin, Sparkles, Timer } from "lucide-react";
 
 import ImageCropModal from "@/components/image-crop-modal";
 import {
@@ -644,6 +644,14 @@ function TripsPageContent() {
     }
   }
 
+  const requiredDetails = [
+    { label: "Trip title", complete: Boolean(title.trim()) },
+    { label: "Location", complete: Boolean(tripLocation) },
+    { label: "Cover image", complete: Boolean(coverImage.trim()) },
+  ];
+  const completedRequiredDetails = requiredDetails.filter((detail) => detail.complete).length;
+  const requiredDetailsReady = completedRequiredDetails === requiredDetails.length;
+
   return (
     <main className="h-screen overflow-y-auto bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-6 md:px-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col items-start gap-6 lg:flex-row">
@@ -713,26 +721,35 @@ function TripsPageContent() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Cover Image <span className="text-destructive">*</span>
                 </p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  {coverImage && (
-                    <Image src={coverImage} alt="Trip cover preview" width={80} height={80} className="h-20 w-20 rounded-xl object-cover" />
-                  )}
-                  <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
-                    <ImagePlus className="h-4 w-4 text-primary" />
-                    {isUploadingImage ? "Uploading..." : coverImage ? "Change cover image" : "Upload cover image"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      required={!coverImage}
-                      disabled={isUploadingImage}
-                      className="sr-only"
-                      onChange={(event) => void handleCoverImageUpload(event.target.files?.[0])}
-                    />
-                  </label>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>{isUploadingImage ? "Uploading cover image..." : coverImage ? "Cover selected. Preview updates live." : "A cover image is required."}</p>
-                    {coverImageName ? <p className="text-xs text-muted-foreground">Selected: {coverImageName}</p> : null}
-                    {coverImageError ? <p className="text-xs font-medium text-destructive">{coverImageError}</p> : null}
+                <div className="grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-xl border border-border bg-card">
+                    {coverImage ? (
+                      <Image src={coverImage} alt="Trip cover preview" fill sizes="180px" className="object-cover" />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                        <ImagePlus className="h-6 w-6" />
+                        <span className="text-xs">No cover selected</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-secondary">
+                      <ImagePlus className="h-4 w-4 text-primary" />
+                      {isUploadingImage ? "Uploading..." : coverImage ? "Change cover image" : "Upload cover image"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        required={!coverImage}
+                        disabled={isUploadingImage}
+                        className="sr-only"
+                        onChange={(event) => void handleCoverImageUpload(event.target.files?.[0])}
+                      />
+                    </label>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p>{isUploadingImage ? "Uploading cover image..." : coverImage ? "Cover selected. Preview updates live." : "A cover image is required."}</p>
+                      {coverImageName ? <p className="text-xs text-muted-foreground">Selected: {coverImageName}</p> : null}
+                      {coverImageError ? <p className="text-xs font-medium text-destructive">{coverImageError}</p> : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -844,13 +861,14 @@ function TripsPageContent() {
               </div>
             </section>
 
-            <div className="flex items-start gap-3 px-1">
+            <section className="space-y-4 rounded-2xl border border-border bg-card/55 p-4 md:p-5">
+              <div className="flex items-start gap-3">
               <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">3</span>
               <div>
                 <h2 className="text-base font-semibold text-foreground">Build your itinerary</h2>
                 <p className="text-xs text-muted-foreground">Add stays and activities now, or come back to them later.</p>
               </div>
-            </div>
+              </div>
 
             <StopEditorSection
               kind="lodging"
@@ -881,6 +899,7 @@ function TripsPageContent() {
                 void handleStopImageUpload("activity", id, file);
               }}
             />
+            </section>
 
           {!isLoadingEditTrip && !editLoadError && (
             <div className="space-y-3 rounded-xl border border-border/80 bg-secondary/40 p-3.5">
@@ -968,6 +987,17 @@ function TripsPageContent() {
           {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
           <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur-xl">
+            {!isLoadingEditTrip && (
+              <p className="text-xs text-muted-foreground">
+                {requiredDetailsReady
+                  ? isEditMode ? "Everything required is ready to save." : "Everything required is ready to post."
+                  : `${completedRequiredDetails} of ${requiredDetails.length} required details complete`}
+              </p>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              <Link href={returnTo}>
+                <Button type="button" variant="ghost" className="rounded-full">Cancel</Button>
+              </Link>
             {isLoadingEditTrip ? (
               <p className="text-sm text-muted-foreground">Loading trip data...</p>
             ) : (
@@ -984,19 +1014,25 @@ function TripsPageContent() {
                     : "Post Trip"}
               </Button>
             )}
-            {!isLoadingEditTrip && (
-              <p className="text-xs text-muted-foreground">
-                {[Boolean(title.trim()), Boolean(tripLocation), Boolean(coverImage.trim())].filter(Boolean).length === 3
-                  ? isEditMode ? "Ready to save" : "Ready to post"
-                  : `${[Boolean(title.trim()), Boolean(tripLocation), Boolean(coverImage.trim())].filter(Boolean).length}/3 required details complete`}
-              </p>
-            )}
+            </div>
           </div>
           </div>
         </section>
 
         <aside className="w-full lg:w-1/3 lg:sticky lg:top-0 lg:self-start">
-          <div className="rounded-3xl border border-border/80 bg-card/90 p-4 shadow-xl shadow-black/10 backdrop-blur-sm">
+          <div className="space-y-4 rounded-3xl border border-border/80 bg-card/90 p-4 shadow-xl shadow-black/10 backdrop-blur-sm">
+            <div className="rounded-2xl border border-border bg-secondary/45 p-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Required</p>
+              <div className="mt-2 grid gap-2 text-sm">
+                {requiredDetails.map((detail) => (
+                  <div key={detail.label} className="flex items-center gap-2">
+                    {detail.complete ? <Check className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground/60" />}
+                    <span className={detail.complete ? "text-foreground" : "text-muted-foreground"}>{detail.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
             <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
               <Sparkles className="h-3.5 w-3.5" />
               Live Preview
@@ -1053,6 +1089,7 @@ function TripsPageContent() {
                   <StopPreviewList kind="activity" stops={activities} />
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </aside>
