@@ -136,7 +136,6 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
     const setIsLoadingTripById = useTripMapStore((state) => state.setIsLoadingTripById);
     const lastViewedPanelType = useTripMapStore((state) => state.lastViewedPanelType);
     const lastViewedTrip = useTripMapStore((state) => state.lastViewedTrip);
-    const [isQuickOpen, setIsQuickOpen] = useState(false);
 
     // Frozen panel state: only updates when panels are open, so components stay mounted
     // during the close animation (outer div animates width → 0, content stays visible).
@@ -317,7 +316,6 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
     const handleIndicatorMouseEnter = useCallback(() => {
         if (mapPanels.showAnyLeftSidebar) return;
 
-        setIsQuickOpen(true);
         if (lastViewedPanelType === "plans") {
             if (!plansPanelOpen) togglePlansPanel();
         } else if (lastViewedPanelType === "trip" && lastViewedTrip) {
@@ -1009,8 +1007,6 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         width:
                                 mapPanels.showSidebar || mapPanels.showSearchPanel || mapPanels.showPlansPanel ? REVIEW_PANEL_WIDTH : 0,
                     }}
-
-                    onPointerDown={() => { if (isQuickOpen) setIsQuickOpen(false); }}
                 >
                     <div className="h-full" style={{ minWidth: REVIEW_PANEL_WIDTH }}>
                         {tripSidebarPanel}
@@ -1022,7 +1018,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                             currentUserId={userId}
                             friendIds={friendIds}
                             onQueryChange={setSearchQuery}
-                            autoFocus={!isQuickOpen}
+                            autoFocus
                             onClose={() => {
                                 closeSearchPanel();
                             }}
