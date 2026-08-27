@@ -108,7 +108,7 @@ export interface UserProfileResponse {
 }
 
 export interface CreateTripPayload {
-  thumbnail_url?: string;
+  thumbnail_url: string;
   title: string;
   description?: string;
   latitude?: string;

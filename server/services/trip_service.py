@@ -868,6 +868,10 @@ def _parse_common_trip_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if not title:
         raise TripValidationError("title is required")
 
+    thumbnail_url = _parse_thumbnail_url(payload.get("thumbnail_url"))
+    if not thumbnail_url:
+        raise TripValidationError("thumbnail_url is required")
+
     lodgings = payload.get("lodgings") or []
     activities = payload.get("activities") or []
     tags = payload.get("tags") or []
@@ -886,7 +890,7 @@ def _parse_common_trip_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "tags": tags,
         "duration": _parse_duration(payload.get("duration")),
         "date": _parse_trip_date(payload.get("date")),
-        "thumbnail_url": _parse_thumbnail_url(payload.get("thumbnail_url")),
+        "thumbnail_url": thumbnail_url,
         "description": to_nullable_string(payload.get("description")),
         "cost": _parse_cost(payload.get("cost")),
         "visibility": _parse_visibility(payload.get("visibility")),

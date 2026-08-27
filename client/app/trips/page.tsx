@@ -566,6 +566,19 @@ function TripsPageContent() {
       return;
     }
 
+    if (isUploadingImage) {
+      setError("Wait for the cover image to finish uploading.");
+      document.getElementById("trip-cover-image")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (!coverImage.trim()) {
+      setCoverImageError("Add a cover image before posting.");
+      setError("Add a cover image before posting.");
+      document.getElementById("trip-cover-image")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     setIsSavingTrip(true);
 
     const stopToPayload = (stop: StopDraft) => ({
@@ -581,7 +594,7 @@ function TripsPageContent() {
 
     const tripPayload = {
       title: title.trim(),
-      thumbnail_url: clean(coverImage),
+      thumbnail_url: coverImage.trim(),
       description: clean(description),
       latitude: `${tripLocation.latitude}`,
       longitude: `${tripLocation.longitude}`,
@@ -695,6 +708,31 @@ function TripsPageContent() {
                 placeholder="Add a quick note, favorite moment, or advice (optional)"
                 className={`resize-none rounded-2xl border-border text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
               />
+
+              <div id="trip-cover-image" className={`rounded-2xl border bg-secondary/50 p-4 ${coverImageError ? "border-destructive/60" : "border-border"}`}>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Cover Image <span className="text-destructive">*</span>
+                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
+                    <ImagePlus className="h-4 w-4 text-primary" />
+                    {isUploadingImage ? "Uploading..." : coverImage ? "Change cover image" : "Upload cover image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      required={!coverImage}
+                      disabled={isUploadingImage}
+                      className="sr-only"
+                      onChange={(event) => void handleCoverImageUpload(event.target.files?.[0])}
+                    />
+                  </label>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>{isUploadingImage ? "Uploading cover image..." : coverImage ? "Cover selected. Preview updates live." : "A cover image is required."}</p>
+                    {coverImageName ? <p className="text-xs text-muted-foreground">Selected: {coverImageName}</p> : null}
+                    {coverImageError ? <p className="text-xs font-medium text-destructive">{coverImageError}</p> : null}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <details className="group rounded-2xl border border-border bg-secondary/40" open={optionalDetailsOpen} onToggle={(event) => setOptionalDetailsOpen(event.currentTarget.open)}>
@@ -702,36 +740,6 @@ function TripsPageContent() {
                 Trip details <span className="text-xs font-normal text-muted-foreground group-open:hidden">Optional</span>
               </summary>
               <div className="space-y-4 border-t border-border/60 p-4">
-            <div className="rounded-2xl border border-border bg-secondary/50 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Cover Image</p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary">
-                  <ImagePlus className="h-4 w-4 text-primary" />
-                  {isUploadingImage ? "Uploading..." : "Upload cover image"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={isUploadingImage}
-                    className="sr-only"
-                    onChange={(event) => {
-                      void handleCoverImageUpload(event.target.files?.[0]);
-                    }}
-                  />
-                </label>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>
-                    {isUploadingImage
-                      ? "Uploading cover image..."
-                      : coverImage
-                        ? "Cover selected. Preview updates live."
-                        : "No cover yet. Add one to set the tone."}
-                  </p>
-                  {coverImageName ? <p className="text-xs text-muted-foreground">Selected: {coverImageName}</p> : null}
-                  {coverImageError ? <p className="text-xs font-medium text-destructive">{coverImageError}</p> : null}
-                </div>
-              </div>
-            </div>
-
             {/* Trip mode: date + cost + duration + visibility + tags */}
             <div className="grid gap-4 rounded-2xl border border-border bg-secondary/40 p-4 md:grid-cols-2">
                 <div className="space-y-2">
