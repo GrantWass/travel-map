@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { X, Calendar, FolderOpen, Notebook, ChevronLeft, ChevronRight, User, BedDouble, Timer, Pencil, MessageCircle, SendHorizontal, Heart, Share2, MapPin } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -109,6 +109,20 @@ export default function SidebarPanel({
 
     const fabVisible = fabActivity !== null || fabLodging !== null;
     const [showCollectionPicker, setShowCollectionPicker] = useState(false);
+
+    // Scroll sidebar to the selected activity/lodging when it changes (e.g. from map marker click)
+    useEffect(() => {
+        const id = selectedActivityId
+            ? `sidebar-activity-${selectedActivityId}`
+            : selectedLodgingId
+              ? `sidebar-lodging-${selectedLodgingId}`
+              : null;
+        if (!id) return;
+        const el = document.getElementById(id);
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    }, [selectedActivityId, selectedLodgingId]);
 
     function handleFabClick() {
         if (fabSaved) {
@@ -317,6 +331,7 @@ export default function SidebarPanel({
                         {review.lodgings.map((lodging) => (
                             <StopItemCard
                                 key={lodging.lodge_id}
+                                id={`sidebar-lodging-${lodging.lodge_id}`}
                                 item={lodging}
                                 thumbnailUrl={lodging.thumbnail_url}
                                 isExpanded={selectedLodgingId === lodging.lodge_id}
@@ -334,6 +349,7 @@ export default function SidebarPanel({
                         {review.activities.map((activity) => (
                             <StopItemCard
                                 key={activity.activity_id}
+                                id={`sidebar-activity-${activity.activity_id}`}
                                 item={activity}
                                 thumbnailUrl={activity.thumbnail_url}
                                 isExpanded={selectedActivityId === activity.activity_id}

@@ -59,7 +59,7 @@ function StopArticle({
     kind: "activity" | "lodging";
 }) {
     return (
-        <article id={id} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 scroll-mt-20 transition-shadow">
+        <article id={id} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 scroll-mt-20 transition-all duration-200 hover:shadow-md hover:-translate-y-px">
             <StopThumb src={thumbnail} alt={title || kind} kind={kind} />
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">{title || `Untitled ${kind}`}</p>
@@ -156,7 +156,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         flight.notes,
                                     ].filter(Boolean);
                                     return (
-                                        <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3">
+                                        <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 transition-all duration-200 hover:shadow-md hover:-translate-y-px">
                                             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600">
                                                 <Plane className="h-5 w-5" />
                                             </div>

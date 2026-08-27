@@ -83,6 +83,7 @@ export function StopSection({
 }
 
 interface StopItemCardProps {
+    id?: string;
     item: StopItem;
     thumbnailUrl: string | null;
     isExpanded: boolean;
@@ -94,6 +95,7 @@ interface StopItemCardProps {
 }
 
 export default function StopItemCard({
+    id,
     item,
     thumbnailUrl,
     isExpanded,
@@ -111,6 +113,7 @@ export default function StopItemCard({
     if (!hasImage && !isExpanded) {
         return (
             <div
+                id={id}
                 role="button"
                 tabIndex={0}
                 onClick={toggle}
@@ -146,6 +149,7 @@ export default function StopItemCard({
 
     return (
         <div
+            id={id}
             role="button"
             tabIndex={0}
             onClick={toggle}
