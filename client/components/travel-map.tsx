@@ -1120,7 +1120,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                     )}
                 >
                     <MapView
-                        visibleTrips={filteredTrips}
+                        visibleTrips={mapPanels.showPlansPanel ? [] : filteredTrips}
                         collectionActivities={collectionActivities}
                         collectionLodgings={collectionLodgings}
                         collectionFocusKey={plansMapFocusKey}
