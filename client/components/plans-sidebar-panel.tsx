@@ -39,6 +39,7 @@ import { parseFlightLink } from "@/lib/flight-link";
 import { shareOrCopyUrl } from "@/lib/utils";
 import type { PlaceOption } from "@/lib/client-types";
 import type { SavedActivityEntry, SavedLodgingEntry } from "@/lib/client-types";
+import { ALL_PLANS_COLLECTION_SCOPE } from "@/stores/trip-map-store";
 
 function normalizeLink(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -814,12 +815,7 @@ export default function PlansSidebarPanel({
 
   function openCollectionAndFocus(name: string) {
     setOpenCollection(name);
-    if (selectedCollection === name) {
-      onSelectCollection(null);
-      window.requestAnimationFrame(() => onSelectCollection(name));
-    } else {
-      onSelectCollection(name);
-    }
+    onSelectCollection(name);
   }
 
   function handleCreateCollection() {
@@ -1051,7 +1047,7 @@ export default function PlansSidebarPanel({
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
-              onClick={() => setOpenCollection(null)}
+              onClick={() => { setOpenCollection(null); onSelectCollection(ALL_PLANS_COLLECTION_SCOPE); }}
               className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm hover:text-foreground"
               aria-label="Back to all plans"
             >
@@ -1063,14 +1059,10 @@ export default function PlansSidebarPanel({
           <div className="flex flex-shrink-0 items-center gap-1">
             <button
               type="button"
-              onClick={() => onSelectCollection(selectedCollection === name ? null : name)}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 ${
-                selectedCollection === name
-                  ? "bg-coral text-coral-foreground shadow-md shadow-coral/20"
-                  : "bg-secondary/60 text-foreground hover:bg-secondary hover:shadow-sm"
-              }`}
-              aria-label={selectedCollection === name ? "Hide from map" : "Show on map"}
-              title={selectedCollection === name ? "Hide from map" : "Show on map"}
+              onClick={() => onSelectCollection(name)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-coral text-coral-foreground shadow-md shadow-coral/20 transition-all duration-200 hover:scale-105"
+              aria-label="Center plan on map"
+              title="Center plan on map"
             >
               <MapPin className="h-4 w-4" />
             </button>
@@ -1100,7 +1092,7 @@ export default function PlansSidebarPanel({
           open={confirmDeleteCollectionName === name}
           title="Delete collection?"
           description={`"${name}" will be deleted. Items inside won't be removed from your plans.`}
-          onConfirm={() => { onDeleteCollection(name); setOpenCollection(null); setConfirmDeleteCollectionName(null); }}
+          onConfirm={() => { onDeleteCollection(name); setOpenCollection(null); onSelectCollection(ALL_PLANS_COLLECTION_SCOPE); setConfirmDeleteCollectionName(null); }}
           onCancel={() => setConfirmDeleteCollectionName(null)}
         />
 
@@ -1170,11 +1162,6 @@ export default function PlansSidebarPanel({
               </StopSection>
             )}
 
-            {selectedCollection !== name && (
-              <p className="text-xs text-muted-foreground">
-                Tap the map pin above to highlight these stops on the map.
-              </p>
-            )}
           </div>
         </ScrollArea>
       </div>
@@ -1193,7 +1180,6 @@ export default function PlansSidebarPanel({
       colActivities.length + colLodgings.length + colCustomItems.length + colFlights.length;
     const collectionKey = name ?? "";
     const collapsed = collapsedCollectionKeys.has(collectionKey);
-    const isShowingOnMap = selectedCollection === collectionKey;
 
     return (
       <div className="flex flex-col gap-1">
@@ -1245,18 +1231,6 @@ export default function PlansSidebarPanel({
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={() => onSelectCollection(isShowingOnMap ? null : collectionKey)}
-            className={`flex h-6 w-6 items-center justify-center rounded-full transition-all duration-200 ${
-              isShowingOnMap
-                ? "bg-coral text-coral-foreground shadow-sm shadow-coral/20"
-                : "text-muted-foreground hover:bg-secondary hover:shadow-xs"
-            }`}
-            title={isShowingOnMap ? "Hide from map" : "Show on map"}
-          >
-            <MapPin className="h-3 w-3" />
-          </button>
           {name && onDelete && (
             <button
               type="button"
@@ -1323,11 +1297,11 @@ export default function PlansSidebarPanel({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => void handleShare(selectedCollection)}
+                onClick={() => void handleShare(null)}
                 disabled={totalCount === 0 && collections.length === 0}
                 className="flex h-9 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm disabled:opacity-50"
                 aria-label="Share plans link"
-                title={selectedCollection ? `Share "${selectedCollection}" via link` : "Share all plans via link"}
+                title="Share all plans via link"
               >
                 <Share2 className="h-4 w-4" />
                 {copiedShareLink ? "Link ready!" : "Share"}

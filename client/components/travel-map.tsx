@@ -28,7 +28,7 @@ import { useIsMobile } from "@/components/ui/use-mobile";
 import { useTripEngagement } from "@/hooks/use-trip-engagement";
 import { useMapViewportTrips } from "@/hooks/use-map-viewport-trips";
 import type { MapBounds } from "@/lib/api-client";
-import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
+import { ALL_PLANS_COLLECTION_SCOPE, deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
 import { buildSearchResults, getFriendIds, MAX_COST, useTripSearchStore } from "@/stores/trip-search-store";
@@ -150,6 +150,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
     const [mapContextMenu, setMapContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
     const [plansError, setPlansError] = useState<string | null>(null);
+    const [plansMapFocusKey, setPlansMapFocusKey] = useState(0);
     const [pendingMapBounds, setPendingMapBounds] = useState<MapBounds | null>(null);
     const hasLoadedInitialViewportRef = useRef(false);
     const { loadBounds, isRefreshing: isRefreshingViewport, error: viewportError } = useMapViewportTrips();
@@ -226,13 +227,14 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
 
     const collectionActivities = useMemo(() => {
         if (selectedCollection === null) return [];
+        const showAllPlans = selectedCollection === ALL_PLANS_COLLECTION_SCOPE;
         const saved = savedActivities
-            .filter((a) => (a.collectionName ?? "") === selectedCollection)
+            .filter((a) => showAllPlans || (a.collectionName ?? "") === selectedCollection)
             .map((a) => a.activity);
         const custom = customItems
             .filter(
                 (c) =>
-                    (c.collection_name ?? "") === selectedCollection &&
+                    (showAllPlans || (c.collection_name ?? "") === selectedCollection) &&
                     (c.item_type ?? "activity") !== "lodging" &&
                     c.latitude != null &&
                     c.longitude != null,
@@ -255,13 +257,14 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
 
     const collectionLodgings = useMemo(() => {
         if (selectedCollection === null) return [];
+        const showAllPlans = selectedCollection === ALL_PLANS_COLLECTION_SCOPE;
         const saved = savedLodgings
-            .filter((l) => (l.collectionName ?? "") === selectedCollection)
+            .filter((l) => showAllPlans || (l.collectionName ?? "") === selectedCollection)
             .map((l) => l.lodging);
         const custom = customItems
             .filter(
                 (c) =>
-                    (c.collection_name ?? "") === selectedCollection &&
+                    (showAllPlans || (c.collection_name ?? "") === selectedCollection) &&
                     c.item_type === "lodging" &&
                     c.latitude != null &&
                     c.longitude != null,
@@ -1037,7 +1040,10 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                             flights={flights}
                             collections={collections}
                             selectedCollection={selectedCollection}
-                            onSelectCollection={setSelectedCollection}
+                            onSelectCollection={(scope) => {
+                                setSelectedCollection(scope);
+                                setPlansMapFocusKey((key) => key + 1);
+                            }}
                             onClose={() => {
                                 closePlansPanel();
                             }}
@@ -1117,6 +1123,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         visibleTrips={filteredTrips}
                         collectionActivities={collectionActivities}
                         collectionLodgings={collectionLodgings}
+                        collectionFocusKey={plansMapFocusKey}
                         onSelectTripById={(tripId) => {
                             void openTripById(tripId);
                         }}

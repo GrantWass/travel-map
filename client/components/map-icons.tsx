@@ -79,6 +79,12 @@ function lodgingGlyphSvg(px: number): string {
             </svg>`;
 }
 
+function stayBadgeSvg(): string {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+        <path d="M3 7v11M21 10v8M3 14h18M7 10h11a3 3 0 0 1 3 3v1H3v-3a4 4 0 0 1 4-4Z" fill="none" stroke="${MARKER_PRIMARY_COLOR}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>`;
+}
+
 function truncateTripMarkerTitle(value: string, maxLength: number): string {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -182,7 +188,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
     const safeTitle = escapeHtml(activity.title || "Activity");
     const imageUrl = markerImageUrl(activity.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
-    const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 54 : 42);
+    const size = isActive ? 56 : 48;
 
     return L.divIcon({
         className: "activity-marker",
@@ -214,7 +220,7 @@ export function createActivityIcon(activity: TripActivity, isActive: boolean): L
 export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.DivIcon {
     const imageUrl = markerImageUrl(lodging.thumbnail_url || "");
     const hasImage = imageUrl.length > 0;
-    const size = hasImage ? ( isActive ? 80 : 64) : ( isActive ? 54 : 42);
+    const size = isActive ? 56 : 48;
     const safeTitle = escapeHtml(lodging.title || "Stay");
     const borderColor = isActive ? MARKER_ACTIVE_BORDER_COLOR : MARKER_PRIMARY_COLOR;
     const iconPx = Math.max(Math.round(size * 0.62), 14);
@@ -239,71 +245,16 @@ export function createLodgingIcon(lodging: TripLodging, isActive: boolean): L.Di
         });
     }
 
-    const roofHeight = Math.round(size * 0.34);
-    const roofHalfWidth = Math.round(size / 2);
-    const roofBorderWidth = isActive ? 3 : 2;
-    const roofInnerHeight = Math.max(roofHeight - roofBorderWidth, 1);
-    const roofInnerWidth = Math.max((roofHalfWidth - roofBorderWidth) * 2, 2);
-    const bodyWidth = Math.round(size * 0.78);
-    const bodyHeight = size - roofHeight;
-    const bodyTop = Math.max(roofHeight - roofBorderWidth, 0);
-    const roofOverhang = Math.max(Math.floor((size - bodyWidth) / 2), 0);
-    const roofConnectorLength = Math.max(roofOverhang, 1);
-
     return L.divIcon({
         className: "lodging-marker",
         html: `
     <div style="width:${size}px;height:${size}px;position:relative;cursor:pointer;">
         <div style="
-        position:absolute;top:0;left:50%;transform:translateX(-50%);
-        width:0;height:0;
-        border-left:${roofHalfWidth}px solid transparent;
-        border-right:${roofHalfWidth}px solid transparent;
-        border-bottom:${roofHeight}px solid ${borderColor};
-        filter:drop-shadow(0 3px 8px ${MARKER_SHADOW});
-        "></div>
-        <div style="
-        position:absolute;
-        top:${roofBorderWidth}px;
-        left:50%;
-        transform:translateX(-50%);
-        width:${roofInnerWidth}px;
-        height:${roofInnerHeight}px;
-        background-image:url('${imageUrl}');
-        background-size:${size}px ${size}px;
-        background-position:center top;
-        background-repeat:no-repeat;
-        clip-path:polygon(50% 0%, 100% 100%, 0% 100%);
-        "></div>
-        <div style="
-        position:absolute;
-        top:${bodyTop}px;
-        left:3px;
-        width:${roofConnectorLength}px;
-        height:${roofBorderWidth}px;
-        background:${borderColor};
-        border-top-left-radius:999px;
-        "></div>
-        <div style="
-        position:absolute;
-        top:${bodyTop}px;
-        right:3px;
-        width:${roofConnectorLength}px;
-        height:${roofBorderWidth}px;
-        background:${borderColor};
-        border-top-right-radius:999px;
-        "></div>
-        <div style="
-        position:absolute;top:${bodyTop}px;left:50%;transform:translateX(-50%);
-        width:${bodyWidth}px;height:${bodyHeight}px;
-        border-radius:0 0 10px 10px;overflow:hidden;
+        position:absolute;inset:0;border-radius:50%;overflow:hidden;
         border:${isActive ? `3px solid ${borderColor}` : `2px solid ${borderColor}`};
-        border-top:0;
-        background-image:url('${imageUrl}');
-        background-size:${size}px ${size}px;
-        background-position:center -${bodyTop}px;
-        background-repeat:no-repeat;
-        "></div>
+        background:${MARKER_PRIMARY_COLOR};box-shadow:0 2px 12px ${MARKER_SHADOW};
+        "><img src="${imageUrl}" alt="${safeTitle}" ${MARKER_IMG_ATTRS} style="display:block;width:100%;height:100%;object-fit:cover;" /></div>
+        <div style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:50%;background:#059669;border:2px solid ${MARKER_PRIMARY_COLOR};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 5px ${MARKER_SHADOW};">${stayBadgeSvg()}</div>
     </div>
     `,
         iconSize: [size, size],

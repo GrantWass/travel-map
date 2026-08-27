@@ -11,6 +11,8 @@ import {
 } from "@/stores/trip-search-store";
 import { getDeferredTripIds } from "@/lib/api-client";
 
+export const ALL_PLANS_COLLECTION_SCOPE = "__all_plans__";
+
 interface TripMapStoreState {
     trips: Trip[];
     selectedTrip: Trip | null;
@@ -20,7 +22,7 @@ interface TripMapStoreState {
     searchQuery: string;
     searchPanelOpen: boolean;
     plansPanelOpen: boolean;
-    selectedCollection: string | null; // null = none, "" = unsorted, "name" = named collection
+    selectedCollection: string | null; // null = plans closed, all-plans sentinel, "" = unsorted, or a named plan
     lastViewedPanelType: "search" | "trip" | "plans" | null;
     lastViewedTrip: Trip | null;
     savedActivityIds: number[];
@@ -283,6 +285,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
             fullScreenTrip: null,
             selectedActivity: null,
             selectedLodging: null,
+            selectedCollection: null,
             lastViewedPanelType: "search",
         }),
     closeSearchPanel: () => set({ searchPanelOpen: false, searchQuery: "" }),
@@ -301,6 +304,7 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
                 fullScreenTrip: null,
                 selectedActivity: null,
                 selectedLodging: null,
+                selectedCollection: ALL_PLANS_COLLECTION_SCOPE,
                 lastViewedPanelType: "plans",
             };
         }),

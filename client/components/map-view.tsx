@@ -18,6 +18,7 @@ interface MapViewProps {
     onRightClick?: (lat: number, lng: number, clientX: number, clientY: number) => void;
     collectionActivities?: TripActivity[];
     collectionLodgings?: TripLodging[];
+    collectionFocusKey?: number;
     onViewportChange?: (bounds: MapBounds, initial: boolean) => void;
 }
 
@@ -140,6 +141,7 @@ export default function MapView({
     onRightClick,
     collectionActivities,
     collectionLodgings,
+    collectionFocusKey,
     onViewportChange,
 }: MapViewProps) {
     const storeTrips = useTripMapStore((state) => state.trips);
@@ -165,6 +167,7 @@ export default function MapView({
     const activeTripLocationRef = useRef<string | null>(null);
     const detailMarkersRef = useRef<L.Marker[]>([]);
     const collectionMarkersRef = useRef<L.Marker[]>([]);
+    const lastCollectionFitKeyRef = useRef<string | null>(null);
     const lastFocusedLocationKeyRef = useRef<string | null>(null);
     const lastFocusedDetailKeyRef = useRef<string | null>(null);
     const lastFocusedTripCoordsRef = useRef<[number, number] | null>(null);
@@ -542,7 +545,10 @@ export default function MapView({
 
         const activities = collectionActivities ?? [];
         const lodgings = collectionLodgings ?? [];
-        if (activities.length === 0 && lodgings.length === 0) return;
+        if (activities.length === 0 && lodgings.length === 0) {
+            lastCollectionFitKeyRef.current = null;
+            return;
+        }
 
         const points: [number, number][] = [];
 
@@ -565,12 +571,19 @@ export default function MapView({
         }
 
         if (points.length > 0) {
-            const bounds = L.latLngBounds(points);
-            if (bounds.isValid()) {
-                map.flyToBounds(bounds, { padding: [120, 100], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+            const fitKey = `${collectionFocusKey ?? 0}:${points
+                .map(([latitude, longitude]) => `${latitude.toFixed(6)},${longitude.toFixed(6)}`)
+                .sort()
+                .join("|")}`;
+            if (lastCollectionFitKeyRef.current !== fitKey) {
+                lastCollectionFitKeyRef.current = fitKey;
+                const bounds = L.latLngBounds(points);
+                if (bounds.isValid()) {
+                    map.flyToBounds(bounds, { padding: [120, 100], maxZoom: TRIP_MAX_ZOOM, duration: 1.1 });
+                }
             }
         }
-    }, [collectionActivities, collectionLodgings]);
+    }, [collectionActivities, collectionLodgings, collectionFocusKey]);
 
     // Auto-deselect when the user zooms out far enough that the selected trip
     // no longer makes sense at the current scale.
