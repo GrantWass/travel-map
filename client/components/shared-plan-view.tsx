@@ -118,7 +118,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         id={`shared-stop-${gi}-activity-${ai}`}
                                         title={item.title || ""}
                                         address={item.address}
-                                        addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-violet-500" />}
+                                        addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground" />}
                                         description={item.description}
                                         linkUrl={item.link_url}
                                         cost={item.cost}
@@ -133,7 +133,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                         id={`shared-stop-${gi}-lodging-${li}`}
                                         title={item.title || ""}
                                         address={item.address}
-                                        addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0 text-emerald-500" />}
+                                        addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground" />}
                                         description={item.description}
                                         linkUrl={item.link_url}
                                         cost={item.cost}
@@ -184,16 +184,13 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                     Plans are a live snapshot of saved places.
                 </p>
 
-                <div className="sticky bottom-0 -mx-4 mt-6 flex items-center justify-center gap-3 border-t border-primary/10 bg-background/70 px-6 py-4 backdrop-blur-xl md:-mx-8">
-                    <p className="font-[family-name:var(--font-brand-display)] text-lg text-primary/70">
-                        Want to plan your own trips?
-                    </p>
+                <div className="mt-6 flex justify-center">
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:shadow-md hover:brightness-110"
+                        className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
                     >
-                        Start planning
-                        <ArrowRight className="h-4 w-4" />
+                        Want to plan your own trips? Start planning
+                        <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                 </div>
             </div>
