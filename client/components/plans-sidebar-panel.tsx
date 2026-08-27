@@ -794,6 +794,8 @@ export default function PlansSidebarPanel({
   const [openCollection, setOpenCollection] = useState<string | null>(null);
   const [creationStatus, setCreationStatus] = useState<string | null>(null);
   const [expandedPlanItemKey, setExpandedPlanItemKey] = useState<string | null>(null);
+  const [collapsedCollectionKeys, setCollapsedCollectionKeys] = useState<Set<string>>(() => new Set());
+  const [confirmDeleteCollectionName, setConfirmDeleteCollectionName] = useState<string | null>(null);
 
   const totalCount = savedActivities.length + savedLodgings.length + customItems.length + flights.length;
 
@@ -1029,8 +1031,7 @@ export default function PlansSidebarPanel({
   }
 
   /** Trip-like detail view centered on lodging + activities for one collection. */
-  function CollectionDetailView({ name }: { name: string }) {
-    const [confirmDelete, setConfirmDelete] = useState(false);
+  function renderCollectionDetail(name: string) {
     const lodgingRows = [
       ...lodgingsFor(name).map((entry) => <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />),
       ...customItemsFor(name)
@@ -1085,7 +1086,7 @@ export default function PlansSidebarPanel({
             </button>
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => setConfirmDeleteCollectionName(name)}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
               aria-label={`Delete collection "${name}"`}
               title={`Delete collection`}
@@ -1096,11 +1097,11 @@ export default function PlansSidebarPanel({
         </div>
 
         <ConfirmDialog
-          open={confirmDelete}
+          open={confirmDeleteCollectionName === name}
           title="Delete collection?"
           description={`"${name}" will be deleted. Items inside won't be removed from your plans.`}
-          onConfirm={() => { onDeleteCollection(name); setOpenCollection(null); setConfirmDelete(false); }}
-          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => { onDeleteCollection(name); setOpenCollection(null); setConfirmDeleteCollectionName(null); }}
+          onCancel={() => setConfirmDeleteCollectionName(null)}
         />
 
         <div className="grid grid-cols-3 gap-2 border-b border-border/40 px-4 py-3">
@@ -1181,15 +1182,7 @@ export default function PlansSidebarPanel({
   }
 
   /** Collapsible list of one collection (overview mode). */
-  function CollectionSection({
-    name,
-    onDelete,
-  }: {
-    name: string | null;
-    onDelete?: () => void;
-  }) {
-    const [collapsed, setCollapsed] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(false);
+  function renderCollectionSection(name: string | null, onDelete?: () => void) {
     const colActivities = activitiesFor(name);
     const colLodgings = lodgingsFor(name);
     const colCustomItems = customItemsFor(name);
@@ -1199,6 +1192,7 @@ export default function PlansSidebarPanel({
     const count =
       colActivities.length + colLodgings.length + colCustomItems.length + colFlights.length;
     const collectionKey = name ?? "";
+    const collapsed = collapsedCollectionKeys.has(collectionKey);
     const isShowingOnMap = selectedCollection === collectionKey;
 
     return (
@@ -1206,7 +1200,12 @@ export default function PlansSidebarPanel({
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setCollapsed((v) => !v)}
+            onClick={() => setCollapsedCollectionKeys((current) => {
+              const next = new Set(current);
+              if (next.has(collectionKey)) next.delete(collectionKey);
+              else next.add(collectionKey);
+              return next;
+            })}
             className="flex items-center py-0.5 pl-0.5 text-left"
             aria-label={collapsed ? "Expand" : "Collapse"}
           >
@@ -1261,7 +1260,7 @@ export default function PlansSidebarPanel({
           {name && onDelete && (
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => setConfirmDeleteCollectionName(name)}
               className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
               title={`Delete collection "${name}"`}
             >
@@ -1271,11 +1270,11 @@ export default function PlansSidebarPanel({
         </div>
 
         <ConfirmDialog
-          open={confirmDelete && !!name}
+          open={confirmDeleteCollectionName === name && !!name}
           title="Delete collection?"
           description={`"${name}" will be deleted. Items inside won't be removed from your plans.`}
-          onConfirm={() => { onDelete?.(); setConfirmDelete(false); }}
-          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => { onDelete?.(); setConfirmDeleteCollectionName(null); }}
+          onCancel={() => setConfirmDeleteCollectionName(null)}
         />
 
         {!collapsed && (
@@ -1308,7 +1307,7 @@ export default function PlansSidebarPanel({
   return (
     <div className="flex h-full w-full flex-col border-r border-border/50 bg-card">
       {openCollection !== null ? (
-        <CollectionDetailView name={openCollection} />
+        renderCollectionDetail(openCollection)
       ) : (
         <>
           <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-border/40 px-5">
@@ -1406,11 +1405,11 @@ export default function PlansSidebarPanel({
                 <>
                   {/* Named collections — tap the name to open the trip-style view */}
                   {allCollectionNames.map((col) => (
-                    <CollectionSection key={col} name={col} onDelete={() => onDeleteCollection(col)} />
+                    <div key={col}>{renderCollectionSection(col, () => onDeleteCollection(col))}</div>
                   ))}
 
                   {/* Unsorted items */}
-                  {hasUnsorted && <CollectionSection name={null} />}
+                  {hasUnsorted && renderCollectionSection(null)}
                 </>
               )}
             </div>
