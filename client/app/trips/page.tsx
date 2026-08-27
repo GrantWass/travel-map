@@ -185,7 +185,6 @@ function TripsPageContent() {
   const [lodgings, setLodgings] = useState<StopDraft[]>([]);
   const [activities, setActivities] = useState<StopDraft[]>([]);
   const [draftStatus, setDraftStatus] = useState<"restored" | "saving" | "saved" | null>(null);
-  const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
   const hasRestoredDraftRef = useRef(false);
   const draftKey = userId ? `travel-map:trip-draft:v${TRIP_DRAFT_VERSION}:${userId}` : null;
   const previewLodgings = lodgings.filter(hasStopContent);
@@ -213,7 +212,6 @@ function TripsPageContent() {
       setLodgings(draft.lodgings || []);
       setActivities(draft.activities || []);
       setCollaborators(draft.collaborators || []);
-      setOptionalDetailsOpen(Boolean(draft.description || draft.cost || draft.dateMonth || draft.selectedTags?.length));
       setDraftStatus("restored");
     } catch {
       window.localStorage.removeItem(draftKey);
@@ -317,7 +315,6 @@ function TripsPageContent() {
         setVisibility(trip.visibility);
         setSelectedTags(trip.tags);
         setCollaborators(trip.collaborators || []);
-        setOptionalDetailsOpen(true);
 
         setLodgings(trip.lodgings.map((lodging) => makeStopDraftFromChild(lodging, lodging.address || lodging.title || "")));
         setActivities(trip.activities.map((activity) => makeStopDraftFromChild(activity, activity.location || activity.address || activity.title || "")));
@@ -742,15 +739,15 @@ function TripsPageContent() {
               </div>
             </section>
 
-            <details className="group rounded-2xl border border-border bg-secondary/40" open={optionalDetailsOpen} onToggle={(event) => setOptionalDetailsOpen(event.currentTarget.open)}>
-              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-foreground marker:hidden">
-                <span className="flex items-center gap-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">2</span>
-                  More trip details
-                </span>
-                <span className="text-xs font-normal text-muted-foreground">Optional · {optionalDetailsOpen ? "Hide" : "Show"}</span>
-              </summary>
-              <div className="space-y-4 border-t border-border/60 p-4">
+            <section className="rounded-2xl border border-border bg-secondary/40 p-4 md:p-5">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">2</span>
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Trip details <span className="font-normal text-muted-foreground">· Optional</span></h2>
+                  <p className="text-xs text-muted-foreground">Add context that helps people understand and plan this trip.</p>
+                </div>
+              </div>
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Trip story</label>
                   <Textarea
@@ -845,7 +842,7 @@ function TripsPageContent() {
                 </div>
             </div>
               </div>
-            </details>
+            </section>
 
             <div className="flex items-start gap-3 px-1">
               <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">3</span>
