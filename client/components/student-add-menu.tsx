@@ -37,7 +37,7 @@ export default function StudentAddMenu({ visible, onAddTrip }: StudentAddMenuPro
                         setOpen(false);
                     }}
                     className={cn(
-                        "flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-all duration-[250ms] ease-out",
+                        "flex h-10 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-md bg-card/80 backdrop-blur-sm transition-all duration-[250ms] ease-out hover:shadow-lg",
                         open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-2 scale-95 opacity-0",
                     )}
                     style={{ transitionDelay: open ? "0ms" : "80ms" }}
@@ -52,7 +52,7 @@ export default function StudentAddMenu({ visible, onAddTrip }: StudentAddMenuPro
             <button
                 onClick={() => setOpen((prev) => !prev)}
                 className={cn(
-                    "flex h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-[250ms] ease-out hover:scale-[1.03] hover:bg-primary/90",
+                    "flex h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-xl shadow-primary/25 transition-all duration-[250ms] ease-out hover:scale-[1.03] hover:shadow-2xl hover:shadow-primary/30",
                     open && "rotate-45",
                 )}
                 aria-label={open ? "Close quick add menu" : "Open quick add menu"}

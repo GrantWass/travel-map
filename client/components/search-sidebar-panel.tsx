@@ -95,7 +95,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     return (
         <div className="flex h-full w-full flex-col border-r border-border bg-card">
             {/* Header with embedded search input */}
-            <div className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-border px-4">
+            <div className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-border px-4 bg-card/80 backdrop-blur-sm">
                 <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <input
                     ref={searchInputRef}
@@ -106,13 +106,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                     aria-label="Search trips"
                 />
                 {searchResults.length > 0 && (
-                    <span className="flex-shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <span className="flex-shrink-0 rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
                         {searchResults.length}
                     </span>
                 )}
                 <button
                     onClick={onClose}
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-colors hover:bg-secondary"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
                     aria-label="Close search panel"
                 >
                     <X className="h-4 w-4" />
@@ -168,10 +168,10 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                     key={tag}
                                                     onClick={() => toggleTag(tag)}
                                                     title={tag}
-                                                    className={`inline-flex min-w-0 max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${
+                                                    className={`inline-flex min-w-0 max-w-full items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-all duration-200 ${
                                                         active
-                                                            ? "border-primary/40 bg-primary/10 text-primary"
-                                                            : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
+                                                            ? "border-primary/40 bg-primary/10 text-primary shadow-xs"
+                                                            : "border-border bg-secondary/40 text-foreground hover:bg-secondary hover:shadow-xs"
                                                     }`}
                                                 >
                                                     <span className="truncate">{tag}</span>
@@ -194,10 +194,10 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                 <button
                                                     key={value}
                                                     onClick={() => toggleTripType(value)}
-                                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all duration-200 ${
                                                         active
-                                                            ? "border-primary/40 bg-primary/10 text-primary"
-                                                            : "border-border bg-secondary/40 text-foreground hover:bg-secondary"
+                                                            ? "border-coral/40 bg-coral/10 text-coral shadow-xs"
+                                                            : "border-border bg-secondary/40 text-foreground hover:bg-secondary hover:shadow-xs"
                                                     }`}
                                                 >
                                                     {label}
@@ -336,7 +336,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                         <button
                                             type="button"
                                             onClick={() => onSelectTrip(trip.trip_id)}
-                                            className="flex w-full items-center gap-3 rounded-lg bg-secondary/40 p-3 text-left transition-colors hover:bg-secondary/70 active:bg-secondary"
+                                            className="flex w-full items-center gap-3 rounded-lg bg-secondary/40 p-3 text-left transition-all duration-200 hover:bg-secondary/70 hover:shadow-sm active:bg-secondary"
                                         >
                                             <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md">
                                                 <Image src={trip.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={trip.title} fill sizes="48px" priority className="object-cover" />
@@ -379,13 +379,13 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
 
                                         {/* Sub-items */}
                                         {hasSubItems && (
-                                            <div className="ml-4 flex flex-col gap-1 border-l-2 border-border pl-3">
+                                            <div className="ml-4 flex flex-col gap-1 border-l-2 border-primary/15 pl-3">
                                                 {matchedActivities.map((activity) => (
                                                     <button
                                                         key={`activity-${activity.activity_id}`}
                                                         type="button"
                                                         onClick={() => onSelectTrip(trip.trip_id)}
-                                                        className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
+                                                        className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-all duration-200 hover:bg-secondary/50 hover:shadow-xs"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
                                                             <Image src={activity.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={activity.title || "Activity"} fill sizes="36px" loading="lazy" className="object-cover" />
@@ -404,7 +404,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                                                         key={`lodging-${lodging.lodge_id}`}
                                                         type="button"
                                                         onClick={() => onSelectTrip(trip.trip_id)}
-                                                        className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/50"
+                                                        className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-all duration-200 hover:bg-secondary/50 hover:shadow-xs"
                                                     >
                                                         <div className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-md">
                                                             <Image src={lodging.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={lodging.title || "Lodging"} fill sizes="36px" loading="lazy" className="object-cover" />

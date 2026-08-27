@@ -149,7 +149,7 @@ export default function PlacePicker({
         <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</label>
             <div className="relative">
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-sm">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-md">
                     <MapPin className="h-4 w-4 text-primary" />
                     <input
                         value={query}
@@ -202,7 +202,7 @@ export default function PlacePicker({
                                         event.preventDefault();
                                         void selectResult(result as PlaceSuggestion);
                                     }}
-                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-foreground/80 transition-colors hover:bg-secondary"
+                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-foreground/80 transition-all duration-200 hover:bg-secondary hover:shadow-xs"
                                 >
                                     {result.label}
                                     {(result as PlaceSuggestion).address &&
@@ -239,7 +239,7 @@ export default function PlacePicker({
                     <button
                         type="button"
                         onClick={() => setMapPickerOpen(true)}
-                        className="rounded-full border border-input bg-white px-3 py-1 text-xs font-semibold text-foreground/80 transition-colors hover:bg-secondary"
+                        className="rounded-full border border-input bg-white px-3 py-1 text-xs font-semibold text-foreground/80 transition-all duration-200 hover:bg-secondary hover:shadow-xs"
                     >
                         Drop pin on map
                     </button>

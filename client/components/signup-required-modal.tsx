@@ -38,10 +38,10 @@ export default function SignupRequiredModal({
   return (
     <>
       <div className="fixed inset-0 z-[2100] bg-black/45 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-[2200] w-[min(460px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card shadow-2xl">
+      <div className="fixed left-1/2 top-1/2 z-[2200] w-[min(460px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card shadow-2xl animate-in zoom-in-95 fade-in duration-200">
         <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-coral/15">
               <UserRoundPlus className="h-4 w-4 text-primary" />
             </div>
             <h2 className="text-base font-semibold text-foreground">{title}</h2>
@@ -49,14 +49,14 @@ export default function SignupRequiredModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-colors hover:bg-secondary"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
             aria-label="Close signup prompt"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="px-5 py-4">
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
           <Button type="button" variant="outline" onClick={onClose}>

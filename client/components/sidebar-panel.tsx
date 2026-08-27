@@ -178,9 +178,9 @@ export default function SidebarPanel({
             {/* Header image */}
             <div className="relative h-56 flex-shrink-0">
                 <SafeImage src={review.thumbnail_url || DEFAULT_FALLBACK_IMAGE} alt={review.title} fill sizes="(max-width: 640px) 100vw, 483px" priority className="object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                 {locationTripCount > 1 && (
-                    <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/45 p-1 text-white backdrop-blur-sm">
+                    <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/50 p-1 text-white backdrop-blur-md shadow-lg">
                         <button
                             type="button"
                             onClick={onShowPreviousTripAtLocation}
@@ -208,7 +208,7 @@ export default function SidebarPanel({
                     {onEditTrip && (
                         <button
                             onClick={onEditTrip}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white transition-colors hover:bg-black/70"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-md text-white shadow-lg transition-all duration-200 hover:bg-black/70 hover:scale-105"
                             aria-label="Edit trip"
                         >
                             <Pencil className="h-3.5 w-3.5" />
@@ -216,7 +216,7 @@ export default function SidebarPanel({
                     )}
                     <button
                         onClick={() => void handleShareTrip()}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white transition-colors hover:bg-black/70"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-md text-white shadow-lg transition-all duration-200 hover:bg-black/70 hover:scale-105"
                         aria-label="Share trip"
                         title={shareLabel}
                     >
@@ -224,7 +224,7 @@ export default function SidebarPanel({
                     </button>
                     <button
                         onClick={onClose}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white transition-colors hover:bg-black/70"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-md text-white shadow-lg transition-all duration-200 hover:bg-black/70 hover:scale-105"
                         aria-label="Close panel"
                     >
                         <X className="h-4 w-4" />
@@ -253,7 +253,7 @@ export default function SidebarPanel({
                                 {formatTripDate(review.date)}
                             </span>
                         )}
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-foreground/80">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
                             <Timer className="h-3 w-3" />
                             {formatTripDuration(review.duration)}
                         </span>
@@ -268,7 +268,7 @@ export default function SidebarPanel({
                                         key={collaborator.user_id}
                                         type="button"
                                         onClick={() => onOpenAuthorProfile(collaborator.user_id)}
-                                        className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-2.5 py-1 text-xs text-foreground/85 transition-colors hover:bg-secondary"
+                                        className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/30 px-2.5 py-1 text-xs text-foreground/85 transition-all duration-200 hover:bg-secondary hover:shadow-sm"
                                     >
                                         <UserAvatar
                                             name={collaborator.name}
@@ -290,14 +290,17 @@ export default function SidebarPanel({
                     {/* Tags */}
                     {review.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
-                            {review.tags.map((tag) => (
-                                <span
-                                    key={tag}
-                                    className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-                                >
-                                    {tag}
-                                </span>
-                            ))}
+                            {review.tags.map((tag, idx) => {
+                                const warmClasses = ["bg-primary/8 text-primary border-l-2 border-primary", "bg-coral/8 text-coral border-l-2 border-coral", "bg-amber-100/60 text-amber-700 border-l-2 border-amber-400", "bg-emerald-50 text-emerald-700 border-l-2 border-emerald-400"];
+                                return (
+                                    <span
+                                        key={tag}
+                                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${warmClasses[idx % warmClasses.length]}`}
+                                    >
+                                        {tag}
+                                    </span>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -364,11 +367,11 @@ export default function SidebarPanel({
                                     onClick={onToggleLike}
                                     disabled={isLikeSubmitting}
                                     className={cn(
-                                        "h-7 px-2 text-xs text-muted-foreground",
-                                        isLiked ? "text-foreground" : "hover:text-foreground",
+                                        "h-7 px-2 text-xs transition-all duration-200",
+                                        isLiked ? "text-coral hover:text-coral/80" : "text-muted-foreground hover:text-coral",
                                     )}
                                 >
-                                    <Heart className={cn("mr-1 h-3.5 w-3.5", isLiked ? "fill-current" : "")} />
+                                    <Heart className={cn("mr-1 h-3.5 w-3.5 transition-transform duration-200", isLiked ? "fill-current scale-110" : "")} />
                                     {review.like_count}
                                 </Button>
                                 <button
@@ -384,7 +387,7 @@ export default function SidebarPanel({
                         {likeError && <p className="text-xs text-destructive">{likeError}</p>}
 
                         {isAuthenticated ? (
-                            <div className="rounded-xl border border-border bg-secondary/40 p-2">
+                            <div className="rounded-xl border border-border bg-secondary/30 p-2 shadow-xs">
                                 <textarea
                                     value={commentInput}
                                     onChange={(event) => {
@@ -436,7 +439,7 @@ export default function SidebarPanel({
                                         : "";
 
                                     return (
-                                        <div key={comment.comment_id} className="rounded-xl border border-border bg-background p-3">
+                                        <div key={comment.comment_id} className="rounded-xl border border-border border-l-2 border-l-primary/20 bg-background p-3">
                                             <div className="mb-1.5 flex items-center gap-2">
                                                 <UserAvatar
                                                     name={authorName}
@@ -491,10 +494,10 @@ export default function SidebarPanel({
                         type="button"
                         onClick={handleFabClick}
                         className={cn(
-                            "flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-colors",
+                            "flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-all duration-200",
                             fabSaved
-                                ? "bg-primary text-primary-foreground hover:opacity-90"
-                                : "border border-border bg-card text-foreground hover:bg-secondary",
+                                ? "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-primary/25 hover:shadow-xl hover:scale-[1.02]"
+                                : "border border-border bg-card text-foreground shadow-md hover:shadow-lg hover:bg-secondary",
                         )}
                     >
                         <Notebook className="h-4 w-4" />

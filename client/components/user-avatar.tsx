@@ -34,7 +34,7 @@ export default function UserAvatar({
   return (
     <div
       style={{ width: size, height: size }}
-      className={`rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0 ${className ?? ""}`}
+      className={`rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0 shadow-sm shadow-primary/15 ${className ?? ""}`}
     >
       {initials}
     </div>

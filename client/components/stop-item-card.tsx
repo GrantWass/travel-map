@@ -114,7 +114,7 @@ export default function StopItemCard({
                 )}
             >
                 <div className="flex items-center gap-3 p-3">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-coral/10">
                         {config.fallbackIcon}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -144,10 +144,10 @@ export default function StopItemCard({
                 }
             }}
             className={cn(
-                "w-full cursor-pointer rounded-xl border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
+                "w-full cursor-pointer rounded-xl border text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
                 isExpanded
-                    ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
-                    : "border-border " + config.unexpandedHoverClass,
+                    ? "border-primary bg-primary/8 shadow-md shadow-primary/5"
+                    : "border-border hover:shadow-sm hover:-translate-y-px " + config.unexpandedHoverClass,
             )}
         >
             {isExpanded ? (
@@ -166,7 +166,7 @@ export default function StopItemCard({
                                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                             {costLabel && (
-                                <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                                <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-gradient-to-r from-black/60 to-black/45 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm shadow-lg">
                                     {costLabel}
                                 </span>
                             )}
@@ -177,7 +177,7 @@ export default function StopItemCard({
                                         e.stopPropagation();
                                         onExpandImage();
                                     }}
-                                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                                    className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm shadow-lg transition-all duration-200 hover:bg-black/70 hover:scale-105"
                                     aria-label={`Expand ${item.title || config.label} image`}
                                 >
                                     <Expand className="h-3 w-3" />

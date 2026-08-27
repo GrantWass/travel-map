@@ -379,7 +379,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
           <h2 className="text-base font-semibold tracking-tight">Friends</h2>
           <button
             onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+            className="h-8 w-8 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-secondary hover:shadow-sm"
           >
             <X className="h-4 w-4" />
           </button>
@@ -391,16 +391,16 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors ${
+              className={`relative flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-all duration-200 ${
                 activeTab === tab.key
-                  ? "text-foreground border-b-2 border-primary -mb-px"
+                  ? "text-foreground border-b-2 border-coral -mb-px"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {tab.icon}
               {tab.label}
               {tab.dot && (
-                <span className="absolute right-2 top-2.5 h-2 w-2 rounded-full bg-red-500" />
+                <span className="absolute right-2 top-2.5 h-2 w-2 rounded-full bg-coral" />
               )}
             </button>
           ))}
@@ -425,7 +425,7 @@ export default function FriendsModal({ onClose, onSelectTrip }: FriendsModalProp
                 friendsList.map((f, idx) => (
                   <div
                     key={f.id}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-all duration-200 hover:bg-muted/30 hover:shadow-xs"
                   >
                     {/* number badge */}
                     <span className="shrink-0 w-6 text-center text-xs font-semibold text-muted-foreground tabular-nums hidden sm:inline">

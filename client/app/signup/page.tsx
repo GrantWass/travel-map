@@ -41,12 +41,12 @@ function getPasswordStrength(password: string): PasswordStrength | null {
 const strengthBarColor: Record<number, string> = {
     1: "bg-red-400",
     2: "bg-amber-400",
-    3: "bg-green-500",
+    3: "bg-coral",
 };
 const strengthTextColor: Record<number, string> = {
     1: "text-destructive",
     2: "text-primary",
-    3: "text-green-600",
+    3: "text-coral",
 };
 
 function SignUpContent() {
@@ -215,7 +215,7 @@ function SignUpContent() {
     }
 
     const inputBase =
-        "w-full rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary/30 disabled:opacity-50";
+        "w-full rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-all duration-200 focus:border-coral focus:ring-2 focus:ring-coral/20 focus:shadow-md focus:shadow-coral/5 disabled:opacity-50";
 
     const collapseStyle = (open: boolean): React.CSSProperties => ({
         display: "grid",
@@ -241,6 +241,10 @@ function SignUpContent() {
                 <svg className="absolute right-16 top-12 opacity-[0.20]" width="120" height="80" fill="none">
                     <path d="M10 70 Q50 20 110 40" stroke="#b87a30" strokeWidth="1" strokeDasharray="5 8" strokeLinecap="round" />
                 </svg>
+                <svg className="absolute bottom-16 right-24 opacity-[0.18]" width="100" height="70" fill="none">
+                    <path d="M10 10 Q50 60 90 30" stroke="#c45a4a" strokeWidth="1" strokeDasharray="5 8" strokeLinecap="round" />
+                    <circle cx="90" cy="30" r="3" fill="#c45a4a" />
+                </svg>
                 <svg className="absolute bottom-12 left-16 opacity-[0.20]" width="120" height="80" fill="none">
                     <path d="M110 10 Q70 60 10 40" stroke="#b87a30" strokeWidth="1" strokeDasharray="5 8" strokeLinecap="round" />
                 </svg>
@@ -249,7 +253,7 @@ function SignUpContent() {
             {/* TOP HALF */}
             <div className="flex flex-col items-center w-full md:justify-end md:pb-8">
                 <div className="mb-6 md:mb-10 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-md shadow-primary/20">
                         <MapPin className="h-5 w-5 text-white" />
                     </div>
                     <BrandNameButton className="text-2xl text-foreground" />
@@ -325,7 +329,7 @@ function SignUpContent() {
                         </div>
                     </div>
 
-                    <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60">
+                    <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-primary/90 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-60">
                         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                         {isLoading ? "Please wait…" : isSignup ? "Get started" : "Sign in"}
                     </button>

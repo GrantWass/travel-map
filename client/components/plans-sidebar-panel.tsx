@@ -113,7 +113,7 @@ function MoveMenu({ collections, currentCollection, onMove }: MoveMenuProps) {
       <button
         type="button"
         onClick={() => setShowMenu((v) => !v)}
-        className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs"
         title="Move to collection"
       >
         <FolderOpen className="h-3.5 w-3.5" />
@@ -221,8 +221,8 @@ function StopForm({ defaultType, initial, targetCollectionLabel, onSubmit, onCan
             key={type}
             type="button"
             onClick={() => setItemType(type)}
-            className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-              itemType === type ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-all duration-200 ${
+              itemType === type ? "bg-background text-foreground shadow-sm ring-1 ring-black/5" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
             }`}
           >
             {type === "activity" ? <MapPin className="h-3.5 w-3.5" /> : <BedDouble className="h-3.5 w-3.5" />}
@@ -623,7 +623,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
 
   return (
     <>
-    <div className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow">
+    <div className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-all duration-200 hover:shadow-md">
       <div className="flex items-start gap-2.5">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Plane className="h-5 w-5" />
@@ -632,7 +632,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
           <div className="flex items-baseline gap-2">
             <p className="truncate text-sm font-semibold text-foreground">{route}</p>
             {flight.price && (
-              <span className="ml-auto flex-shrink-0 rounded-full bg-secondary/70 px-2 py-0.5 text-xs font-medium text-foreground">
+              <span className="ml-auto flex-shrink-0 rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
                 {flight.price}
               </span>
             )}
@@ -652,7 +652,7 @@ function FlightCard({ flight, collections, onSave, onDelete, onMove }: FlightCar
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs hover:text-foreground"
             >
               <Pencil className="h-3 w-3" />
               Edit
@@ -938,7 +938,7 @@ export default function PlansSidebarPanel({
             <button
               type="button"
               onClick={() => setOpenCollection(null)}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm hover:text-foreground"
               aria-label="Back to all plans"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -950,10 +950,10 @@ export default function PlansSidebarPanel({
             <button
               type="button"
               onClick={() => onSelectCollection(selectedCollection === name ? null : name)}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 ${
                 selectedCollection === name
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary/60 text-foreground hover:bg-secondary"
+                  ? "bg-coral text-coral-foreground shadow-md shadow-coral/20"
+                  : "bg-secondary/60 text-foreground hover:bg-secondary hover:shadow-sm"
               }`}
               aria-label={selectedCollection === name ? "Hide from map" : "Show on map"}
               title={selectedCollection === name ? "Hide from map" : "Show on map"}
@@ -963,7 +963,7 @@ export default function PlansSidebarPanel({
             <button
               type="button"
               onClick={() => setAddFormTarget(name)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
               aria-label="Add stop to this collection"
               title="Add activity or lodging"
             >
@@ -972,7 +972,7 @@ export default function PlansSidebarPanel({
             <button
               type="button"
               onClick={() => setAddFlightFormTarget(name)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
               aria-label="Add flight to this collection"
               title="Add flight"
             >
@@ -981,7 +981,7 @@ export default function PlansSidebarPanel({
             <button
               type="button"
               onClick={() => void handleShare(name)}
-              className="flex h-8 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+              className="flex h-8 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
               aria-label={`Share "${name}" via link`}
               title={`Share "${name}" via link`}
             >
@@ -1077,7 +1077,7 @@ export default function PlansSidebarPanel({
               className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left"
               title={`Open "${name}"`}
             >
-              <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
+              <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-coral" />
               <p className="truncate text-xs font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground">
                 {name} ({count})
               </p>
@@ -1092,7 +1092,7 @@ export default function PlansSidebarPanel({
               <button
                 type="button"
                 onClick={() => setAddFormTarget(name)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs hover:text-foreground"
                 title={`Add to "${name}"`}
               >
                 <Plus className="h-3 w-3" />
@@ -1100,7 +1100,7 @@ export default function PlansSidebarPanel({
               <button
                 type="button"
                 onClick={() => setAddFlightFormTarget(name)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs hover:text-foreground"
                 title={`Add flight to "${name}"`}
               >
                 <Plane className="h-3 w-3" />
@@ -1108,7 +1108,7 @@ export default function PlansSidebarPanel({
               <button
                 type="button"
                 onClick={() => void handleShare(name)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs hover:text-foreground"
                 title={`Share "${name}" via link`}
               >
                 <Share2 className="h-3 w-3" />
@@ -1118,10 +1118,10 @@ export default function PlansSidebarPanel({
           <button
             type="button"
             onClick={() => onSelectCollection(isShowingOnMap ? null : collectionKey)}
-            className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+            className={`flex h-6 w-6 items-center justify-center rounded-full transition-all duration-200 ${
               isShowingOnMap
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-secondary"
+                ? "bg-coral text-coral-foreground shadow-sm shadow-coral/20"
+                : "text-muted-foreground hover:bg-secondary hover:shadow-xs"
             }`}
             title={isShowingOnMap ? "Hide from map" : "Show on map"}
           >
@@ -1176,7 +1176,7 @@ export default function PlansSidebarPanel({
               <Notebook className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold tracking-tight text-foreground">Plans</h2>
               {totalCount > 0 && (
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                <span className="rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
                   {totalCount}
                 </span>
               )}
@@ -1185,7 +1185,7 @@ export default function PlansSidebarPanel({
               <button
                 type="button"
                 onClick={() => setAddFlightFormTarget(selectedCollection)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
                 aria-label="Add a flight"
                 title="Add a flight"
               >
@@ -1194,7 +1194,7 @@ export default function PlansSidebarPanel({
               <button
                 type="button"
                 onClick={() => setAddFormTarget(selectedCollection)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
                 aria-label="Add your own plan item"
                 title="Add your own plan item"
               >
@@ -1204,7 +1204,7 @@ export default function PlansSidebarPanel({
                 type="button"
                 onClick={() => void handleShare(selectedCollection)}
                 disabled={totalCount === 0 && collections.length === 0}
-                className="flex h-9 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                className="flex h-9 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm disabled:opacity-50"
                 aria-label="Share plans link"
                 title={selectedCollection ? `Share "${selectedCollection}" via link` : "Share all plans via link"}
               >
@@ -1215,7 +1215,7 @@ export default function PlansSidebarPanel({
                 <button
                   type="button"
                   onClick={() => void handleCopyItinerary()}
-                  className="flex h-9 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                  className="flex h-9 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
                   aria-label="Copy itinerary to clipboard"
                   title="Copy plans as text"
                 >
@@ -1226,7 +1226,7 @@ export default function PlansSidebarPanel({
               <button
                 type="button"
                 onClick={() => setShowNewCollectionInput((v) => !v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-colors hover:bg-secondary"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
                 aria-label="New collection"
                 title="New collection"
               >
@@ -1234,7 +1234,7 @@ export default function PlansSidebarPanel({
               </button>
               <button
                 onClick={onClose}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-colors hover:bg-secondary"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
                 aria-label="Close plans panel"
               >
                 <X className="h-4 w-4" />
@@ -1316,7 +1316,7 @@ export default function PlansSidebarPanel({
                 type="button"
                 onClick={handleCreateCollection}
                 disabled={!newCollectionName.trim()}
-                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                className="rounded-md bg-gradient-to-r from-primary to-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm shadow-primary/20 transition-all duration-200 hover:shadow-md disabled:opacity-50"
               >
                 Create
               </button>
@@ -1326,10 +1326,10 @@ export default function PlansSidebarPanel({
           <ScrollArea className="min-h-0 flex-1">
             <div className="flex flex-col gap-5 p-5">
               {totalCount === 0 && collections.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border p-4">
-                  <p className="text-sm font-medium text-foreground">Nothing saved yet</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Select an activity or lodging in a trip, then tap &quot;Save to Plans&quot;. Or add your own stops with +.
+                <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 p-4">
+                  <p className="text-sm font-semibold text-foreground">Nothing saved yet</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                    Select an activity or lodging in a trip, then tap &quot;Save to Plans&quot;. Or add your own stops with <span className="font-medium text-primary">+</span>.
                   </p>
                 </div>
               ) : (

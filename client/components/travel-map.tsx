@@ -32,9 +32,9 @@ import { buildSearchResults, getFriendIds, MAX_COST, useTripSearchStore } from "
 const MapView = dynamic(() => import("@/components/map-view"), {
     ssr: false,
     loading: () => (
-        <div className="flex h-full w-full items-center justify-center bg-background">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+            <div className="flex h-full w-full items-center justify-center bg-background">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent shadow-md shadow-primary/20" />
+            </div>
     ),
 });
 
@@ -835,7 +835,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 <>
                     <div className={`absolute left-4 top-3 z-[1000] hidden md:block ${topLeftControlsWidthClass}`}>
                         <div className="flex items-center gap-2">
-                            <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border px-5 shadow-sm bg-secondary/40 backdrop-blur-sm">
+                            <div data-spotlight="explore" className="flex h-12 flex-1 items-center gap-2 rounded-full border border-border px-5 shadow-md bg-card/80 backdrop-blur-sm transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30">
                                 <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
 
                                 <input
@@ -855,7 +855,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                                         setOwnerFilter("all");
                                         setSearchQuery("");
                                     }}
-                                    className="flex h-12 items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
+                                    className="flex h-12 items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-foreground shadow-sm bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-md hover:bg-secondary/60"
                                 >
                                     Clear filters
                                 </button>
@@ -865,9 +865,9 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                                 type="button"
                                 onClick={() => requireAuth("plans", togglePlansPanel)}
                                 className={cn(
-                                    "flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors",
+                                    "flex h-12 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-sm bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-md",
                                     mapPanels.showPlansPanel
-                                        ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                                        ? "border-coral/40 bg-coral/10 text-coral hover:bg-coral/15"
                                         : "border-border text-foreground hover:bg-secondary/60",
                                 )}
                                 aria-label="Open plans"
@@ -882,7 +882,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         <button
                             type="button"
                             onClick={openSearchPanel}
-                            className="flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-md bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-lg hover:bg-secondary/60"
                             aria-label="Open search"
                         >
                             <Search className="h-5 w-5 text-foreground" />
@@ -895,7 +895,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                                     setOwnerFilter("all");
                                     setSearchQuery("");
                                 }}
-                                className="flex h-11 items-center justify-center rounded-full border border-border px-3 text-sm font-medium text-foreground shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
+                                className="flex h-11 items-center justify-center rounded-full border border-border px-3 text-sm font-medium text-foreground shadow-md bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-lg hover:bg-secondary/60"
                             >
                                 Clear
                             </button>
@@ -903,12 +903,12 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         <button
                             type="button"
                             onClick={() => requireAuth("plans", togglePlansPanel)}
-                            className={cn(
-                                "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors",
-                                mapPanels.showPlansPanel
-                                    ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                                    : "border-border text-foreground hover:bg-secondary/60",
-                            )}
+                                className={cn(
+                                    "flex h-11 w-11 items-center justify-center rounded-full border shadow-md bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-lg",
+                                    mapPanels.showPlansPanel
+                                        ? "border-coral/40 bg-coral/10 text-coral hover:bg-coral/15"
+                                        : "border-border text-foreground hover:bg-secondary/60",
+                                )}
                             aria-label="Open plans"
                             title="Plans"
                         >
@@ -919,7 +919,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             )}
 
             <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${mapPanels.showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
-                <div className="hidden h-11 items-center gap-2 rounded-full border border-border px-5 shadow-sm bg-secondary/40 backdrop-blur-sm sm:flex">
+                <div className="hidden h-11 items-center gap-2 rounded-full border border-border px-5 shadow-md bg-card/80 backdrop-blur-sm sm:flex">
                     <MapPin className="h-5 w-5 text-primary" />
                     <BrandNameButton
                         className="text-lg text-foreground"
@@ -932,7 +932,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         type="button"
                         aria-label="Open friends"
                         onClick={() => requireAuth("friends", () => setFriendsOpen(true))}
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-md bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-lg hover:bg-secondary/60"
                     >
                         <Users className="h-6 w-6 text-foreground" />
                     </button>
@@ -948,12 +948,12 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                                 void openProfile(userId, "top-right");
                             });
                         }}
-                        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-sm bg-secondary/40 backdrop-blur-sm transition-colors hover:bg-secondary/60"
+                        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border shadow-md bg-card/80 backdrop-blur-sm transition-all duration-200 hover:shadow-lg hover:bg-secondary/60"
                         aria-label="Open profile"
                     >
                         <CircleUser className="h-6 w-6 text-foreground" />
                         {notifiedTripIds.size > 0 && (
-                            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-red-500 border-2 border-card" />
+                            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-coral border-2 border-card" />
                         )}
                     </button>
                 </div>
@@ -1159,12 +1159,12 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         onContextMenu={(e) => { e.preventDefault(); setMapContextMenu(null); }}
                     />
                     <div
-                        className="fixed z-[1501] min-w-[200px] overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+                        className="fixed z-[1501] min-w-[200px] overflow-hidden rounded-xl border border-border bg-card shadow-lg"
                         style={{ left: mapContextMenu.x, top: mapContextMenu.y }}
                     >
                         <button
                             type="button"
-                            className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-primary/5"
                             onClick={() => {
                                 setMapContextMenu(null);
                                 router.push(`/trips?lat=${mapContextMenu.lat}&lng=${mapContextMenu.lng}&returnTo=${encodeURIComponent(pathname || "/")}`);
@@ -1234,25 +1234,27 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             />
 
             {(isLoadingTrips || isLoadingTripById) && (
-                <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-full border border-border bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
+                <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-full border border-border bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-md backdrop-blur-sm">
                     Loading data...
                 </div>
             )}
 
             {!isLoadingTrips && !mapPanels.showAnyLeftSidebar && filteredTrips.length === 0 && (
                 <div className="pointer-events-none absolute left-1/2 top-1/2 z-[900] w-[min(340px,calc(100vw-3rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card/95 p-5 text-center shadow-lg backdrop-blur-sm">
-                    <MapPin className="mx-auto mb-2 h-6 w-6 text-muted-foreground/60" />
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-coral/15">
+                        <MapPin className="h-6 w-6 text-primary" />
+                    </div>
                     {trips.length === 0 ? (
                         <>
-                            <p className="text-sm font-medium text-foreground">The map is empty</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Be the first to share an adventure — tap + to add a trip.
+                            <p className="text-sm font-semibold text-foreground">The map is empty</p>
+                            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                                Be the first to share an adventure — tap <span className="font-medium text-primary">+</span> to add a trip.
                             </p>
                         </>
                     ) : (
                         <>
-                            <p className="text-sm font-medium text-foreground">No trips match here</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
+                            <p className="text-sm font-semibold text-foreground">No trips match here</p>
+                            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                                 Try zooming out or adjusting your search filters.
                             </p>
                         </>

@@ -302,7 +302,7 @@ export default function UserProfileModal({
                                 setSettingsOpen((current) => !current);
                                 setSaveState((current) => ({ ...current, error: "", success: "" }));
                             }}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-border transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary transition-all duration-200 hover:bg-border hover:shadow-sm"
                             aria-label="Open profile settings"
                         >
                             <Settings className="h-4 w-4 text-muted-foreground" />
@@ -310,7 +310,7 @@ export default function UserProfileModal({
                     ) : null}
                     <button
                         onClick={onClose}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary hover:bg-border transition-colors"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary transition-all duration-200 hover:bg-border hover:shadow-sm"
                         aria-label="Close profile"
                     >
                         <X className="h-4 w-4 text-muted-foreground" />
@@ -320,7 +320,7 @@ export default function UserProfileModal({
                 {/* Sticky profile header */}
                 <div className="flex-shrink-0 border-b border-border px-5 sm:px-10 pt-5 sm:pt-10 pb-6">
                     <div className="flex items-start gap-4 sm:gap-6">
-                        <div className="relative flex h-14 w-14 sm:h-20 sm:w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xl sm:text-2xl font-bold text-primary-foreground">
+                        <div className="relative flex h-14 w-14 sm:h-20 sm:w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary to-primary/80 text-xl sm:text-2xl font-bold text-primary-foreground shadow-lg shadow-primary/20">
                             {showProfileImage ? (
                                 <Image
                                     src={profileImageUrl}
@@ -531,7 +531,7 @@ export default function UserProfileModal({
                                         onClose();
                                         onAddTrip?.();
                                     }}
-                                    className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                                    className="group flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow-sm"
                                 >
                                     <Plus className="h-6 w-6" />
                                     <span className="text-sm font-medium">Add Trip</span>
@@ -540,10 +540,10 @@ export default function UserProfileModal({
                             {profile.trips?.map((trip) => (
                                 <div
                                     key={trip.trip_id}
-                                    className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background hover:border-primary/30 transition-colors"
+                                    className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background transition-all duration-200 hover:border-primary/30 hover:shadow-md"
                                 >
                                     {notifiedTripIds?.has(trip.trip_id) && (
-                                        <span className="absolute left-2 top-2 z-20 h-5 w-5 rounded-full bg-red-500 border-2 border-card" />
+                                        <span className="absolute left-2 top-2 z-20 h-5 w-5 rounded-full bg-coral border-2 border-card" />
                                     )}
                                     <button
                                         type="button"
@@ -592,7 +592,7 @@ export default function UserProfileModal({
                                                     onClose();
                                                     onEditTrip?.(trip.trip_id);
                                                 }}
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75"
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm shadow-lg transition-all duration-200 hover:bg-black/75 hover:scale-105"
                                                 aria-label={`Edit ${trip.title}`}
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
@@ -605,7 +605,7 @@ export default function UserProfileModal({
                                                         setTripToDelete({ id: trip.trip_id, title: trip.title });
                                                     }}
                                                     disabled={deletingTripId === trip.trip_id}
-                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 disabled:cursor-not-allowed disabled:opacity-70"
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm shadow-lg transition-all duration-200 hover:bg-black/75 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-70"
                                                     aria-label={`Delete ${trip.title}`}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
