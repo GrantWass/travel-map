@@ -79,6 +79,23 @@ function StopArticle({
     );
 }
 
+function CategoryHeading({
+    icon,
+    label,
+    className,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    className: string;
+}) {
+    return (
+        <h3 className={`flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest ${className}`}>
+            {icon}
+            {label}
+        </h3>
+    );
+}
+
 export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
     return (
         <main className="h-screen overflow-y-auto bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-10 md:px-8">
@@ -111,71 +128,54 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                         )}
 
                         {plan.groups.map((group, gi) => (
-                            <section key={group.name} className="flex flex-col gap-3">
+                            <section key={group.name} className="flex flex-col gap-5">
                                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.name}</h2>
 
-                                {group.activities.map((item, ai) => (
-                                    <StopArticle
-                                        key={`a-${gi}-${ai}`}
-                                        id={`shared-stop-${gi}-activity-${ai}`}
-                                        title={item.title || ""}
-                                        address={item.address}
-                                        addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground" />}
-                                        description={item.description}
-                                        linkUrl={item.link_url}
-                                        cost={item.cost}
-                                        thumbnail={item.thumbnail_url}
-                                        kind="activity"
-                                    />
-                                ))}
+                                {(group.flights ?? []).length > 0 && (
+                                    <div className="flex flex-col gap-3">
+                                        <CategoryHeading icon={<Plane className="h-3.5 w-3.5" />} label="Flights" className="text-sky-600" />
+                                        {(group.flights ?? []).map((flight, index) => {
+                                            const route = flight.origin_code && flight.destination_code
+                                                ? `${flight.origin_code} → ${flight.destination_code}`
+                                                : flight.airline || "Flight";
+                                            const details = [
+                                                flight.airline && route !== flight.airline ? flight.airline : null,
+                                                flight.flight_number ? `#${flight.flight_number}` : null,
+                                                [flight.departure_date, flight.departure_time].filter(Boolean).join(" "),
+                                                flight.notes,
+                                            ].filter(Boolean);
+                                            return (
+                                                <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 transition-all duration-200 hover:-translate-y-px hover:shadow-md">
+                                                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600"><Plane className="h-5 w-5" /></div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-medium text-foreground">{route}</p>
+                                                        {details.length > 0 && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</p>}
+                                                        {flight.link_url && <span className="mt-1"><WebsiteChip url={flight.link_url} /></span>}
+                                                    </div>
+                                                    {flight.price && <CostBadge cost={flight.price} variant="light" />}
+                                                </article>
+                                            );
+                                        })}
+                                    </div>
+                                )}
 
-                                {group.lodgings.map((item, li) => (
-                                    <StopArticle
-                                        key={`l-${gi}-${li}`}
-                                        id={`shared-stop-${gi}-lodging-${li}`}
-                                        title={item.title || ""}
-                                        address={item.address}
-                                        addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground" />}
-                                        description={item.description}
-                                        linkUrl={item.link_url}
-                                        cost={item.cost}
-                                        thumbnail={item.thumbnail_url}
-                                        kind="lodging"
-                                    />
-                                ))}
+                                {group.lodgings.length > 0 && (
+                                    <div className="flex flex-col gap-3">
+                                        <CategoryHeading icon={<BedDouble className="h-3.5 w-3.5" />} label="Places" className="text-emerald-600" />
+                                        {group.lodgings.map((item, li) => (
+                                            <StopArticle key={`l-${gi}-${li}`} id={`shared-stop-${gi}-lodging-${li}`} title={item.title || ""} address={item.address} addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground" />} description={item.description} linkUrl={item.link_url} cost={item.cost} thumbnail={item.thumbnail_url} kind="lodging" />
+                                        ))}
+                                    </div>
+                                )}
 
-                                {(group.flights ?? []).map((flight, index) => {
-                                    const route =
-                                        flight.origin_code && flight.destination_code
-                                            ? `${flight.origin_code} → ${flight.destination_code}`
-                                            : flight.airline || "Flight";
-                                    const details = [
-                                        flight.airline && route !== flight.airline ? flight.airline : null,
-                                        flight.flight_number ? `#${flight.flight_number}` : null,
-                                        [flight.departure_date, flight.departure_time].filter(Boolean).join(" "),
-                                        flight.notes,
-                                    ].filter(Boolean);
-                                    return (
-                                        <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 transition-all duration-200 hover:shadow-md hover:-translate-y-px">
-                                            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600">
-                                                <Plane className="h-5 w-5" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-foreground">{route}</p>
-                                                {details.length > 0 && (
-                                                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</p>
-                                                )}
-                                                {flight.link_url && (
-                                                    <span className="mt-1"><WebsiteChip url={flight.link_url} /></span>
-                                                )}
-                                            </div>
-                                            {flight.price && (
-                                                <CostBadge cost={flight.price} variant="light" />
-                                            )}
-                                        </article>
-                                    );
-                                })}
-                            
+                                {group.activities.length > 0 && (
+                                    <div className="flex flex-col gap-3">
+                                        <CategoryHeading icon={<MapPin className="h-3.5 w-3.5" />} label="Activities" className="text-violet-600" />
+                                        {group.activities.map((item, ai) => (
+                                            <StopArticle key={`a-${gi}-${ai}`} id={`shared-stop-${gi}-activity-${ai}`} title={item.title || ""} address={item.address} addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground" />} description={item.description} linkUrl={item.link_url} cost={item.cost} thumbnail={item.thumbnail_url} kind="activity" />
+                                        ))}
+                                    </div>
+                                )}
                             </section>
                         ))}
                     </div>
