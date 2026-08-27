@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight, BedDouble, CalendarRange, Compass, MapPin, Notebook, Plane } from "lucide-react";
+import { ArrowRight, BedDouble, CalendarRange, MapPin, Notebook, Plane } from "lucide-react";
 
 import type { SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
@@ -36,6 +36,7 @@ function StopThumb({ src, alt, kind }: { src?: string | null; alt: string; kind:
 }
 
 function StopArticle({
+    id,
     title,
     address,
     addressIcon: AddressIcon,
@@ -45,6 +46,7 @@ function StopArticle({
     thumbnail,
     kind,
 }: {
+    id?: string;
     title: string;
     address?: string | null;
     addressIcon?: React.ReactNode;
@@ -55,12 +57,12 @@ function StopArticle({
     kind: "activity" | "lodging";
 }) {
     return (
-        <article className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3">
+        <article id={id} className="flex items-start gap-3 rounded-xl border border-border bg-secondary/50 p-3 scroll-mt-20 transition-shadow">
             <StopThumb src={thumbnail} alt={title || kind} kind={kind} />
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">{title || `Untitled ${kind}`}</p>
                 {address && (
-                    <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground">
+                    <p className="mt-0.5 flex w-fit items-start gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                         {AddressIcon}
                         <span>{address}</span>
                     </p>
@@ -106,13 +108,14 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                             <p className="text-sm text-muted-foreground">This plan is empty.</p>
                         )}
 
-                        {plan.groups.map((group) => (
+                        {plan.groups.map((group, gi) => (
                             <section key={group.name} className="flex flex-col gap-3">
                                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.name}</h2>
 
-                                {group.activities.map((item, index) => (
+                                {group.activities.map((item, ai) => (
                                     <StopArticle
-                                        key={`a-${index}`}
+                                        key={`a-${gi}-${ai}`}
+                                        id={`shared-stop-${gi}-activity-${ai}`}
                                         title={item.title || ""}
                                         address={item.address}
                                         addressIcon={<MapPin className="mt-0.5 h-3 w-3 flex-shrink-0 text-violet-500" />}
@@ -124,9 +127,10 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                     />
                                 ))}
 
-                                {group.lodgings.map((item, index) => (
+                                {group.lodgings.map((item, li) => (
                                     <StopArticle
-                                        key={`l-${index}`}
+                                        key={`l-${gi}-${li}`}
+                                        id={`shared-stop-${gi}-lodging-${li}`}
                                         title={item.title || ""}
                                         address={item.address}
                                         addressIcon={<BedDouble className="mt-0.5 h-3 w-3 flex-shrink-0 text-emerald-500" />}
@@ -180,19 +184,15 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                     Plans are a live snapshot of saved places.
                 </p>
 
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 px-8 py-10 text-center ring-1 ring-amber-200/50">
-                    <Compass className="mx-auto mb-3 h-8 w-8 text-primary/60" />
-                    <p className="font-[family-name:var(--font-brand-display)] text-2xl text-primary/80">
+                <div className="sticky bottom-0 -mx-4 mt-6 flex items-center justify-center gap-3 border-t border-primary/10 bg-background/70 px-6 py-4 backdrop-blur-xl md:-mx-8">
+                    <p className="font-[family-name:var(--font-brand-display)] text-lg text-primary/70">
                         Want to plan your own trips?
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Create your dream itinerary with Travela
                     </p>
                     <Link
                         href="/"
-                        className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:shadow-lg hover:brightness-110"
+                        className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:shadow-md hover:brightness-110"
                     >
-                        Explore Travela
+                        Start planning
                         <ArrowRight className="h-4 w-4" />
                     </Link>
                 </div>

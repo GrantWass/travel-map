@@ -45,7 +45,7 @@ export const LODGING_CARD_CONFIG: StopCardConfig = {
     expandedBorderClass: "border-emerald-400/50 bg-emerald-50/30 shadow-md shadow-emerald-400/5",
     expandedShadowClass: "shadow-emerald-400/5",
     noImageBorderClass: "border-border bg-emerald-50/30",
-    addressPillClass: "bg-emerald-50 text-emerald-700",
+    addressPillClass: "w-fit bg-secondary text-muted-foreground",
     collapsedPhotoBorderClass: "border-l-3 border-l-emerald-400",
 };
 
@@ -57,27 +57,27 @@ export const ACTIVITY_CARD_CONFIG: StopCardConfig = {
     expandedBorderClass: "border-violet-400/50 bg-violet-50/30 shadow-md shadow-violet-400/5",
     expandedShadowClass: "shadow-violet-400/5",
     noImageBorderClass: "border-border bg-violet-50/30",
-    addressPillClass: "bg-violet-50 text-violet-700",
+    addressPillClass: "w-fit bg-secondary text-muted-foreground",
     collapsedPhotoBorderClass: "border-l-3 border-l-violet-400",
 };
 
-/** Shared "Places Stayed" / "Activities" section: heading + cards or empty state. */
+/** Shared "Places Stayed" / "Activities" section: heading + cards or hidden if empty. */
 export function StopSection({
     title,
-    emptyMessage,
     children,
 }: {
     title: ReactNode;
-    emptyMessage: string;
+    emptyMessage?: string;
     children?: ReactNode;
 }) {
     const hasItems = Array.isArray(children) ? children.length > 0 : Boolean(children);
+    if (!hasItems) return null;
     return (
         <div className="flex flex-col gap-3">
             <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 {title}
             </h3>
-            {hasItems ? children : <p className="text-sm text-muted-foreground">{emptyMessage}</p>}
+            {children}
         </div>
     );
 }
@@ -132,7 +132,7 @@ export default function StopItemCard({
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
                         {addressLabel && (
-                            <span className={cn("mt-0.5 flex w-full items-start gap-1 rounded-full px-2 py-0.5 text-xs", config.addressPillClass)}>
+                            <span className={cn("mt-0.5 flex items-start gap-1 rounded-full px-2 py-0.5 text-xs", config.addressPillClass)}>
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words">{addressLabel}</span>
                             </span>
@@ -235,7 +235,7 @@ export default function StopItemCard({
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground break-words">{item.title}</p>
                         {addressLabel && (
-                            <span className={cn("mt-0.5 flex w-full items-start gap-1 rounded-full px-2 py-0.5 text-xs", config.addressPillClass)}>
+                            <span className={cn("mt-0.5 flex items-start gap-1 rounded-full px-2 py-0.5 text-xs", config.addressPillClass)}>
                                 <MapPin className="mt-0.5 h-3 w-3 flex-shrink-0" />
                                 <span className="min-w-0 break-words">{addressLabel}</span>
                             </span>
