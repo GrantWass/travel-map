@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   BedDouble,
   ChevronDown,
   ChevronRight,
@@ -414,6 +415,7 @@ interface SavedStopActionsProps {
   entry: { tripTitle: string };
   collections: string[];
   currentCollection: string | null;
+  onOpenTrip: () => void;
   onRemove: () => void;
   onMove: (collectionName: string | null) => void;
 }
@@ -727,11 +729,19 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
   );
 }
 
-function SavedStopActions({ entry, collections, currentCollection, onRemove, onMove }: SavedStopActionsProps) {
+function SavedStopActions({ entry, collections, currentCollection, onOpenTrip, onRemove, onMove }: SavedStopActionsProps) {
   return (
     <>
       <span className="truncate text-xs text-muted-foreground">From “{entry.tripTitle}”</span>
       <div className="ml-auto flex flex-shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={onOpenTrip}
+          className="inline-flex h-7 items-center gap-1 rounded-full px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          View trip
+          <ArrowRight className="h-3 w-3" />
+        </button>
         <MoveMenu collections={collections} currentCollection={currentCollection} onMove={onMove} />
         <button
           type="button"
@@ -940,26 +950,48 @@ export default function PlansSidebarPanel({
 
   /** Trip-style card for a saved activity from a real trip. */
   function SavedActivityCard({ entry }: { entry: SavedActivityEntry }) {
+    const itemKey = `activity-${entry.activity.activity_id}`;
     return (
       <StopItemCard
         item={entry.activity}
         thumbnailUrl={entry.activity.thumbnail_url || entry.tripThumbnail}
-        isExpanded={false}
-        onSelect={() => onOpenTrip(entry.tripId)}
+        isExpanded={expandedPlanItemKey === itemKey}
+        onSelect={() => setExpandedPlanItemKey((current) => current === itemKey ? null : itemKey)}
         config={ACTIVITY_CARD_CONFIG}
+        actions={
+          <SavedStopActions
+            entry={entry}
+            collections={allCollectionNames}
+            currentCollection={entry.collectionName}
+            onOpenTrip={() => onOpenTrip(entry.tripId)}
+            onRemove={() => onToggleSavedActivity(entry.activity.activity_id)}
+            onMove={(collectionName) => onMoveActivity(entry.activity.activity_id, collectionName)}
+          />
+        }
       />
     );
   }
 
   /** Trip-style card for a saved lodging from a real trip. */
   function SavedLodgingCard({ entry }: { entry: SavedLodgingEntry }) {
+    const itemKey = `stay-${entry.lodging.lodge_id}`;
     return (
       <StopItemCard
         item={entry.lodging}
         thumbnailUrl={entry.lodging.thumbnail_url || entry.tripThumbnail}
-        isExpanded={false}
-        onSelect={() => onOpenTrip(entry.tripId)}
+        isExpanded={expandedPlanItemKey === itemKey}
+        onSelect={() => setExpandedPlanItemKey((current) => current === itemKey ? null : itemKey)}
         config={LODGING_CARD_CONFIG}
+        actions={
+          <SavedStopActions
+            entry={entry}
+            collections={allCollectionNames}
+            currentCollection={entry.collectionName}
+            onOpenTrip={() => onOpenTrip(entry.tripId)}
+            onRemove={() => onToggleSavedLodging(entry.lodging.lodge_id)}
+            onMove={(collectionName) => onMoveLodging(entry.lodging.lodge_id, collectionName)}
+          />
+        }
       />
     );
   }
