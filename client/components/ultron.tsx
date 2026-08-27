@@ -7,7 +7,9 @@ export function Ultron() {
     initTracker({
       apiKey: process.env.NEXT_PUBLIC_ULTRON_API_KEY!,
       debug: process.env.NODE_ENV === 'development',
-      sessionReplay: true
+      // The tracker currently lets rrweb custom-event failures escape its
+      // fetch wrapper, which can reject otherwise successful API requests.
+      sessionReplay: false
     })
   }, [])
   return null
