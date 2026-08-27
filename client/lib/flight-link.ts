@@ -92,7 +92,7 @@ function parseTfsParam(tfs: string): ParsedFlightLink | null {
   while ((match = segRe.exec(text)) !== null) {
     let flight: string | undefined;
     if (match[4]) {
-      let pos = segRe.lastIndex;
+      const pos = segRe.lastIndex;
       if (text[pos] === "2") {
         const len = text.charCodeAt(pos + 1);
         const digits = text.slice(pos + 2, pos + 2 + len);

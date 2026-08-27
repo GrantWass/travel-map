@@ -779,10 +779,25 @@ export default function PlansSidebarPanel({
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   // Which collection the add-form targets (null = unsorted). Null means form closed.
   const [addFormTarget, setAddFormTarget] = useState<string | null | undefined>(undefined);
+  const [addFormType, setAddFormType] = useState<StopType>("activity");
   const [addFlightFormTarget, setAddFlightFormTarget] = useState<string | null | undefined>(undefined);
   const [openCollection, setOpenCollection] = useState<string | null>(null);
+  const [creationStatus, setCreationStatus] = useState<string | null>(null);
 
   const totalCount = savedActivities.length + savedLodgings.length + customItems.length + flights.length;
+
+  function openStopForm(target: string | null, type: StopType) {
+    setAddFormType(type);
+    setAddFormTarget(target);
+    setAddFlightFormTarget(undefined);
+    setShowNewCollectionInput(false);
+  }
+
+  function openFlightForm(target: string | null) {
+    setAddFormTarget(undefined);
+    setAddFlightFormTarget(target);
+    setShowNewCollectionInput(false);
+  }
 
   function handleCreateCollection() {
     const name = newCollectionName.trim();
@@ -790,6 +805,8 @@ export default function PlansSidebarPanel({
     onCreateCollection(name);
     setNewCollectionName("");
     setShowNewCollectionInput(false);
+    setCreationStatus(`Created “${name}”.`);
+    window.setTimeout(() => setCreationStatus(null), 2500);
   }
 
   const allCollectionNames = [
@@ -797,6 +814,8 @@ export default function PlansSidebarPanel({
       ...collections,
       ...savedActivities.map((a) => a.collectionName).filter(Boolean) as string[],
       ...savedLodgings.map((l) => l.collectionName).filter(Boolean) as string[],
+      ...customItems.map((item) => item.collection_name).filter(Boolean) as string[],
+      ...flights.map((flight) => flight.collection_name).filter(Boolean) as string[],
     ]),
   ].sort();
 
@@ -1005,16 +1024,25 @@ export default function PlansSidebarPanel({
             </button>
             <button
               type="button"
-              onClick={() => setAddFormTarget(name)}
+              onClick={() => openStopForm(name, "activity")}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
-              aria-label="Add stop to this collection"
-              title="Add activity or lodging"
+              aria-label="Add activity to this collection"
+              title="Add activity"
             >
               <Plus className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={() => setAddFlightFormTarget(name)}
+              onClick={() => openStopForm(name, "lodging")}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
+              aria-label="Add stay to this collection"
+              title="Add stay"
+            >
+              <BedDouble className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => openFlightForm(name)}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
               aria-label="Add flight to this collection"
               title="Add flight"
@@ -1092,6 +1120,8 @@ export default function PlansSidebarPanel({
     const colActivities = activitiesFor(name);
     const colLodgings = lodgingsFor(name);
     const colCustomItems = customItemsFor(name);
+    const colCustomActivities = colCustomItems.filter((item) => item.item_type !== "lodging");
+    const colCustomLodgings = colCustomItems.filter((item) => item.item_type === "lodging");
     const colFlights = flightsFor(name);
     const count =
       colActivities.length + colLodgings.length + colCustomItems.length + colFlights.length;
@@ -1134,7 +1164,7 @@ export default function PlansSidebarPanel({
             <>
               <button
                 type="button"
-                onClick={() => setAddFormTarget(name)}
+                onClick={() => openStopForm(name, "activity")}
                 className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs hover:text-foreground"
                 title={`Add to "${name}"`}
               >
@@ -1142,7 +1172,7 @@ export default function PlansSidebarPanel({
               </button>
               <button
                 type="button"
-                onClick={() => setAddFlightFormTarget(name)}
+                onClick={() => openFlightForm(name)}
                 className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:shadow-xs hover:text-foreground"
                 title={`Add flight to "${name}"`}
               >
@@ -1191,15 +1221,22 @@ export default function PlansSidebarPanel({
         />
 
         {!collapsed && (
-          <div className="flex flex-col gap-2 pl-1">
-            {colFlights.map(flightRow)}
-            {colLodgings.map((entry) => (
-              <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />
-            ))}
-            {colActivities.map((entry) => (
-              <SavedActivityCard key={entry.activity.activity_id} entry={entry} />
-            ))}
-            {colCustomItems.map(customRow)}
+          <div className="flex flex-col gap-5 pt-2 pl-1">
+            <StopSection title={<><Plane className="h-3.5 w-3.5 text-sky-500" /> <span className="text-sky-600">Flights</span></>} emptyMessage="No flights added yet.">
+              {colFlights.map(flightRow)}
+            </StopSection>
+            <StopSection title={<><BedDouble className="h-3.5 w-3.5 text-emerald-500" /> <span className="text-emerald-600">Places Stayed</span></>} emptyMessage="No places stayed added yet.">
+              {colLodgings.map((entry) => (
+                <SavedLodgingCard key={entry.lodging.lodge_id} entry={entry} />
+              ))}
+              {colCustomLodgings.map(customRow)}
+            </StopSection>
+            <StopSection title={<><MapPin className="h-3.5 w-3.5 text-violet-500" /> <span className="text-violet-600">Activities</span></>} emptyMessage="No activities added yet.">
+              {colActivities.map((entry) => (
+                <SavedActivityCard key={entry.activity.activity_id} entry={entry} />
+              ))}
+              {colCustomActivities.map(customRow)}
+            </StopSection>
           </div>
         )}
       </div>
@@ -1227,24 +1264,6 @@ export default function PlansSidebarPanel({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setAddFlightFormTarget(selectedCollection)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
-                aria-label="Add a flight"
-                title="Add a flight"
-              >
-                <Plane className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddFormTarget(selectedCollection)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20 hover:shadow-sm"
-                aria-label="Add your own plan item"
-                title="Add your own plan item"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
                 onClick={() => void handleShare(selectedCollection)}
                 disabled={totalCount === 0 && collections.length === 0}
                 className="flex h-9 items-center gap-1.5 rounded-full bg-secondary/60 px-3 text-xs font-medium text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm disabled:opacity-50"
@@ -1267,15 +1286,6 @@ export default function PlansSidebarPanel({
                 </button>
               )}
               <button
-                type="button"
-                onClick={() => setShowNewCollectionInput((v) => !v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
-                aria-label="New collection"
-                title="New collection"
-              >
-                <FolderOpen className="h-4 w-4" />
-              </button>
-              <button
                 onClick={onClose}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/60 text-foreground transition-all duration-200 hover:bg-secondary hover:shadow-sm"
                 aria-label="Close plans panel"
@@ -1284,6 +1294,23 @@ export default function PlansSidebarPanel({
               </button>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-2 border-b border-border/40 px-4 py-3">
+            <button type="button" onClick={() => openStopForm(selectedCollection, "activity")} className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
+              <MapPin className="h-4 w-4" /> Add activity
+            </button>
+            <button type="button" onClick={() => openStopForm(selectedCollection, "lodging")} className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-secondary">
+              <BedDouble className="h-4 w-4" /> Add stay
+            </button>
+            <button type="button" onClick={() => openFlightForm(selectedCollection)} className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-secondary">
+              <Plane className="h-4 w-4" /> Add flight
+            </button>
+            <button type="button" onClick={() => { setAddFormTarget(undefined); setAddFlightFormTarget(undefined); setShowNewCollectionInput((v) => !v); }} className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-secondary">
+              <FolderOpen className="h-4 w-4" /> New list
+            </button>
+          </div>
+
+          {creationStatus && <div role="status" className="border-b border-success/20 bg-success/10 px-4 py-2 text-xs font-medium text-foreground">{creationStatus}</div>}
 
           {error && (
             <div className="border-b border-destructive/20 bg-destructive/10 px-5 py-2 text-xs text-destructive">
@@ -1295,7 +1322,7 @@ export default function PlansSidebarPanel({
             <div className="border-b border-border/40 bg-secondary/20 px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  New stop{addFormTarget ? ` → ${addFormTarget}` : ""}
+                  New {addFormType === "lodging" ? "stay" : "activity"}{addFormTarget ? ` → ${addFormTarget}` : ""}
                 </p>
                 <button
                   type="button"
@@ -1306,11 +1333,14 @@ export default function PlansSidebarPanel({
                 </button>
               </div>
               <StopForm
-                defaultType="activity"
+                key={`${addFormTarget ?? "unsorted"}-${addFormType}`}
+                defaultType={addFormType}
                 targetCollectionLabel={addFormTarget}
                 onSubmit={(payload) => {
                   onAddCustomItem({ ...payload, collection_name: addFormTarget });
                   setAddFormTarget(undefined);
+                  setCreationStatus(`Added ${payload.title} as ${payload.item_type === "lodging" ? "a stay" : "an activity"}.`);
+                  window.setTimeout(() => setCreationStatus(null), 2500);
                 }}
                 onCancel={() => setAddFormTarget(undefined)}
               />
@@ -1336,6 +1366,8 @@ export default function PlansSidebarPanel({
                 onSubmit={(payload) => {
                   onAddFlight({ ...payload, collection_name: addFlightFormTarget });
                   setAddFlightFormTarget(undefined);
+                  setCreationStatus("Added flight to your plans.");
+                  window.setTimeout(() => setCreationStatus(null), 2500);
                 }}
                 onCancel={() => setAddFlightFormTarget(undefined)}
               />
@@ -1372,7 +1404,7 @@ export default function PlansSidebarPanel({
                 <div className="rounded-2xl border border-dashed border-primary/20 bg-primary/5 p-4">
                   <p className="text-sm font-semibold text-foreground">Nothing saved yet</p>
                   <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                    Select an activity or lodging in a trip, then tap &quot;Save to Plans&quot;. Or add your own stops with <span className="font-medium text-primary">+</span>.
+                    Save an activity or stay from a trip, or add an activity, stay, or flight here.
                   </p>
                 </div>
               ) : (

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ImagePlus, MapPin, Sparkles, Timer } from "lucide-react";
 
@@ -96,6 +96,25 @@ const TRIP_DURATION_OPTIONS: Array<{ value: TripDuration; label: string; hint: s
   { value: "overnight trip", label: "Overnight", hint: "One night away" },
   { value: "multiday trip", label: "Multi-Day", hint: "A longer getaway" },
 ];
+const TRIP_DRAFT_VERSION = 1;
+
+interface TripDraft {
+  version: number;
+  title: string;
+  description: string;
+  coverImage: string;
+  coverImageName: string;
+  tripLocation: PlaceOption | null;
+  cost: string;
+  duration: TripDuration;
+  dateMonth: string;
+  dateYear: string;
+  visibility: TripVisibility;
+  selectedTags: string[];
+  lodgings: StopDraft[];
+  activities: StopDraft[];
+  collaborators: TripCollaborator[];
+}
 
 export default function TripsPage() {
   return (
@@ -165,8 +184,70 @@ function TripsPageContent() {
 
   const [lodgings, setLodgings] = useState<StopDraft[]>([]);
   const [activities, setActivities] = useState<StopDraft[]>([]);
+  const [draftStatus, setDraftStatus] = useState<"restored" | "saving" | "saved" | null>(null);
+  const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
+  const hasRestoredDraftRef = useRef(false);
+  const draftKey = userId ? `travel-map:trip-draft:v${TRIP_DRAFT_VERSION}:${userId}` : null;
   const previewLodgings = lodgings.filter(hasStopContent);
   const previewActivities = activities.filter(hasStopContent);
+
+  useEffect(() => {
+    if (isEditMode || !draftKey || hasRestoredDraftRef.current) return;
+    hasRestoredDraftRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as TripDraft;
+      if (draft.version !== TRIP_DRAFT_VERSION) return;
+      setTitle(draft.title || "");
+      setDescription(draft.description || "");
+      setCoverImage(draft.coverImage || "");
+      setCoverImageName(draft.coverImageName || "");
+      setTripLocation(draft.tripLocation || null);
+      setCost(draft.cost || "");
+      setDuration(draft.duration || "multiday trip");
+      setDateMonth(draft.dateMonth || "");
+      setDateYear(draft.dateYear || "");
+      setVisibility(draft.visibility || "public");
+      setSelectedTags(draft.selectedTags || []);
+      setLodgings(draft.lodgings || []);
+      setActivities(draft.activities || []);
+      setCollaborators(draft.collaborators || []);
+      setOptionalDetailsOpen(Boolean(draft.coverImage || draft.cost || draft.dateMonth || draft.selectedTags?.length));
+      setDraftStatus("restored");
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    }
+  }, [draftKey, isEditMode]);
+
+  useEffect(() => {
+    if (isEditMode || !draftKey || !hasRestoredDraftRef.current) return;
+    const hasContent = Boolean(title.trim() || description.trim() || tripLocation || lodgings.length || activities.length);
+    if (!hasContent) return;
+    setDraftStatus("saving");
+    const timeout = window.setTimeout(() => {
+      const draft: TripDraft = {
+        version: TRIP_DRAFT_VERSION,
+        title,
+        description,
+        coverImage,
+        coverImageName,
+        tripLocation,
+        cost,
+        duration,
+        dateMonth,
+        dateYear,
+        visibility,
+        selectedTags,
+        lodgings,
+        activities,
+        collaborators,
+      };
+      window.localStorage.setItem(draftKey, JSON.stringify(draft));
+      setDraftStatus("saved");
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [activities, collaborators, cost, coverImage, coverImageName, dateMonth, dateYear, description, draftKey, duration, isEditMode, lodgings, selectedTags, title, tripLocation, visibility]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -236,6 +317,7 @@ function TripsPageContent() {
         setVisibility(trip.visibility);
         setSelectedTags(trip.tags);
         setCollaborators(trip.collaborators || []);
+        setOptionalDetailsOpen(true);
 
         setLodgings(trip.lodgings.map((lodging) => makeStopDraftFromChild(lodging, lodging.address || lodging.title || "")));
         setActivities(trip.activities.map((activity) => makeStopDraftFromChild(activity, activity.location || activity.address || activity.title || "")));
@@ -474,11 +556,13 @@ function TripsPageContent() {
 
     if (!title.trim()) {
       setError("Add a trip title before posting.");
+      document.getElementById("trip-title")?.focus();
       return;
     }
 
     if (!tripLocation) {
       setError("Choose a trip location before posting.");
+      document.getElementById("trip-location")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -536,6 +620,7 @@ function TripsPageContent() {
       const destinationParams = new URLSearchParams(queryPart || "");
       destinationParams.set("trip", String(savedTrip.trip_id));
       const destinationQuery = destinationParams.toString();
+      if (draftKey) window.localStorage.removeItem(draftKey);
       router.push(destinationQuery ? `${destinationPath}?${destinationQuery}` : destinationPath);
       return;
     } catch (submitError) {
@@ -562,8 +647,9 @@ function TripsPageContent() {
                 </>
               ) : (
                 <>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-primary">Trip Composer</p>
-                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">Craft your next post</h1>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-primary">New trip</p>
+                  <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground">Share an adventure</h1>
+                  <p className="mt-1 text-sm text-muted-foreground">Only a title and location are required. Everything else is optional.</p>
                 </>
               )}
             </div>
@@ -575,6 +661,47 @@ function TripsPageContent() {
           </div>
 
           <div className="space-y-6">
+            {draftStatus && !isEditMode ? (
+              <div role="status" className="rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-primary">
+                {draftStatus === "restored" ? "Your unfinished trip was restored." : draftStatus === "saving" ? "Saving draft…" : "Draft saved on this device."}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4">
+              <input
+                id="trip-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Give your trip a title"
+                aria-label="Trip title"
+                className="w-full border-b border-border bg-transparent pb-3 text-4xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60"
+              />
+
+              <div id="trip-location">
+                <PlacePicker
+                  label="Location"
+                  placeholder="Where did you go?"
+                  value={tripLocation}
+                  onChange={setTripLocation}
+                  mode="city"
+                  allowMapPin
+                />
+              </div>
+
+              <Textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={5}
+                placeholder="Add a quick note, favorite moment, or advice (optional)"
+                className={`resize-none rounded-2xl border-border text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
+              />
+            </div>
+
+            <details className="group rounded-2xl border border-border bg-secondary/40" open={optionalDetailsOpen} onToggle={(event) => setOptionalDetailsOpen(event.currentTarget.open)}>
+              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-foreground marker:hidden">
+                Trip details <span className="text-xs font-normal text-muted-foreground group-open:hidden">Optional</span>
+              </summary>
+              <div className="space-y-4 border-t border-border/60 p-4">
             <div className="rounded-2xl border border-border bg-secondary/50 p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Cover Image</p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -603,32 +730,6 @@ function TripsPageContent() {
                   {coverImageError ? <p className="text-xs font-medium text-destructive">{coverImageError}</p> : null}
                 </div>
               </div>
-            </div>
-
-            <div className="grid gap-4">
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Title your trip..."
-                className="w-full border-b border-border bg-transparent pb-3 text-4xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60"
-              />
-
-              <PlacePicker
-                label="Location"
-                placeholder="Search city or suburb..."
-                value={tripLocation}
-                onChange={setTripLocation}
-                mode="city"
-                allowMapPin
-              />
-
-              <Textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={7}
-                placeholder="Tell the story: what you did, what surprised you, and what someone should know before visiting..."
-                className={`resize-none rounded-2xl border-border text-base leading-relaxed ${READABLE_TEXTAREA_CLASS}`}
-              />
             </div>
 
             {/* Trip mode: date + cost + duration + visibility + tags */}
@@ -714,6 +815,8 @@ function TripsPageContent() {
                   />
                 </div>
             </div>
+              </div>
+            </details>
 
             <StopEditorSection
               kind="lodging"
@@ -827,7 +930,7 @@ function TripsPageContent() {
           {editLoadError ? <p className="text-sm font-medium text-destructive">{editLoadError}</p> : null}
           {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
-          <div className="flex flex-wrap gap-3">
+          <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur-xl">
             {isLoadingEditTrip ? (
               <p className="text-sm text-muted-foreground">Loading trip data...</p>
             ) : (
@@ -844,6 +947,7 @@ function TripsPageContent() {
                     : "Post Trip"}
               </Button>
             )}
+            {!isLoadingEditTrip && <p className="text-xs text-muted-foreground">{title.trim() && tripLocation ? "Ready to post" : `${title.trim() ? 1 : 0}/2 required details complete`}</p>}
           </div>
           </div>
         </section>

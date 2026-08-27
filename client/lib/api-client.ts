@@ -189,10 +189,26 @@ export async function updateProfileSettings(payload: {
 
 // --- Trips ---
 
-export async function getPublicTrips(): Promise<Trip[]> {
+export interface MapBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+function appendBounds(params: URLSearchParams, bounds?: MapBounds): void {
+  if (!bounds) return;
+  params.set("min_lat", bounds.minLat.toFixed(4));
+  params.set("max_lat", bounds.maxLat.toFixed(4));
+  params.set("min_lng", bounds.minLng.toFixed(4));
+  params.set("max_lng", bounds.maxLng.toFixed(4));
+}
+
+export async function getPublicTrips(bounds?: MapBounds): Promise<Trip[]> {
   const params = new URLSearchParams();
   params.set("include_children", "false");
   params.set("public_only", "true");
+  appendBounds(params, bounds);
   const data = await requestJson<{ trips: Trip[] }>(
     `/trips?${params.toString()}`,
     { method: "GET" },
@@ -200,8 +216,10 @@ export async function getPublicTrips(): Promise<Trip[]> {
   return data.trips;
 }
 
-export async function getDeferredTripIds(): Promise<number[]> {
-  const data = await requestJson<{ trip_ids: number[] }>("/trips/deferred-ids", { method: "GET" });
+export async function getDeferredTripIds(bounds?: MapBounds): Promise<number[]> {
+  const params = new URLSearchParams();
+  appendBounds(params, bounds);
+  const data = await requestJson<{ trip_ids: number[] }>(`/trips/deferred-ids?${params.toString()}`, { method: "GET" });
   return data.trip_ids;
 }
 

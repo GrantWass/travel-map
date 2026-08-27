@@ -12,6 +12,7 @@ import { formatAddress, formatTripDate, formatTripDuration } from "@/lib/utils";
 import { buildSearchResults, getAvailableTags, MAX_COST, TRIP_DURATION_OPTIONS, useTripSearchStore, type SearchResultSort } from "@/stores/trip-search-store";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] as const;
+const RECENT_SEARCHES_KEY = "travel-map:recent-searches:v1";
 
 interface SearchSidebarPanelProps {
     query: string;
@@ -87,6 +88,24 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
     );
 
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+    useEffect(() => {
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(RECENT_SEARCHES_KEY) ?? "[]");
+            if (Array.isArray(stored)) setRecentSearches(stored.filter((value): value is string => typeof value === "string").slice(0, 5));
+        } catch {
+            setRecentSearches([]);
+        }
+    }, []);
+
+    function rememberSearch() {
+        const value = query.trim();
+        if (!value) return;
+        const next = [value, ...recentSearches.filter((item) => item.toLowerCase() !== value.toLowerCase())].slice(0, 5);
+        setRecentSearches(next);
+        window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+    }
 
     const hasDateFilter = Boolean(dateFrom || dateTo);
     const hasActiveFilters = selectedTags.length > 0 || maxCost < MAX_COST || tripTypeFilter.length > 0 || hasDateFilter;
@@ -101,6 +120,7 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
                     ref={searchInputRef}
                     value={query}
                     onChange={(e) => onQueryChange(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") rememberSearch(); }}
                     placeholder="Search trips, activities, or places"
                     className="h-full flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                     aria-label="Search trips"
@@ -120,6 +140,23 @@ export default function SearchSidebarPanel({ query, trips, onQueryChange, onClos
             </div>
             <ScrollArea className="flex-1 min-h-0">
                 <div className="flex flex-col px-4 pb-4 pt-2">
+                    {noFiltersOrQuery && (recentSearches.length > 0 || availableTags.length > 0) && (
+                        <section aria-labelledby="discover-heading" className="border-b border-border/40 pb-4 pt-2">
+                            <h2 id="discover-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Discover</h2>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {recentSearches.map((item) => (
+                                    <button key={item} type="button" onClick={() => onQueryChange(item)} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium hover:border-primary/30 hover:bg-primary/5">
+                                        {item}
+                                    </button>
+                                ))}
+                                {availableTags.slice(0, Math.max(0, 6 - recentSearches.length)).map((tag) => (
+                                    <button key={tag} type="button" onClick={() => toggleTag(tag)} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium capitalize text-primary hover:bg-primary/15">
+                                        {tag}
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+                    )}
                     {/* Filters */}
                     <div className="flex flex-col gap-0">
                         <button

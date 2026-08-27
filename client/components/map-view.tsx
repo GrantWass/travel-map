@@ -9,6 +9,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
 import { useTripMapStore } from "@/stores/trip-map-store";
 import type { TripActivity, TripLodging, Trip } from "@/lib/api-types";
+import type { MapBounds } from "@/lib/api-client";
 import { createTripIcon, createClusterIcon, createActivityIcon, createLodgingIcon } from "@/components/map-icons";
 
 interface MapViewProps {
@@ -17,6 +18,7 @@ interface MapViewProps {
     onRightClick?: (lat: number, lng: number, clientX: number, clientY: number) => void;
     collectionActivities?: TripActivity[];
     collectionLodgings?: TripLodging[];
+    onViewportChange?: (bounds: MapBounds, initial: boolean) => void;
 }
 
 const STORED_MAP_VIEW_KEY = "travel-map:view:v1";
@@ -138,6 +140,7 @@ export default function MapView({
     onRightClick,
     collectionActivities,
     collectionLodgings,
+    onViewportChange,
 }: MapViewProps) {
     const storeTrips = useTripMapStore((state) => state.trips);
     const trips = visibleTrips ?? storeTrips;
@@ -154,6 +157,8 @@ export default function MapView({
     useEffect(() => { onRightClickRef.current = onRightClick; }, [onRightClick]);
     const onSelectTripByIdRef = useRef(onSelectTripById);
     useEffect(() => { onSelectTripByIdRef.current = onSelectTripById; }, [onSelectTripById]);
+    const onViewportChangeRef = useRef(onViewportChange);
+    useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
     const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
     const tripMarkersRef = useRef<L.Marker[]>([]);
     const tripMarkersByLocationRef = useRef(new Map<string, { marker: L.Marker; trip: Trip }>());
@@ -244,7 +249,20 @@ export default function MapView({
         locateControl.addTo(map);
 
         mapRef.current = map;
-        map.on("moveend", () => persistMapView(map));
+        let isInitialViewport = true;
+        const emitViewport = () => {
+            persistMapView(map);
+            const bounds = map.getBounds();
+            onViewportChangeRef.current?.({
+                minLat: bounds.getSouth(),
+                maxLat: bounds.getNorth(),
+                minLng: bounds.getWest(),
+                maxLng: bounds.getEast(),
+            }, isInitialViewport);
+            isInitialViewport = false;
+        };
+        map.on("moveend", emitViewport);
+        map.whenReady(emitViewport);
         map.on("contextmenu", (e: L.LeafletMouseEvent) => {
             onRightClickRef.current?.(
                 e.latlng.lat,

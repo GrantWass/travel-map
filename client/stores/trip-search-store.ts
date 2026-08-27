@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { getPublicTrips, getTripChildrenBatch, getTripsBatch } from "@/lib/api-client";
+import { getPublicTrips, getTripChildrenBatch, getTripsBatch, type MapBounds } from "@/lib/api-client";
 import type { FriendshipRecord, Trip, TripActivity, TripLodging, TripDuration } from "@/lib/api-types";
 
 export const MAX_COST = 500;
@@ -105,8 +105,8 @@ export async function fetchDeferredTripsWithChildren(tripIds: number[]): Promise
   return getTripsBatch(tripIds);
 }
 
-export async function fetchPublicTripsLightweight(): Promise<Trip[]> {
-  const apiTrips = await getPublicTrips();
+export async function fetchPublicTripsLightweight(bounds?: MapBounds): Promise<Trip[]> {
+  const apiTrips = await getPublicTrips(bounds);
   return apiTrips.filter((trip): trip is Trip => Boolean(trip));
 }
 

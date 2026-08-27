@@ -101,6 +101,7 @@ def create_user():
         auth_token = create_auth_token(user_id)
         response = jsonify({"message": "user created", "user_id": user_id, "email": email, "auth_token": auth_token})
         response.status_code = 201
+        attach_auth_cookie(response, auth_token)
         return response
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")

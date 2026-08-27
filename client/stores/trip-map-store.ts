@@ -7,7 +7,6 @@ import { getLocationKey, getTripTimestamp } from "@/lib/utils";
 import {
     fetchDeferredTripsWithChildren,
     fetchPublicTripsLightweight,
-    hydrateTripChildrenOnly,
 } from "@/stores/trip-search-store";
 import { getDeferredTripIds } from "@/lib/api-client";
 
@@ -33,6 +32,7 @@ interface TripMapStoreState {
     isLoadingTripById: boolean;
     loadTrips: (initialPublicTrips?: Trip[], initialDeferredTripIds?: number[]) => Promise<void>;
     setTrips: (trips: Trip[]) => void;
+    mergeTrips: (trips: Trip[]) => void;
     upsertTrip: (trip: Trip) => void;
     removeTripById: (tripId: number) => void;
     setSelectedTrip: (trip: Trip | null) => void;
@@ -172,32 +172,11 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
 
                 // Background hydration should never clear the already rendered public set.
                 try {
-                    const publicTripIds = publicTrips.map((trip) => trip.trip_id);
                     const deferredTripIds = await deferredTripIdsPromise;
-                    const [publicChildren, deferredTrips] = await Promise.all([
-                        hydrateTripChildrenOnly(publicTripIds),
-                        fetchDeferredTripsWithChildren(deferredTripIds),
-                    ]);
+                    const deferredTrips = await fetchDeferredTripsWithChildren(deferredTripIds);
 
                     set((state) => {
-                        const publicChildrenByTripId = new Map(publicChildren.map((entry) => [entry.trip_id, entry]));
-                        const hydratedPublicTrips = publicTrips.map((trip) => {
-                            const children = publicChildrenByTripId.get(trip.trip_id);
-                            if (!children) {
-                                return trip;
-                            }
-
-                            return {
-                                ...trip,
-                                tags: children.tags,
-                                lodgings: children.lodgings,
-                                activities: children.activities,
-                                comments: children.comments,
-                                collaborators: children.collaborators,
-                            };
-                        });
-
-                        const updatedTrips = [...hydratedPublicTrips, ...deferredTrips].sort(
+                        const updatedTrips = [...publicTrips, ...deferredTrips].sort(
                             (left, right) => right.trip_id - left.trip_id,
                         );
                         const hydratedMap = new Map(updatedTrips.map((trip) => [trip.trip_id, trip]));
@@ -228,6 +207,12 @@ export const useTripMapStore = create<TripMapStoreState>((set, get) => ({
         }
     },
     setTrips: (trips) => set({ trips }),
+    mergeTrips: (incomingTrips) =>
+        set((state) => {
+            const tripsById = new Map(state.trips.map((trip) => [trip.trip_id, trip]));
+            for (const trip of incomingTrips) tripsById.set(trip.trip_id, trip);
+            return { trips: Array.from(tripsById.values()).sort((a, b) => b.trip_id - a.trip_id) };
+        }),
     upsertTrip: (trip) =>
         set((state) => {
             const index = state.trips.findIndex((item) => item.trip_id === trip.trip_id);

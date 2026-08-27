@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import { supabase } from "@/lib/supabase";
 
 const PUBLIC_ROUTES = new Set(["/", "/map", "/signup"]);
 const STUDENT_ONLY_ROUTES = new Set(["/trips"]);
@@ -32,6 +33,19 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
 
         void refreshSession();
     }, [isHydratedFromCache, refreshSession]);
+
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === "SIGNED_OUT" && !session) {
+                useAuthStore.getState().clearAuthState();
+                return;
+            }
+            if (session?.access_token && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+                void useAuthStore.getState().refreshSession();
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, []);
 
     useEffect(() => {
         if (!isHydratedFromCache) {

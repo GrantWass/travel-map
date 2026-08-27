@@ -119,8 +119,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                 return null;
             }
 
-            get().clearAuthState();
-            return null;
+            // A deploy, cold start, or brief network interruption must not sign
+            // someone out. Keep the last verified session and retry later.
+            const cachedUser = get().user;
+            set({ status: cachedUser ? "authenticated" : "unauthenticated" });
+            return cachedUser;
         }
     },
     refreshMyProfile: async (userIdOverride?: number) => {

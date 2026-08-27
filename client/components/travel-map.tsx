@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { CircleUser, MapPin, Notebook, Search, X, Users } from "lucide-react";
+import { CircleUser, MapPin, Notebook, RefreshCw, Search, X, Users } from "lucide-react";
 
 import PlansSidebarPanel from "@/components/plans-sidebar-panel";
 import SearchSidebarPanel from "@/components/search-sidebar-panel";
@@ -12,6 +12,8 @@ import SidebarPanel from "@/components/sidebar-panel";
 import SignupRequiredModal from "@/components/signup-required-modal";
 import StudentAddMenu from "@/components/student-add-menu";
 import BrandNameButton from "@/components/brand-name-button";
+import MobileNavigation from "@/components/mobile-navigation";
+import StatusToast from "@/components/status-toast";
 
 // Interaction-only modals load on demand to keep the initial bundle small.
 const UserProfileModal = dynamic(() => import("@/components/user-profile-modal"));
@@ -24,6 +26,8 @@ import type { TripActivity, Trip, TripLodging, User } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { useTripEngagement } from "@/hooks/use-trip-engagement";
+import { useMapViewportTrips } from "@/hooks/use-map-viewport-trips";
+import type { MapBounds } from "@/lib/api-client";
 import { deriveSelectedLocationContext, deriveTripMapPanels, useTripMapStore } from "@/stores/trip-map-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFriendsStore } from "@/stores/friends-store";
@@ -147,6 +151,9 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
     const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
     const [mapContextMenu, setMapContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
     const [plansError, setPlansError] = useState<string | null>(null);
+    const [pendingMapBounds, setPendingMapBounds] = useState<MapBounds | null>(null);
+    const hasLoadedInitialViewportRef = useRef(false);
+    const { loadBounds, isRefreshing: isRefreshingViewport, error: viewportError } = useMapViewportTrips();
 
     const [profileState, setProfileState] = useState<ProfileState | null>(null);
     const [friendsOpen, setFriendsOpen] = useState(false);
@@ -349,6 +356,37 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             persistInviteToken(inviteToken);
         }
     }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const sharedQuery = params.get("q");
+        const sharedOwner = params.get("owner");
+        if (sharedQuery) setSearchQuery(sharedQuery);
+        if (sharedOwner === "all" || sharedOwner === "friends" || sharedOwner === "you") setOwnerFilter(sharedOwner);
+        // URL state is intentionally read once; later updates are written below.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const timeout = window.setTimeout(() => {
+            const url = new URL(window.location.href);
+            if (searchQuery.trim()) url.searchParams.set("q", searchQuery.trim());
+            else url.searchParams.delete("q");
+            if (ownerFilter !== "all") url.searchParams.set("owner", ownerFilter);
+            else url.searchParams.delete("owner");
+            window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+        }, 250);
+        return () => window.clearTimeout(timeout);
+    }, [searchQuery, ownerFilter]);
+
+    const handleViewportChange = useCallback((bounds: MapBounds, initial: boolean) => {
+        if (initial && !hasLoadedInitialViewportRef.current) {
+            hasLoadedInitialViewportRef.current = true;
+            void loadBounds(bounds);
+            return;
+        }
+        setPendingMapBounds(bounds);
+    }, [loadBounds]);
 
     const requireAuth = useCallback(
         (intent: SignupPromptIntent, action: () => void) => {
@@ -878,7 +916,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                             </button>
                         </div>
                     </div>
-                    <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 md:hidden">
+                    <div className="hidden">
                         <button
                             type="button"
                             onClick={openSearchPanel}
@@ -918,7 +956,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 </>
             )}
 
-            <div className={`absolute right-4 top-4 z-[1000] items-center gap-2 ${mapPanels.showAnyLeftSidebar ? "hidden sm:flex" : "flex"}`}>
+            <div className={`absolute right-4 top-4 z-[1000] hidden items-center gap-2 sm:flex ${mapPanels.showAnyLeftSidebar ? "sm:hidden" : ""}`}>
                 <div className="app-control hidden h-11 items-center gap-2 rounded-full px-4 sm:flex w-fit">
                     <MapPin className="h-5 w-5 text-primary" />
                     <BrandNameButton
@@ -971,7 +1009,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 <div className="ml-2.5 h-[50vh] w-1.5 rounded-full bg-foreground/30" />
             </div>
 
-            <div className={cn("h-full w-full", isMobileTripView ? "overflow-y-auto" : "flex")}>
+            <div className="flex h-full w-full">
                 {!isMobileTripView && (
                 <div
                     className="h-full flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
@@ -1085,9 +1123,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 <div
                     data-spotlight="map"
                     className={cn(
-                        isMobileTripView
-                            ? "sticky top-0 h-[50vh] w-full z-0"
-                            : "relative h-full min-w-0 flex-1"
+                        "relative h-full min-w-0 flex-1"
                     )}
                 >
                     <MapView
@@ -1100,7 +1136,23 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                         onRightClick={userId !== null ? (lat, lng, x, y) => {
                             setMapContextMenu({ lat, lng, x, y });
                         } : undefined}
+                        onViewportChange={handleViewportChange}
                     />
+                    {pendingMapBounds && !mapPanels.showAnyLeftSidebar && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const bounds = pendingMapBounds;
+                                setPendingMapBounds(null);
+                                void loadBounds(bounds);
+                            }}
+                            disabled={isRefreshingViewport}
+                            className="app-control absolute left-1/2 top-20 z-[1000] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold md:top-4"
+                        >
+                            <RefreshCw className={cn("h-4 w-4 text-primary", isRefreshingViewport && "animate-spin")} />
+                            Search this area
+                        </button>
+                    )}
                     {/* Floating owner filter control (bottom-center) */}
                     <div data-spotlight="owner-filter" className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                         <div className="shadow-md backdrop-blur-sm rounded-full">
@@ -1142,12 +1194,12 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 </div>
 
                 {isMobileTripView && (
-                    <div className="relative z-10 w-full -mt-5 rounded-t-2xl bg-card overflow-hidden shadow-[0_-4px_20px_rgba(0,0,0,0.12)]">
+                    <section aria-label="Trip details" className="app-surface absolute inset-x-0 bottom-20 z-[1100] max-h-[62vh] overflow-y-auto rounded-t-3xl border-x-0 border-b-0 overscroll-contain md:hidden">
                         <div className="flex justify-center pt-3 pb-1">
                             <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
                         </div>
                         {tripSidebarPanel}
-                    </div>
+                    </section>
                 )}
             </div>
 
@@ -1224,7 +1276,7 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
             />
 
             <StudentAddMenu
-                visible={!mapPanels.showAnyLeftSidebar}
+                visible={!isMobile && !mapPanels.showAnyLeftSidebar}
                 onAddTrip={() => {
                     requireAuth("add-trip", () => {
                         const returnTo = pathname || "/";
@@ -1233,11 +1285,12 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                 }}
             />
 
-            {(isLoadingTrips || isLoadingTripById) && (
-                <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-full border border-border bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-md backdrop-blur-sm">
-                    Loading data...
+            {(isLoadingTrips || isLoadingTripById || isRefreshingViewport) && (
+                <div className="absolute bottom-24 right-4 z-[1300] md:bottom-4">
+                    <StatusToast message={isLoadingTripById ? "Opening trip…" : "Updating map…"} />
                 </div>
             )}
+            {viewportError && <div className="absolute bottom-24 right-4 z-[1300] md:bottom-4"><StatusToast message={viewportError} tone="error" /></div>}
 
             {!isLoadingTrips && !mapPanels.showAnyLeftSidebar && filteredTrips.length === 0 && (
                 <div className="pointer-events-none absolute left-1/2 top-1/2 z-[900] w-[min(340px,calc(100vw-3rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card/95 p-5 text-center shadow-lg backdrop-blur-sm">
@@ -1261,6 +1314,16 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                     )}
                 </div>
             )}
+
+            <MobileNavigation
+                active={mapPanels.showSearchPanel ? "search" : mapPanels.showPlansPanel ? "plans" : "explore"}
+                onExplore={() => { clearSelections(); closeSearchPanel(); closePlansPanel(); }}
+                onSearch={openSearchPanel}
+                onPlans={() => requireAuth("plans", togglePlansPanel)}
+                onAddTrip={() => requireAuth("add-trip", () => router.push(`/trips?returnTo=${encodeURIComponent(pathname || "/")}`))}
+                onFriends={() => requireAuth("friends", () => setFriendsOpen(true))}
+                onProfile={() => requireAuth("profile", () => { if (userId !== null) void openProfile(userId, "top-right"); })}
+            />
         </div>
     );
 }

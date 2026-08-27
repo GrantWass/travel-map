@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import { UserRoundPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useDialogAccessibility } from "@/hooks/use-dialog-accessibility";
 
 interface SignupRequiredModalProps {
   open: boolean;
@@ -22,14 +22,7 @@ export default function SignupRequiredModal({
   onClose,
   onConfirm,
 }: SignupRequiredModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  const dialogRef = useDialogAccessibility(open, onClose);
 
   if (!open) {
     return null;
@@ -38,7 +31,7 @@ export default function SignupRequiredModal({
   return (
     <>
       <div className="fixed inset-0 z-[2100] bg-black/45 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-[2200] w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-border/50 bg-card shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="signup-required-title" className="fixed left-1/2 top-1/2 z-[2200] w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-border/50 bg-card shadow-2xl animate-in zoom-in-95 fade-in duration-200">
         {/* Hero */}
         <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-coral/8 to-amber-100/40 px-6 pt-8 pb-6">
           {/* Decorative blobs */}
@@ -50,7 +43,7 @@ export default function SignupRequiredModal({
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25">
               <UserRoundPlus className="h-6 w-6 text-primary-foreground" />
             </div>
-            <h2 className="text-lg font-bold text-foreground tracking-tight">{title}</h2>
+            <h2 id="signup-required-title" className="text-lg font-bold text-foreground tracking-tight">{title}</h2>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground leading-relaxed">{description}</p>
           </div>
         </div>
