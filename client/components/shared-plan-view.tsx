@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowRight, BedDouble, CalendarRange, MapPin, Notebook, Plane } from "lucide-react";
 
-import type { SharedPlan } from "@/lib/api-client";
+import type { FlightLeg, SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
 import CostBadge from "@/components/cost-badge";
 import { formatAddress, formatFlightPrice } from "@/lib/utils";
@@ -98,6 +98,19 @@ function CategoryHeading({
     );
 }
 
+function FlightDirection({ label, date, legs, fallback }: { label: string; date?: string | null; legs: FlightLeg[]; fallback?: string | null }) {
+    const summary = legs.length > 0
+        ? legs.map((leg) => [leg.flight_number, `${leg.origin_code}→${leg.destination_code}`].filter(Boolean).join(" ")).join(" · ")
+        : fallback;
+    if (!date && !summary) return null;
+    return (
+        <div className="rounded-lg bg-sky-50/80 px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">{label}{date ? ` · ${date}` : ""}</p>
+            {summary && <p className="mt-0.5 text-xs text-foreground">{summary}</p>}
+        </div>
+    );
+}
+
 export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
     return (
         <main className="h-screen overflow-y-auto bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-10 md:px-8">
@@ -142,10 +155,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                 : flight.airline || "Flight";
                                             const details = [
                                                 flight.airline && route !== flight.airline ? flight.airline : null,
-                                                flight.flight_number ? `#${flight.flight_number}` : null,
-                                                [flight.outbound_date || flight.departure_date, flight.departure_time].filter(Boolean).join(" "),
-                                                flight.return_date ? `Return ${flight.return_date}` : null,
-                                                flight.notes,
+                                                flight.departure_time,
                                             ].filter(Boolean);
                                             return (
                                                 <article key={`f-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/50 p-3 transition-all duration-200 hover:-translate-y-px hover:shadow-md">
@@ -153,6 +163,11 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                                                     <div className="min-w-0 flex-1">
                                                         <p className="text-sm font-medium text-foreground">{route}</p>
                                                         {details.length > 0 && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</p>}
+                                                        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                                                            <FlightDirection label="Departure" date={flight.outbound_date || flight.departure_date} legs={flight.outbound_legs} fallback={flight.flight_number} />
+                                                            <FlightDirection label="Return" date={flight.return_date} legs={flight.return_legs} />
+                                                        </div>
+                                                        {flight.notes && <p className="mt-2 whitespace-pre-line border-l-2 border-border/70 pl-2 text-[10px] italic leading-relaxed text-muted-foreground/80">{flight.notes}</p>}
                                                         {flight.link_url && <span className="mt-1"><WebsiteChip url={flight.link_url} /></span>}
                                                     </div>
                                                     {flight.price && <span className="flex-shrink-0 rounded-full bg-stone-900/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">{formatFlightPrice(flight.price)}</span>}

@@ -626,6 +626,13 @@ interface FlightCardProps {
   onMove: (collectionName: string | null) => void;
 }
 
+function flightLegSummary(legs: FlightLeg[], fallbackFlightNumber?: string | null): string | null {
+  if (legs.length > 0) {
+    return legs.map((leg) => [leg.flight_number, `${leg.origin_code}→${leg.destination_code}`].filter(Boolean).join(" ")).join(" · ");
+  }
+  return fallbackFlightNumber || null;
+}
+
 /** Card showing a saved flight, expandable with edit/move/delete actions. */
 function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave, onDelete, onMove }: FlightCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -653,9 +660,11 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
       : flight.airline || "Flight";
   const metaParts = [
     flight.airline && flight.origin_code ? flight.airline : null,
-    flight.flight_number ? `#${flight.flight_number}` : null,
     flight.departure_time,
   ].filter(Boolean);
+  const outboundDate = flight.outbound_date || flight.departure_date;
+  const outboundSummary = flightLegSummary(flight.outbound_legs, flight.flight_number);
+  const returnSummary = flightLegSummary(flight.return_legs);
 
   return (
     <>
@@ -689,15 +698,19 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
           {metaParts.length > 0 && (
             <p className="text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
           )}
-          {(flight.outbound_date || flight.departure_date || flight.return_date || flight.notes) && (
-            <p className="text-xs text-muted-foreground">
-              {[
-                flight.outbound_date || flight.departure_date,
-                flight.return_date ? `return ${flight.return_date}` : null,
-                flight.notes,
-              ].filter(Boolean).join(" — ")}
-            </p>
+          {(outboundDate || outboundSummary) && (
+            <div className="rounded-lg bg-sky-50 px-2.5 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">Departure{outboundDate ? ` · ${outboundDate}` : ""}</p>
+              {outboundSummary && <p className="mt-0.5 text-xs text-foreground">{outboundSummary}</p>}
+            </div>
           )}
+          {(flight.return_date || returnSummary) && (
+            <div className="rounded-lg bg-sky-50 px-2.5 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">Return{flight.return_date ? ` · ${flight.return_date}` : ""}</p>
+              {returnSummary && <p className="mt-0.5 text-xs text-foreground">{returnSummary}</p>}
+            </div>
+          )}
+          {flight.notes && <p className="whitespace-pre-line text-[11px] leading-relaxed text-muted-foreground">{flight.notes}</p>}
           {flight.link_url && (
             <div onClick={(e) => e.stopPropagation()}>
               <WebsiteChip url={flight.link_url} />
@@ -746,6 +759,14 @@ function FlightCard({ flight, collections, isExpanded, onToggleExpanded, onSave,
             </div>
             {metaParts.length > 0 && (
               <p className="truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
+            )}
+            {(outboundDate || flight.return_date) && (
+              <p className="truncate text-[11px] text-muted-foreground">
+                {[
+                  outboundDate ? `Departure ${outboundDate}` : null,
+                  flight.return_date ? `Return ${flight.return_date}` : null,
+                ].filter(Boolean).join(" · ")}
+              </p>
             )}
           </div>
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground self-center" />
