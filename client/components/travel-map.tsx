@@ -1141,14 +1141,14 @@ export default function TravelMap({ initialPublicTrips, initialDeferredTripIds }
                                 void loadBounds(bounds);
                             }}
                             disabled={isRefreshingViewport}
-                            className="app-control absolute left-1/2 top-20 z-[1000] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold md:top-4"
+                            className="app-control absolute left-1/2 top-4 z-[1000] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold"
                         >
                             <RefreshCw className={cn("h-4 w-4 text-primary", isRefreshingViewport && "animate-spin")} />
                             Search this area
                         </button>
                     )}
                     {/* Floating owner filter control (bottom-center) */}
-                    <div data-spotlight="owner-filter" className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex transition-opacity duration-200 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+                    <div data-spotlight="owner-filter" className={`absolute bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.5rem)] left-1/2 z-[1000] flex -translate-x-1/2 transition-opacity duration-200 md:bottom-6 ${mapPanels.showSearchPanel ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                         <div className="shadow-md backdrop-blur-sm rounded-full">
                             <OwnerFilterSlider value={ownerFilter} onChange={setOwnerFilter} />
                         </div>

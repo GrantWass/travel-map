@@ -110,6 +110,8 @@ export default function ImageCropModal({ file, onCrop, onCancel }: ImageCropModa
             crop={crop}
             zoom={zoom}
             aspect={1}
+            objectFit="contain"
+            restrictPosition={false}
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}
