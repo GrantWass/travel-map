@@ -1128,6 +1128,7 @@ export default function PlansSidebarPanel({
             <h2 className="truncate text-sm font-semibold tracking-tight text-foreground">{name}</h2>
           </div>
           <div className="flex flex-shrink-0 items-center gap-1">
+            <PlanItinerary collectionName={name} sources={itinerarySources} />
             <button
               type="button"
               onClick={() => onSelectCollection(name)}
@@ -1219,8 +1220,6 @@ export default function PlansSidebarPanel({
           viewportClassName="[&>div]:!block [&>div]:!w-full [&>div]:!min-w-0"
         >
           <div className="flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden p-4">
-            <PlanItinerary collectionName={name} sources={itinerarySources} />
-
             {/* Flights */}
             <StopSection title={<><Plane className="h-3.5 w-3.5 text-sky-500" /> <span className="text-sky-600">Flights</span></>} emptyMessage="No flights added yet.">
               {flightsFor(name).map(flightRow)}
