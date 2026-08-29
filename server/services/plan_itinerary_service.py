@@ -1,12 +1,44 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time
 from typing import Any
 
 from db import get_cursor
 
 
 SOURCE_TYPES = {"activity", "lodging", "custom", "flight"}
+SCHEDULE_TYPES = {"time", "night"}
+
+
+def _ensure_schema(cur) -> None:
+    """Keep itinerary deploys usable when the one-time SQL has not run yet."""
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS plan_itinerary_items (
+            plan_itinerary_item_id BIGSERIAL PRIMARY KEY,
+            owner_user_id INTEGER NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+            collection_name TEXT NOT NULL,
+            day_date DATE,
+            schedule_type TEXT NOT NULL DEFAULT 'time',
+            start_time TIME,
+            position INTEGER NOT NULL DEFAULT 0,
+            source_type TEXT,
+            source_id INTEGER,
+            title TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    cur.execute(
+        "ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS schedule_type TEXT NOT NULL DEFAULT 'time'"
+    )
+    cur.execute("ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS start_time TIME")
+    cur.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_plan_itinerary_owner_collection
+        ON plan_itinerary_items (owner_user_id, collection_name)
+        """
+    )
 
 
 def _parse_day(value: Any) -> str | None:
@@ -16,6 +48,15 @@ def _parse_day(value: Any) -> str | None:
         return date.fromisoformat(str(value)).isoformat()
     except ValueError as error:
         raise ValueError("day_date must be an ISO date (YYYY-MM-DD)") from error
+
+
+def _parse_time(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    try:
+        return time.fromisoformat(str(value)).strftime("%H:%M")
+    except ValueError as error:
+        raise ValueError("start_time must be a valid time") from error
 
 
 def _collection_exists(cur, user_id: int, collection_name: str) -> bool:
@@ -64,10 +105,12 @@ def _source_belongs_to_collection(
 
 
 def list_plan_itinerary(user_id: int, collection_name: str) -> list[dict[str, Any]]:
-    with get_cursor() as cur:
+    with get_cursor(commit=True) as cur:
+        _ensure_schema(cur)
         cur.execute(
             """
             SELECT plan_itinerary_item_id, day_date::text AS day_date, position,
+                   schedule_type, start_time::text AS start_time,
                    source_type, source_id, title
             FROM plan_itinerary_items
             WHERE owner_user_id = %s AND collection_name = %s
@@ -85,7 +128,7 @@ def replace_plan_itinerary(
         raise ValueError("items must be a list")
 
     parsed: list[dict[str, Any]] = []
-    seen_sources: set[tuple[str, int]] = set()
+    seen_sources: set[tuple[str, int] | tuple[str, int, str | None]] = set()
     for raw in items:
         if not isinstance(raw, dict):
             raise ValueError("each itinerary item must be an object")
@@ -93,25 +136,35 @@ def replace_plan_itinerary(
         source_id_raw = raw.get("source_id")
         source_id = int(source_id_raw) if source_id_raw not in (None, "") else None
         title = str(raw.get("title") or "").strip()[:300] or None
+        schedule_type = str(raw.get("schedule_type") or "time")
+        if schedule_type not in SCHEDULE_TYPES:
+            raise ValueError("schedule_type must be 'time' or 'night'")
         if source_type is not None and source_type not in SOURCE_TYPES:
             raise ValueError("invalid source_type")
         if source_type is not None:
             if source_id is None or source_id <= 0:
                 raise ValueError("source_id must be greater than zero")
-            source_key = (source_type, source_id)
+            source_key = (
+                (source_type, source_id, _parse_day(raw.get("day_date")))
+                if schedule_type == "night"
+                else (source_type, source_id)
+            )
             if source_key in seen_sources:
-                raise ValueError("each plan item may only appear once")
+                raise ValueError("each timed item may appear once, and each stay once per night")
             seen_sources.add(source_key)
         elif title is None:
             raise ValueError("freeform itinerary items require a title")
         parsed.append({
             "day_date": _parse_day(raw.get("day_date")),
+            "schedule_type": schedule_type,
+            "start_time": None if schedule_type == "night" else _parse_time(raw.get("start_time")),
             "source_type": source_type,
             "source_id": source_id,
             "title": title,
         })
 
     with get_cursor(commit=True) as cur:
+        _ensure_schema(cur)
         if not _collection_exists(cur, user_id, collection_name):
             raise LookupError("plan not found")
         for item in parsed:
@@ -132,10 +185,12 @@ def replace_plan_itinerary(
             cur.execute(
                 """
                 INSERT INTO plan_itinerary_items
-                    (owner_user_id, collection_name, day_date, position, source_type, source_id, title)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (owner_user_id, collection_name, day_date, schedule_type, start_time,
+                     position, source_type, source_id, title)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user_id, collection_name, day, position, item["source_type"], item["source_id"], item["title"]),
+                (user_id, collection_name, day, item["schedule_type"], item["start_time"],
+                 position, item["source_type"], item["source_id"], item["title"]),
             )
 
     return list_plan_itinerary(user_id, collection_name)

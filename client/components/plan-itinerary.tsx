@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
+  BedDouble,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -25,6 +24,8 @@ export interface PlanItinerarySource {
   sourceId: number;
   title: string;
   detail?: string | null;
+  scheduleType: "time" | "night";
+  defaultTime?: string;
 }
 
 interface Draft {
@@ -33,6 +34,8 @@ interface Draft {
   sourceType: PlanItinerarySourceType | null;
   sourceId: number | null;
   title: string | null;
+  scheduleType: "time" | "night";
+  startTime: string | null;
 }
 
 interface PlanItineraryProps {
@@ -67,7 +70,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const [loading, setLoading] = useState(false);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [savedDrafts, setSavedDrafts] = useState<Draft[]>([]);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(() => isoDay(new Date()));
   const [newTitle, setNewTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +94,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
           sourceType: item.source_type,
           sourceId: item.source_id,
           title: item.title,
+          scheduleType: item.schedule_type,
+          startTime: item.start_time?.slice(0, 5) ?? null,
         }));
         setDrafts(mapped);
         setSavedDrafts(mapped);
@@ -101,7 +106,10 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
           setSelectedDay(firstDay);
         }
       })
-      .catch(() => setError("Could not load this itinerary."))
+      .catch(() => {
+        loadedCollection.current = null;
+        setError("Could not load this itinerary.");
+      })
       .finally(() => setLoading(false));
   }, [collectionName, open]);
 
@@ -110,8 +118,18 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     [sources],
   );
   const usedSources = new Set(drafts.map((item) => sourceKey(item.sourceType, item.sourceId)).filter(Boolean));
-  const availableSources = sources.filter((source) => !usedSources.has(`${source.sourceType}-${source.sourceId}`));
-  const selectedItems = drafts.filter((item) => item.dayDate === selectedDay);
+  const availableSources = sources.filter((source) => {
+    if (source.scheduleType === "night") {
+      return !drafts.some((item) =>
+        item.sourceType === source.sourceType && item.sourceId === source.sourceId && item.dayDate === selectedDay
+      );
+    }
+    return !usedSources.has(`${source.sourceType}-${source.sourceId}`);
+  });
+  const selectedItems = drafts
+    .filter((item) => item.dayDate === selectedDay && item.scheduleType === "time")
+    .toSorted((left, right) => (left.startTime ?? "23:59").localeCompare(right.startTime ?? "23:59"));
+  const selectedNights = drafts.filter((item) => item.dayDate === selectedDay && item.scheduleType === "night");
   const scheduledCount = drafts.filter((item) => item.dayDate).length;
   const isDirty = JSON.stringify(drafts) !== JSON.stringify(savedDrafts);
 
@@ -137,6 +155,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       sourceType: source.sourceType,
       sourceId: source.sourceId,
       title: source.title,
+      scheduleType: source.scheduleType,
+      startTime: source.scheduleType === "time" ? source.defaultTime ?? "09:00" : null,
     }]);
   }
 
@@ -145,22 +165,9 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     if (!title) return;
     setDrafts((current) => [...current, {
       key: nextKey(), dayDate: selectedDay, sourceType: null, sourceId: null, title,
+      scheduleType: "time", startTime: "09:00",
     }]);
     setNewTitle("");
-  }
-
-  function moveItem(key: string, direction: -1 | 1) {
-    setDrafts((current) => {
-      const index = current.findIndex((item) => item.key === key);
-      if (index < 0) return current;
-      const dayIndexes = current.flatMap((item, itemIndex) => item.dayDate === current[index].dayDate ? [itemIndex] : []);
-      const dayIndex = dayIndexes.indexOf(index);
-      const target = dayIndexes[dayIndex + direction];
-      if (target === undefined) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
   }
 
   async function save() {
@@ -172,6 +179,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
         source_type: item.sourceType,
         source_id: item.sourceId,
         title: item.title,
+        schedule_type: item.scheduleType,
+        start_time: item.startTime,
       })));
       const mapped = items.map((item) => ({
         key: `db-${item.plan_itinerary_item_id}`,
@@ -179,6 +188,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
         sourceType: item.source_type,
         sourceId: item.source_id,
         title: item.title,
+        scheduleType: item.schedule_type,
+        startTime: item.start_time?.slice(0, 5) ?? null,
       }));
       setDrafts(mapped);
       setSavedDrafts(mapped);
@@ -225,24 +236,44 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
               </div>
 
               <p className="text-xs font-semibold text-muted-foreground">{selectedDay ? formatDay(selectedDay) : "Choose a day to start planning"}</p>
-              {selectedItems.map((item, index) => {
+              {selectedItems.map((item) => {
                 const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? "");
                 return (
                   <div key={item.key} className="flex items-center gap-2 rounded-lg bg-secondary/50 px-2.5 py-2">
+                    <input
+                      type="time"
+                      value={item.startTime ?? ""}
+                      onChange={(event) => setDrafts((current) => current.map((draft) => draft.key === item.key ? { ...draft, startTime: event.target.value || null } : draft))}
+                      aria-label={`Time for ${source?.title ?? item.title ?? "item"}`}
+                      className="w-[76px] rounded-md border border-border bg-card px-1.5 py-1 text-[11px] text-foreground"
+                    />
                     <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{source?.title ?? item.title}</p>{source?.detail && <p className="truncate text-[10px] text-muted-foreground">{source.detail}</p>}</div>
-                    <button type="button" disabled={index === 0} onClick={() => moveItem(item.key, -1)} aria-label="Move earlier" className="text-muted-foreground disabled:opacity-25"><ArrowUp className="h-3 w-3" /></button>
-                    <button type="button" disabled={index === selectedItems.length - 1} onClick={() => moveItem(item.key, 1)} aria-label="Move later" className="text-muted-foreground disabled:opacity-25"><ArrowDown className="h-3 w-3" /></button>
                     <button type="button" onClick={() => setDrafts((current) => current.filter((draft) => draft.key !== item.key))} aria-label="Remove from itinerary" className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
                   </div>
                 );
               })}
+              {selectedNights.length > 0 && (
+                <div className="mt-1 flex flex-col gap-1.5">
+                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"><BedDouble className="h-3 w-3" />Overnight</p>
+                  {selectedNights.map((item) => {
+                    const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? "");
+                    return (
+                      <div key={item.key} className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+                        <BedDouble className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                        <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{source?.title ?? item.title}</p>{source?.detail && <p className="truncate text-[10px] text-muted-foreground">{source.detail}</p>}</div>
+                        <button type="button" onClick={() => setDrafts((current) => current.filter((draft) => draft.key !== item.key))} aria-label="Remove overnight stay" className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="rounded-xl border border-dashed border-border p-2.5">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add to {selectedDay ? formatDay(selectedDay) : "unscheduled"}</p>
                 <div className="flex max-h-28 flex-col gap-1 overflow-y-auto">
                   {availableSources.map((source) => (
                     <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-secondary">
-                      <Plus className="h-3 w-3 flex-shrink-0 text-primary" /><span className="truncate">{source.title}</span>
+                      {source.scheduleType === "night" ? <BedDouble className="h-3 w-3 flex-shrink-0 text-emerald-600" /> : <Plus className="h-3 w-3 flex-shrink-0 text-primary" />}<span className="truncate">{source.title}</span><span className="ml-auto text-[10px] text-muted-foreground">{source.scheduleType === "night" ? "night" : source.defaultTime || "9:00 AM"}</span>
                     </button>
                   ))}
                   {availableSources.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">All plan items are included.</p>}

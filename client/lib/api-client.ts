@@ -760,6 +760,8 @@ export interface PlanItineraryItem {
   plan_itinerary_item_id: number;
   day_date: string | null;
   position: number;
+  schedule_type: "time" | "night";
+  start_time: string | null;
   source_type: PlanItinerarySourceType | null;
   source_id: number | null;
   title: string | null;
