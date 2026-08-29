@@ -1214,8 +1214,11 @@ export default function PlansSidebarPanel({
           </div>
         )}
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="flex flex-col gap-5 p-5">
+        <ScrollArea
+          className="min-h-0 min-w-0 flex-1 overflow-hidden"
+          viewportClassName="[&>div]:!block [&>div]:!w-full [&>div]:!min-w-0"
+        >
+          <div className="flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden p-4">
             <PlanItinerary collectionName={name} sources={itinerarySources} />
 
             {/* Flights */}
