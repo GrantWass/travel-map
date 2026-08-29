@@ -109,6 +109,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }: ImageCropModa
             image={imageUrl}
             crop={crop}
             zoom={zoom}
+            minZoom={0.1}
             aspect={1}
             objectFit="contain"
             restrictPosition={false}
@@ -123,7 +124,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }: ImageCropModa
             <span className="text-xs text-muted-foreground">Zoom</span>
             <input
               type="range"
-              min={1}
+              min={0.1}
               max={3}
               step={0.1}
               value={zoom}
