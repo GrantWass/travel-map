@@ -754,6 +754,37 @@ export async function saveTripItinerary(
   return data.items;
 }
 
+export type PlanItinerarySourceType = "activity" | "lodging" | "custom" | "flight";
+
+export interface PlanItineraryItem {
+  plan_itinerary_item_id: number;
+  day_date: string | null;
+  position: number;
+  source_type: PlanItinerarySourceType | null;
+  source_id: number | null;
+  title: string | null;
+}
+
+export type PlanItineraryDraftItem = Omit<PlanItineraryItem, "plan_itinerary_item_id" | "position">;
+
+export async function getPlanItinerary(collectionName: string): Promise<PlanItineraryItem[]> {
+  const data = await requestJson<{ items: PlanItineraryItem[] }>(
+    `/users/me/plans/collections/${encodeURIComponent(collectionName)}/itinerary`,
+  );
+  return data.items;
+}
+
+export async function savePlanItinerary(
+  collectionName: string,
+  items: PlanItineraryDraftItem[],
+): Promise<PlanItineraryItem[]> {
+  const data = await requestJson<{ items: PlanItineraryItem[] }>(
+    `/users/me/plans/collections/${encodeURIComponent(collectionName)}/itinerary`,
+    { method: "PUT", body: JSON.stringify({ items }) },
+  );
+  return data.items;
+}
+
 
 // ── Plan sharing ─────────────────────────────────────────────────────────────
 

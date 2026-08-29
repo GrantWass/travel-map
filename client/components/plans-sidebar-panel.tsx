@@ -25,6 +25,7 @@ import {
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ConfirmDialog from "@/components/confirm-dialog";
+import PlanItinerary, { type PlanItinerarySource } from "@/components/plan-itinerary";
 import PlacePicker from "@/components/place-picker";
 import StopItemCard, {
   ACTIVITY_CARD_CONFIG,
@@ -1104,6 +1105,12 @@ export default function PlansSidebarPanel({
         .filter((c) => (c.item_type ?? "activity") !== "lodging")
         .map(customRow),
     ];
+    const itinerarySources: PlanItinerarySource[] = [
+      ...activitiesFor(name).map((entry) => ({ sourceType: "activity" as const, sourceId: entry.activity.activity_id, title: entry.activity.title || "Untitled activity", detail: entry.activity.address })),
+      ...lodgingsFor(name).map((entry) => ({ sourceType: "lodging" as const, sourceId: entry.lodging.lodge_id, title: entry.lodging.title || "Untitled stay", detail: entry.lodging.address })),
+      ...customItemsFor(name).map((item) => ({ sourceType: "custom" as const, sourceId: item.custom_item_id, title: item.title || "Untitled item", detail: item.address })),
+      ...flightsFor(name).map((flight) => ({ sourceType: "flight" as const, sourceId: flight.flight_id, title: [flight.airline, flight.flight_number].filter(Boolean).join(" ") || `${flight.origin_code || "Flight"} → ${flight.destination_code || ""}`, detail: flight.departure_date })),
+    ];
 
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -1209,6 +1216,8 @@ export default function PlansSidebarPanel({
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-5 p-5">
+            <PlanItinerary collectionName={name} sources={itinerarySources} />
+
             {/* Flights */}
             <StopSection title={<><Plane className="h-3.5 w-3.5 text-sky-500" /> <span className="text-sky-600">Flights</span></>} emptyMessage="No flights added yet.">
               {flightsFor(name).map(flightRow)}

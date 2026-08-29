@@ -5,6 +5,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from services.auth_service import get_authenticated_user, require_authenticated_user, to_nullable_string
+from services.plan_itinerary_service import list_plan_itinerary, replace_plan_itinerary
 from services.plans_service import (
     PlanNotFoundError,
     add_custom_item,
@@ -86,6 +87,25 @@ def remove_collection(name: str):
 
     plans = delete_collection(user["user_id"], name)
     return jsonify(plans), 200
+
+
+@plans_bp.route("/users/me/plans/collections/<path:name>/itinerary", methods=["GET"])
+def get_plan_itinerary(name: str):
+    user = require_authenticated_user()
+    return jsonify({"items": list_plan_itinerary(user["user_id"], name)}), 200
+
+
+@plans_bp.route("/users/me/plans/collections/<path:name>/itinerary", methods=["PUT"])
+def put_plan_itinerary(name: str):
+    user = require_authenticated_user()
+    body = request.get_json(silent=True) or {}
+    try:
+        items = replace_plan_itinerary(user["user_id"], name, body.get("items"))
+    except LookupError as error:
+        return jsonify({"error": str(error)}), 404
+    except (TypeError, ValueError) as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify({"items": items}), 200
 
 
 @plans_bp.route("/users/me/plans/activities/<int:activity_id>/collection", methods=["PATCH"])
