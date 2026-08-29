@@ -205,7 +205,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   });
 
   return (
-    <section className="rounded-xl border border-border bg-card">
+    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card">
       <button type="button" onClick={() => setOpen((value) => !value)} className="flex w-full items-center justify-between px-3 py-2.5 text-left">
         <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           <CalendarDays className="h-3.5 w-3.5 text-primary" />
@@ -215,7 +215,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-border p-3">
+        <div className="min-w-0 max-w-full overflow-hidden border-t border-border p-3">
+          <div className="flex min-w-0 flex-col gap-3">
           {loading ? <Loader2 className="mx-auto my-4 h-5 w-5 animate-spin text-muted-foreground" /> : (
             <>
               <div className="rounded-xl border border-border p-2.5">
@@ -224,7 +225,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                   <span className="text-xs font-semibold">{monthLabel}</span>
                   <button type="button" onClick={() => setCursor((value) => { const date = new Date(value.year, value.month + 1, 1); return { year: date.getFullYear(), month: date.getMonth() }; })} aria-label="Next month" className="rounded-full p-1 hover:bg-secondary"><ChevronRight className="h-4 w-4" /></button>
                 </div>
-                <div className="grid grid-cols-7 text-center">
+                <div className="grid min-w-0 grid-cols-7 text-center">
                   {WEEKDAYS.map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[10px] text-muted-foreground">{day}</span>)}
                   {calendarCells.map((date, index) => date ? (
                     <button key={isoDay(date)} type="button" onClick={() => setSelectedDay(isoDay(date))} className={cn("relative mx-auto h-8 w-8 rounded-full text-xs hover:bg-secondary", selectedDay === isoDay(date) && "bg-primary text-primary-foreground hover:bg-primary")}>
@@ -272,8 +273,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add to {selectedDay ? formatDay(selectedDay) : "unscheduled"}</p>
                 <div className="flex max-h-28 flex-col gap-1 overflow-y-auto">
                   {availableSources.map((source) => (
-                    <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-secondary">
-                      {source.scheduleType === "night" ? <BedDouble className="h-3 w-3 flex-shrink-0 text-emerald-600" /> : <Plus className="h-3 w-3 flex-shrink-0 text-primary" />}<span className="truncate">{source.title}</span><span className="ml-auto text-[10px] text-muted-foreground">{source.scheduleType === "night" ? "night" : source.defaultTime || "9:00 AM"}</span>
+                    <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1.5 text-left text-xs hover:bg-secondary">
+                      {source.scheduleType === "night" ? <BedDouble className="h-3 w-3 flex-shrink-0 text-emerald-600" /> : <Plus className="h-3 w-3 flex-shrink-0 text-primary" />}<span className="min-w-0 flex-1 truncate">{source.title}</span><span className="flex-shrink-0 text-[10px] text-muted-foreground">{source.scheduleType === "night" ? "night" : source.defaultTime || "9:00 AM"}</span>
                     </button>
                   ))}
                   {availableSources.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">All plan items are included.</p>}
@@ -288,6 +289,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
               {isDirty && <div className="flex justify-end gap-2"><button type="button" onClick={() => setDrafts(savedDrafts)} className="px-2 py-1.5 text-xs text-muted-foreground">Reset</button><button type="button" onClick={() => void save()} disabled={saving} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60">{saving && <Loader2 className="h-3 w-3 animate-spin" />}Save itinerary</button></div>}
             </>
           )}
+          </div>
         </div>
       )}
     </section>
