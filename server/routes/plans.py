@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import unquote
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -92,28 +93,30 @@ def remove_collection(name: str):
 @plans_bp.route("/users/me/plans/collections/<path:name>/itinerary", methods=["GET"])
 def get_plan_itinerary(name: str):
     user = require_authenticated_user()
-    return jsonify(list_plan_itinerary(user["user_id"], name)), 200
+    collection_name = unquote(name)
+    return jsonify(list_plan_itinerary(user["user_id"], collection_name)), 200
 
 
 @plans_bp.route("/users/me/plans/collections/<path:name>/itinerary", methods=["PUT"])
 def put_plan_itinerary(name: str):
     user = require_authenticated_user()
+    collection_name = unquote(name)
     body = request.get_json(silent=True) or {}
     try:
         itinerary = replace_plan_itinerary(
-            user["user_id"], name, body.get("items"),
+            user["user_id"], collection_name, body.get("items"),
             body.get("start_date"), body.get("end_date"),
         )
     except LookupError as error:
         current_app.logger.warning(
             "plan itinerary save failed: user_id=%s collection=%r status=404 error=%s",
-            user["user_id"], name, error,
+            user["user_id"], collection_name, error,
         )
         return jsonify({"error": str(error)}), 404
     except (TypeError, ValueError) as error:
         current_app.logger.warning(
             "plan itinerary save failed: user_id=%s collection=%r status=400 error=%s",
-            user["user_id"], name, error,
+            user["user_id"], collection_name, error,
         )
         return jsonify({"error": str(error)}), 400
     return jsonify(itinerary), 200
