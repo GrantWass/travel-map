@@ -81,7 +81,9 @@ echo "Updating Lambda function..."
 aws lambda update-function-code \
   --function-name ${FUNCTION_NAME} \
   --image-uri ${ECR_URI}:${IMAGE_TAG} \
-  --region ${AWS_REGION}
+  --region ${AWS_REGION} \
+  --query '{FunctionName:FunctionName,LastModified:LastModified,LastUpdateStatus:LastUpdateStatus}' \
+  --output json
 
 echo "Waiting for code update to complete..."
 aws lambda wait function-updated \
@@ -106,7 +108,9 @@ ENV_JSON=$(jq -n \
 aws lambda update-function-configuration \
   --function-name ${FUNCTION_NAME} \
   --region ${AWS_REGION} \
-  --environment "${ENV_JSON}"
+  --environment "${ENV_JSON}" \
+  --query '{FunctionName:FunctionName,LastModified:LastModified,LastUpdateStatus:LastUpdateStatus}' \
+  --output json
 
 echo "Waiting for configuration update to complete..."
 aws lambda wait function-updated \
