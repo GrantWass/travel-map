@@ -3,11 +3,10 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { buildSignupHref, getInviteTokenFromSearch, getStoredInviteToken } from "@/lib/auth-navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 
-const PUBLIC_ROUTES = new Set(["/", "/map", "/signup"]);
+const AUTH_ROUTES = new Set(["/signup"]);
 const STUDENT_ONLY_ROUTES = new Set(["/trips"]);
 
 export default function AuthBootstrap({ children }: { children: React.ReactNode }) {
@@ -52,25 +51,14 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
             return;
         }
 
-        const isPublicRoute = PUBLIC_ROUTES.has(pathname);
+        const isAuthRoute = AUTH_ROUTES.has(pathname);
         const isStudentOnlyRoute = STUDENT_ONLY_ROUTES.has(pathname);
 
         if (status === "loading") {
             return;
         }
 
-        if (status === "unauthenticated" && !isPublicRoute) {
-            const inviteToken = getInviteTokenFromSearch(new URLSearchParams(window.location.search)) ?? getStoredInviteToken();
-            router.replace(
-                buildSignupHref({
-                    nextPath: pathname,
-                    inviteToken,
-                }),
-            );
-            return;
-        }
-
-        if (status === "authenticated" && isPublicRoute && pathname !== "/") {
+        if (status === "authenticated" && isAuthRoute) {
             router.replace("/");
             return;
         }

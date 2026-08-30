@@ -160,7 +160,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         get().clearAuthState();
 
         if (typeof window !== "undefined") {
-            window.location.replace("/signup");
+            window.location.replace("/");
         }
     }
 }));
