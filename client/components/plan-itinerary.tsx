@@ -46,6 +46,18 @@ interface PlanItineraryProps {
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
+function formatHour(hour: number) {
+  if (hour === 0) return "12 AM";
+  if (hour === 12) return "12 PM";
+  return `${hour % 12} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "";
+  const [hour, minute] = value.split(":").map(Number);
+  return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""}${hour < 12 ? "a" : "p"}`;
+}
+
 function isoDay(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -83,6 +95,9 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [savedDrafts, setSavedDrafts] = useState<Draft[]>([]);
   const [selectedDay, setSelectedDay] = useState<string | null>(() => isoDay(new Date()));
+  const [selectedTime, setSelectedTime] = useState("09:00");
+  const [selectedDraftKey, setSelectedDraftKey] = useState<string | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,10 +151,30 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     }
     return !usedSources.has(`${source.sourceType}-${source.sourceId}`);
   });
-  const selectedItems = drafts
-    .filter((item) => item.dayDate === selectedDay && item.scheduleType === "time")
-    .toSorted((left, right) => (left.startTime ?? "23:59").localeCompare(right.startTime ?? "23:59"));
-  const selectedNights = drafts.filter((item) => item.dayDate === selectedDay && item.scheduleType === "night");
+  const selectedDraft = drafts.find((item) => item.key === selectedDraftKey) ?? null;
+  const earliestScheduledHour = drafts.reduce((earliest, item) => {
+    if (item.scheduleType !== "time" || !item.startTime) return earliest;
+    return Math.min(earliest, Number(item.startTime.slice(0, 2)));
+  }, 6);
+  const hourRows = Array.from({ length: 24 - earliestScheduledHour }, (_, index) => earliestScheduledHour + index);
+  const timedItemsBySlot = useMemo(() => {
+    const slots = new Map<string, Draft[]>();
+    drafts.forEach((item) => {
+      if (!item.dayDate || item.scheduleType !== "time") return;
+      const hour = Number(item.startTime?.slice(0, 2) ?? 9);
+      const key = `${item.dayDate}-${hour}`;
+      slots.set(key, [...(slots.get(key) ?? []), item]);
+    });
+    return slots;
+  }, [drafts]);
+  const staysByDay = useMemo(() => {
+    const days = new Map<string, Draft[]>();
+    drafts.forEach((item) => {
+      if (!item.dayDate || item.scheduleType !== "night") return;
+      days.set(item.dayDate, [...(days.get(item.dayDate) ?? []), item]);
+    });
+    return days;
+  }, [drafts]);
   const scheduledCount = drafts.filter((item) => item.dayDate).length;
   const isDirty = JSON.stringify(drafts) !== JSON.stringify(savedDrafts);
 
@@ -166,8 +201,9 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       sourceId: source.sourceId,
       title: source.title,
       scheduleType: source.scheduleType,
-      startTime: source.scheduleType === "time" ? source.defaultTime ?? "09:00" : null,
+      startTime: source.scheduleType === "time" ? source.defaultTime ?? selectedTime : null,
     }]);
+    setAddMenuOpen(false);
   }
 
   function addFreeform() {
@@ -175,9 +211,10 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     if (!title) return;
     setDrafts((current) => [...current, {
       key: nextKey(), dayDate: selectedDay, sourceType: null, sourceId: null, title,
-      scheduleType: "time", startTime: "09:00",
+      scheduleType: "time", startTime: selectedTime,
     }]);
     setNewTitle("");
+    setAddMenuOpen(false);
   }
 
   async function save() {
@@ -273,61 +310,69 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                 <div className="flex h-40 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
               ) : (
                 <div className="flex min-w-0 flex-col gap-4">
-                  <div className="rounded-2xl border border-border bg-background/60 p-3">
-                    <div className="mb-2 flex items-center justify-between">
+                  <div className="sticky top-0 z-20 flex items-center gap-2 rounded-xl border border-border bg-card/95 p-2.5 shadow-sm backdrop-blur">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-foreground">{selectedDay ? formatDay(selectedDay) : "Choose a day"}</p>
+                      <p className="text-[10px] text-muted-foreground">Selected time · {formatTime(selectedTime)}</p>
+                    </div>
+                    <button type="button" onClick={() => setAddMenuOpen((value) => !value)} className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"><Plus className="h-3 w-3" />Add plans</button>
+                  </div>
+
+                  {addMenuOpen && (
+                    <section className="rounded-2xl border border-dashed border-primary/25 bg-primary/5 p-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add to {selectedDay ? formatDay(selectedDay) : "this day"} at {formatTime(selectedTime)}</p>
+                      <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">
+                        {availableSources.map((source) => <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-card"><span className={cn("flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md", source.scheduleType === "night" ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary")}>{source.scheduleType === "night" ? <BedDouble className="h-3 w-3" /> : <Plus className="h-3 w-3" />}</span><span className="min-w-0 flex-1 truncate">{source.title}</span><span className="flex-shrink-0 text-[10px] text-muted-foreground">{source.scheduleType === "night" ? "overnight" : source.defaultTime || formatTime(selectedTime)}</span></button>)}
+                        {availableSources.length === 0 && <p className="px-2 py-2 text-xs text-muted-foreground">Everything is already included for this day.</p>}
+                      </div>
+                      <form onSubmit={(event) => { event.preventDefault(); addFreeform(); }} className="mt-2 flex min-w-0 gap-2"><input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Add a meal, walk, reservation…" className="min-w-0 flex-1 rounded-lg border border-border bg-card px-2.5 py-2 text-xs outline-none focus:border-primary" /><button type="submit" disabled={!newTitle.trim()} className="flex-shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-40">Add</button></form>
+                    </section>
+                  )}
+
+                  <div className="overflow-hidden rounded-2xl border border-border bg-background/60">
+                    <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
                       <button type="button" onClick={() => shiftWeek(-1)} aria-label="Previous week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
                       <span className="text-sm font-semibold">{weekLabel}</span>
                       <button type="button" onClick={() => shiftWeek(1)} aria-label="Next week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
                     </div>
-                    <div className="grid min-w-0 grid-cols-7 gap-y-1 text-center">
-                      {WEEKDAYS.map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[10px] font-semibold text-muted-foreground">{day}</span>)}
+                    <div className="grid min-w-0 grid-cols-[38px_repeat(7,minmax(0,1fr))] text-center">
+                      <span className="border-b border-r border-border" />
                       {weekDays.map((date) => (
-                        <button key={isoDay(date)} type="button" onClick={() => setSelectedDay(isoDay(date))} className={cn("relative mx-auto h-9 w-9 rounded-full text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground", selectedDay === isoDay(date) && "bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground")}>
-                          {date.getDate()}
-                          {daysWithItems.has(isoDay(date)) && <span className={cn("absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary", selectedDay === isoDay(date) && "bg-primary-foreground")} />}
+                        <button key={isoDay(date)} type="button" onClick={() => setSelectedDay(isoDay(date))} className={cn("relative flex flex-col items-center border-b border-r border-border py-2 text-[10px] font-semibold text-muted-foreground transition-colors last:border-r-0 hover:bg-secondary", selectedDay === isoDay(date) && "bg-primary/10 text-primary")}>
+                          <span>{WEEKDAYS[date.getDay()]}</span>
+                          <span className={cn("mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs", selectedDay === isoDay(date) && "bg-primary text-primary-foreground")}>{date.getDate()}</span>
+                          {daysWithItems.has(isoDay(date)) && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />}
                         </button>
+                      ))}
+
+                      <span className="flex items-center justify-center border-b border-r border-border bg-emerald-500/5 text-[9px] font-semibold uppercase text-emerald-700">Night</span>
+                      {weekDays.map((date) => {
+                        const iso = isoDay(date);
+                        const stays = staysByDay.get(iso) ?? [];
+                        return <div key={`night-${iso}`} className={cn("relative min-h-11 min-w-0 border-b border-r border-border bg-emerald-500/5 p-1 text-left last:border-r-0 hover:bg-emerald-500/10", selectedDay === iso && "ring-1 ring-inset ring-emerald-500/30")}><button type="button" onClick={() => { setSelectedDay(iso); setSelectedDraftKey(null); }} className="absolute inset-0" aria-label={`Select night of ${formatDay(iso)}`} />{stays.map((item) => { const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? ""); return <button key={item.key} type="button" onClick={() => { setSelectedDay(iso); setSelectedDraftKey(item.key); }} className="relative mb-0.5 block w-full truncate rounded bg-emerald-600 px-1 py-0.5 text-left text-[9px] font-medium text-white" title={source?.title ?? item.title ?? "Stay"}>{source?.title ?? item.title}</button>; })}</div>;
+                      })}
+
+                      {hourRows.map((hour) => (
+                        <div key={`hour-${hour}`} className="contents">
+                          <span className="flex min-h-12 items-start justify-center border-b border-r border-border pt-1 text-[8px] font-medium text-muted-foreground">{formatHour(hour)}</span>
+                          {weekDays.map((date) => {
+                            const iso = isoDay(date);
+                            const items = timedItemsBySlot.get(`${iso}-${hour}`) ?? [];
+                            return <div key={`${iso}-${hour}`} className={cn("relative min-h-12 min-w-0 border-b border-r border-border p-0.5 text-left last:border-r-0 hover:bg-primary/5", selectedDay === iso && selectedTime.startsWith(`${String(hour).padStart(2, "0")}:`) && "bg-primary/5 ring-1 ring-inset ring-primary/20")}><button type="button" onClick={() => { setSelectedDay(iso); setSelectedTime(`${String(hour).padStart(2, "0")}:00`); setSelectedDraftKey(null); }} className="absolute inset-0" aria-label={`Select ${formatDay(iso)} at ${formatHour(hour)}`} />{items.map((item) => { const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? ""); return <button key={item.key} type="button" onClick={() => { setSelectedDay(iso); setSelectedTime(item.startTime ?? `${String(hour).padStart(2, "0")}:00`); setSelectedDraftKey(item.key); }} className={cn("relative mb-0.5 block w-full truncate rounded bg-primary px-1 py-0.5 text-left text-[9px] font-medium text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-primary ring-offset-1")} title={`${formatTime(item.startTime)} ${source?.title ?? item.title ?? "Item"}`}>{formatTime(item.startTime)} {source?.title ?? item.title}</button>; })}</div>;
+                          })}
+                        </div>
                       ))}
                     </div>
                   </div>
 
-                  <section className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{selectedDay ? formatDay(selectedDay) : "Choose a day"}</p>
-                        <p className="text-[11px] text-muted-foreground">Activities and flights are ordered by time.</p>
-                      </div>
-                      <span className="flex-shrink-0 rounded-full bg-secondary px-2 py-1 text-[10px] font-medium text-muted-foreground">{selectedItems.length} scheduled</span>
+                  {selectedDraft && (
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
+                      <span className="min-w-0 basis-full truncate text-xs font-medium">{sourceMap.get(sourceKey(selectedDraft.sourceType, selectedDraft.sourceId) ?? "")?.title ?? selectedDraft.title}</span>
+                      <input type="date" value={selectedDraft.dayDate ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, dayDate: event.target.value || null } : item))} aria-label="Scheduled date" className="w-[118px] rounded-md border border-border bg-card px-1.5 py-1 text-[10px]" />
+                      {selectedDraft.scheduleType === "time" && <input type="time" value={selectedDraft.startTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, startTime: event.target.value || null } : item))} aria-label="Scheduled time" className="w-[76px] rounded-md border border-border bg-card px-1 py-1 text-[10px]" />}
+                      <button type="button" onClick={() => { setDrafts((current) => current.filter((item) => item.key !== selectedDraft.key)); setSelectedDraftKey(null); }} aria-label="Remove selected itinerary item" className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
                     </div>
-                    {selectedItems.length === 0 && <div className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">No timed plans yet. Add one below.</div>}
-                    {selectedItems.map((item) => {
-                      const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? "");
-                      return (
-                        <div key={item.key} className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-2.5 py-2 shadow-xs">
-                          <input type="time" value={item.startTime ?? ""} onChange={(event) => setDrafts((current) => current.map((draft) => draft.key === item.key ? { ...draft, startTime: event.target.value || null } : draft))} aria-label={`Time for ${source?.title ?? item.title ?? "item"}`} className="w-[86px] flex-shrink-0 rounded-lg border border-border bg-background px-1.5 py-1.5 text-xs text-foreground" />
-                          <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{source?.title ?? item.title}</p>{source?.detail && <p className="truncate text-[10px] text-muted-foreground">{source.detail}</p>}</div>
-                          <button type="button" onClick={() => setDrafts((current) => current.filter((draft) => draft.key !== item.key))} aria-label="Remove from itinerary" className="flex-shrink-0 rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3 w-3" /></button>
-                        </div>
-                      );
-                    })}
-                  </section>
-
-                  <section className="flex flex-col gap-2">
-                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-700"><BedDouble className="h-3.5 w-3.5" />Night of {selectedDay ? formatDay(selectedDay).replace(/^\w+, /, "") : "selected day"}</p>
-                    {selectedNights.length === 0 && <div className="rounded-xl border border-dashed border-emerald-500/25 bg-emerald-500/5 px-3 py-3 text-xs text-muted-foreground">No stay attached to this night.</div>}
-                    {selectedNights.map((item) => {
-                      const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? "");
-                      return <div key={item.key} className="flex min-w-0 items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5"><BedDouble className="h-4 w-4 flex-shrink-0 text-emerald-600" /><div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{source?.title ?? item.title}</p>{source?.detail && <p className="truncate text-[10px] text-muted-foreground">{source.detail}</p>}</div><button type="button" onClick={() => setDrafts((current) => current.filter((draft) => draft.key !== item.key))} aria-label="Remove overnight stay" className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3 w-3" /></button></div>;
-                    })}
-                  </section>
-
-                  <section className="rounded-2xl border border-dashed border-primary/25 bg-primary/5 p-3">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add to this day</p>
-                    <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">
-                      {availableSources.map((source) => <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-card"><span className={cn("flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md", source.scheduleType === "night" ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary")}>{source.scheduleType === "night" ? <BedDouble className="h-3 w-3" /> : <Plus className="h-3 w-3" />}</span><span className="min-w-0 flex-1 truncate">{source.title}</span><span className="flex-shrink-0 text-[10px] text-muted-foreground">{source.scheduleType === "night" ? "overnight" : source.defaultTime || "9:00 AM"}</span></button>)}
-                      {availableSources.length === 0 && <p className="px-2 py-2 text-xs text-muted-foreground">Everything is already included for this day.</p>}
-                    </div>
-                    <form onSubmit={(event) => { event.preventDefault(); addFreeform(); }} className="mt-2 flex min-w-0 gap-2"><input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Add a meal, walk, reservation…" className="min-w-0 flex-1 rounded-lg border border-border bg-card px-2.5 py-2 text-xs outline-none focus:border-primary" /><button type="submit" disabled={!newTitle.trim()} className="flex-shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-40">Add</button></form>
-                  </section>
+                  )}
 
                   {error && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
                 </div>

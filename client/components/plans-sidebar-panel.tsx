@@ -48,6 +48,11 @@ function normalizeLink(value: string | undefined): string | undefined {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+function normalizeClockTime(value: string | null | undefined): string | undefined {
+  const match = value?.match(/^([01]\d|2[0-3]):([0-5]\d)/);
+  return match ? `${match[1]}:${match[2]}` : undefined;
+}
+
 export interface CustomItemPayload {
   title: string;
   notes?: string;
@@ -1109,7 +1114,7 @@ export default function PlansSidebarPanel({
       ...activitiesFor(name).map((entry) => ({ sourceType: "activity" as const, sourceId: entry.activity.activity_id, title: entry.activity.title || "Untitled activity", detail: entry.activity.address, scheduleType: "time" as const })),
       ...lodgingsFor(name).map((entry) => ({ sourceType: "lodging" as const, sourceId: entry.lodging.lodge_id, title: entry.lodging.title || "Untitled stay", detail: entry.lodging.address, scheduleType: "night" as const })),
       ...customItemsFor(name).map((item) => ({ sourceType: "custom" as const, sourceId: item.custom_item_id, title: item.title || "Untitled item", detail: item.address, scheduleType: item.item_type === "lodging" ? "night" as const : "time" as const })),
-      ...flightsFor(name).map((flight) => ({ sourceType: "flight" as const, sourceId: flight.flight_id, title: [flight.airline, flight.flight_number].filter(Boolean).join(" ") || `${flight.origin_code || "Flight"} → ${flight.destination_code || ""}`, detail: flight.departure_date, scheduleType: "time" as const, defaultTime: flight.departure_time?.slice(0, 5) || undefined })),
+      ...flightsFor(name).map((flight) => ({ sourceType: "flight" as const, sourceId: flight.flight_id, title: [flight.airline, flight.flight_number].filter(Boolean).join(" ") || `${flight.origin_code || "Flight"} → ${flight.destination_code || ""}`, detail: flight.departure_date, scheduleType: "time" as const, defaultTime: normalizeClockTime(flight.departure_time) })),
     ];
 
     return (
