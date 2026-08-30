@@ -3,13 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight, BedDouble, CalendarDays, CalendarRange, Clock3, MapPin, Notebook, Plane } from "lucide-react";
+import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowRight, BedDouble, CalendarDays, CalendarRange, Clock3, MapPin, Notebook, Plane, X } from "lucide-react";
 
 import type { FlightLeg, PlanItinerary, PlanItineraryItem, SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
 import CostBadge from "@/components/cost-badge";
 import { formatAddress, formatFlightPrice } from "@/lib/utils";
 import { parseFlightLink } from "@/lib/flight-link";
+import { useDialogAccessibility } from "@/hooks/use-dialog-accessibility";
 
 // Leaflet touches window at import time, so only load the map client-side.
 const SharedPlanMap = dynamic(() => import("@/components/shared-plan-map"), { ssr: false });
@@ -178,7 +181,10 @@ function SharedItineraryItem({ item }: { item: PlanItineraryItem }) {
     );
 }
 
-function SharedItinerary({ itinerary }: { itinerary: PlanItinerary }) {
+function SharedItinerary({ collectionName, itinerary }: { collectionName: string; itinerary: PlanItinerary }) {
+    const [open, setOpen] = useState(false);
+    const closePanel = useCallback(() => setOpen(false), []);
+    const dialogRef = useDialogAccessibility(open, closePanel);
     const scheduled = itinerary.items.filter((item) => item.day_date);
     const unscheduled = itinerary.items.filter((item) => !item.day_date);
     const days = [...new Set(scheduled.map((item) => item.day_date as string))].sort();
@@ -191,50 +197,88 @@ function SharedItinerary({ itinerary }: { itinerary: PlanItinerary }) {
     if (itinerary.items.length === 0 && !range) return null;
 
     return (
-        <section className="overflow-hidden rounded-2xl border border-primary/15 bg-card shadow-sm">
-            <header className="flex items-start gap-3 border-b border-border/70 bg-primary/[0.04] px-4 py-3.5">
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <CalendarDays className="h-4.5 w-4.5" />
-                </span>
-                <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">Itinerary</h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                        {range || `${scheduled.length} scheduled ${scheduled.length === 1 ? "item" : "items"}`}
-                    </p>
-                </div>
-            </header>
+        <>
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-md"
+                aria-label={`Open itinerary for ${collectionName}`}
+            >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Itinerary{scheduled.length ? ` · ${scheduled.length}` : ""}
+            </button>
 
-            <div className="divide-y divide-border/70">
-                {days.map((day) => {
-                    const dayItems = scheduled
-                        .filter((item) => item.day_date === day)
-                        .sort((left, right) => (left.start_time || "99:99").localeCompare(right.start_time || "99:99") || left.position - right.position);
-                    return (
-                        <section key={day} className="px-4 py-4">
-                            <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground">
-                                <CalendarRange className="h-3.5 w-3.5 text-primary" />
-                                {formatCalendarDate(day)}
-                            </h4>
-                            <ol>{dayItems.map((item) => <SharedItineraryItem key={item.plan_itinerary_item_id} item={item} />)}</ol>
-                        </section>
-                    );
-                })}
+            {open && typeof document !== "undefined" && createPortal(
+                <>
+                    <button
+                        type="button"
+                        className="fixed inset-0 z-[1890] cursor-default bg-black/25 backdrop-blur-[1px] md:bg-black/10"
+                        onClick={closePanel}
+                        aria-label="Close itinerary"
+                    />
+                    <aside
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`${collectionName} itinerary`}
+                        className="fixed inset-2 z-[1900] flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl md:bottom-5 md:left-auto md:right-5 md:top-5 md:w-[min(680px,calc(100vw-2.5rem))]"
+                    >
+                        <div ref={dialogRef} className="contents">
+                            <header className="flex flex-shrink-0 items-center gap-3 border-b border-border/60 px-4 py-3">
+                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                    <CalendarDays className="h-4.5 w-4.5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="truncate text-sm font-semibold text-foreground">{collectionName}</h3>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                        {range || `${scheduled.length} scheduled ${scheduled.length === 1 ? "item" : "items"}`}
+                                    </p>
+                                </div>
+                                <span className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Read only</span>
+                                <button type="button" onClick={closePanel} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Close itinerary panel">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </header>
 
-                {unscheduled.length > 0 && (
-                    <section className="px-4 py-4">
-                        <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            Not scheduled yet
-                        </h4>
-                        <ol>{unscheduled.map((item) => <SharedItineraryItem key={item.plan_itinerary_item_id} item={item} />)}</ol>
-                    </section>
-                )}
+                            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background/40 p-3 sm:p-4">
+                                <div className="mx-auto overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                                    <div className="divide-y divide-border/70">
+                                        {days.map((day) => {
+                                            const dayItems = scheduled
+                                                .filter((item) => item.day_date === day)
+                                                .sort((left, right) => (left.start_time || "99:99").localeCompare(right.start_time || "99:99") || left.position - right.position);
+                                            return (
+                                                <section key={day} className="px-3 py-4 sm:px-4">
+                                                    <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground">
+                                                        <CalendarRange className="h-3.5 w-3.5 text-primary" />
+                                                        {formatCalendarDate(day)}
+                                                    </h4>
+                                                    <ol>{dayItems.map((item) => <SharedItineraryItem key={item.plan_itinerary_item_id} item={item} />)}</ol>
+                                                </section>
+                                            );
+                                        })}
 
-                {itinerary.items.length === 0 && (
-                    <p className="px-4 py-5 text-sm text-muted-foreground">No stops have been scheduled yet.</p>
-                )}
-            </div>
-        </section>
+                                        {unscheduled.length > 0 && (
+                                            <section className="px-3 py-4 sm:px-4">
+                                                <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                                                    <Clock3 className="h-3.5 w-3.5" />
+                                                    Not scheduled yet
+                                                </h4>
+                                                <ol>{unscheduled.map((item) => <SharedItineraryItem key={item.plan_itinerary_item_id} item={item} />)}</ol>
+                                            </section>
+                                        )}
+
+                                        {itinerary.items.length === 0 && (
+                                            <p className="px-4 py-5 text-sm text-muted-foreground">No stops have been scheduled yet.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </>,
+                document.body,
+            )}
+        </>
     );
 }
 
@@ -271,9 +315,10 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
 
                         {plan.groups.map((group, gi) => (
                             <section key={group.name} className="flex flex-col gap-5">
-                                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.name}</h2>
-
-                                {group.itinerary && <SharedItinerary itinerary={group.itinerary} />}
+                                <div className="flex items-center justify-between gap-3">
+                                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.name}</h2>
+                                    {group.itinerary && <SharedItinerary collectionName={group.name} itinerary={group.itinerary} />}
+                                </div>
 
                                 {(group.flights ?? []).length > 0 && (
                                     <div className="flex flex-col gap-3">
