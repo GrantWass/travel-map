@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from services.auth_service import get_authenticated_user, require_authenticated_user, to_nullable_string
 from services.plan_itinerary_service import list_plan_itinerary, replace_plan_itinerary
@@ -105,8 +105,16 @@ def put_plan_itinerary(name: str):
             body.get("start_date"), body.get("end_date"),
         )
     except LookupError as error:
+        current_app.logger.warning(
+            "plan itinerary save failed: user_id=%s collection=%r status=404 error=%s",
+            user["user_id"], name, error,
+        )
         return jsonify({"error": str(error)}), 404
     except (TypeError, ValueError) as error:
+        current_app.logger.warning(
+            "plan itinerary save failed: user_id=%s collection=%r status=400 error=%s",
+            user["user_id"], name, error,
+        )
         return jsonify({"error": str(error)}), 400
     return jsonify(itinerary), 200
 

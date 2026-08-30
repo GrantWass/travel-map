@@ -364,8 +364,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       setSavedDrafts(mapped);
       setSavedStartDate(itinerary.start_date ?? startDate);
       setSavedEndDate(itinerary.end_date ?? endDate);
-    } catch {
-      setError("Could not save this itinerary.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not save this itinerary.");
     } finally {
       setSaving(false);
     }
