@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Any
 
 from db import get_cursor
@@ -22,6 +22,7 @@ def _ensure_schema(cur) -> None:
             schedule_type TEXT NOT NULL DEFAULT 'time',
             start_time TIME,
             end_time TIME,
+            end_day_date DATE,
             position INTEGER NOT NULL DEFAULT 0,
             source_type TEXT,
             source_id INTEGER,
@@ -35,6 +36,7 @@ def _ensure_schema(cur) -> None:
     )
     cur.execute("ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS start_time TIME")
     cur.execute("ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS end_time TIME")
+    cur.execute("ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS end_day_date DATE")
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS plan_itinerary_settings (
@@ -125,6 +127,7 @@ def list_plan_itinerary(user_id: int, collection_name: str) -> dict[str, Any]:
             """
             SELECT plan_itinerary_item_id, day_date::text AS day_date, position,
                    schedule_type, start_time::text AS start_time, end_time::text AS end_time,
+                   end_day_date::text AS end_day_date,
                    source_type, source_id, title
             FROM plan_itinerary_items
             WHERE owner_user_id = %s AND collection_name = %s
@@ -183,15 +186,22 @@ def replace_plan_itinerary(
             seen_sources.add(source_key)
         elif title is None:
             raise ValueError("freeform itinerary items require a title")
+        day_date = _parse_day(raw.get("day_date"))
         start_time = None if schedule_type == "night" else _parse_time(raw.get("start_time"))
         end_time = None if schedule_type == "night" else _parse_time(raw.get("end_time"))
-        if start_time and end_time and end_time <= start_time:
-            raise ValueError("end_time must be later than start_time")
+        end_day_date = None if schedule_type == "night" else _parse_day(raw.get("end_day_date"))
+        if schedule_type == "time" and day_date and start_time and end_time:
+            end_day_date = end_day_date or day_date
+            start_at = datetime.combine(date.fromisoformat(day_date), time.fromisoformat(start_time))
+            end_at = datetime.combine(date.fromisoformat(end_day_date), time.fromisoformat(end_time))
+            if end_at <= start_at:
+                raise ValueError("event end must be later than its start")
         parsed.append({
-            "day_date": _parse_day(raw.get("day_date")),
+            "day_date": day_date,
             "schedule_type": schedule_type,
             "start_time": start_time,
             "end_time": end_time,
+            "end_day_date": end_day_date,
             "source_type": source_type,
             "source_id": source_id,
             "title": title,
@@ -237,11 +247,11 @@ def replace_plan_itinerary(
             cur.execute(
                 """
                 INSERT INTO plan_itinerary_items
-                    (owner_user_id, collection_name, day_date, schedule_type, start_time, end_time,
+                    (owner_user_id, collection_name, day_date, schedule_type, start_time, end_time, end_day_date,
                      position, source_type, source_id, title)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user_id, collection_name, day, item["schedule_type"], item["start_time"], item["end_time"],
+                (user_id, collection_name, day, item["schedule_type"], item["start_time"], item["end_time"], item["end_day_date"],
                  position, item["source_type"], item["source_id"], item["title"]),
             )
 

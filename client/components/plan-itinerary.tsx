@@ -39,6 +39,15 @@ interface Draft {
   scheduleType: "time" | "night";
   startTime: string | null;
   endTime: string | null;
+  endDayDate: string | null;
+}
+
+interface TimedSegment {
+  item: Draft;
+  startMinute: number;
+  endMinute: number;
+  isStart: boolean;
+  isEnd: boolean;
 }
 
 interface PlanItineraryProps {
@@ -69,6 +78,36 @@ function timeToMinutes(value: string | null, fallback = 9 * 60) {
 function minutesToTime(value: number) {
   const clamped = Math.max(0, Math.min(23 * 60 + 45, value));
   return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
+}
+
+function dayIndex(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+function absoluteMinutes(day: string, clock: string | null) {
+  return dayIndex(day) * 1440 + timeToMinutes(clock);
+}
+
+function splitAbsoluteMinutes(value: number) {
+  const index = Math.floor(value / 1440);
+  const minute = value - index * 1440;
+  const date = new Date(index * 86_400_000);
+  return {
+    day: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`,
+    time: minutesToTime(minute),
+  };
+}
+
+function draftStartMinutes(item: Draft) {
+  return item.dayDate ? absoluteMinutes(item.dayDate, item.startTime) : 0;
+}
+
+function draftEndMinutes(item: Draft) {
+  const start = draftStartMinutes(item);
+  if (!item.dayDate || !item.endTime) return start + 60;
+  const end = absoluteMinutes(item.endDayDate ?? item.dayDate, item.endTime);
+  return end > start ? end : start + 60;
 }
 
 function addDays(value: Date, amount: number) {
@@ -153,6 +192,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
           scheduleType: item.schedule_type,
           startTime: item.start_time?.slice(0, 5) ?? null,
           endTime: item.end_time?.slice(0, 5) ?? null,
+          endDayDate: item.end_day_date ?? item.day_date,
         }));
         const firstScheduledDay = mapped.find((item) => item.dayDate)?.dayDate;
         const lastScheduledDay = [...mapped].reverse().find((item) => item.dayDate)?.dayDate;
@@ -191,20 +231,32 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const selectedDraft = drafts.find((item) => item.key === selectedDraftKey) ?? null;
   const earliestScheduledHour = drafts.reduce((earliest, item) => {
     if (item.scheduleType !== "time" || !item.startTime) return earliest;
-    return Math.min(earliest, Number(item.startTime.slice(0, 2)));
+    const endHour = item.endDayDate && item.dayDate && item.endDayDate > item.dayDate && item.endTime
+      ? Number(item.endTime.slice(0, 2))
+      : earliest;
+    return Math.min(earliest, Number(item.startTime.slice(0, 2)), endHour);
   }, 6);
   const hourRows = Array.from({ length: 24 - earliestScheduledHour }, (_, index) => earliestScheduledHour + index);
   const [selectedHour, selectedMinute] = selectedTime.split(":").map(Number);
   const selectedTimeTop = (((selectedHour * 60 + selectedMinute) - earliestScheduledHour * 60) / 60) * HOUR_HEIGHT;
-  const timedItemsByDay = useMemo(() => {
-    const days = new Map<string, Draft[]>();
+  const timedSegmentsByDay = useMemo(() => {
+    const days = new Map<string, TimedSegment[]>();
     drafts.forEach((item) => {
       if (!item.dayDate || item.scheduleType !== "time") return;
-      days.set(item.dayDate, [...(days.get(item.dayDate) ?? []), item]);
+      const endDay = item.endDayDate ?? item.dayDate;
+      for (let index = dayIndex(item.dayDate); index <= dayIndex(endDay); index += 1) {
+        const { day } = splitAbsoluteMinutes(index * 1440);
+        const isStart = day === item.dayDate;
+        const isEnd = day === endDay;
+        const startMinute = isStart ? timeToMinutes(item.startTime) : earliestScheduledHour * 60;
+        const endMinute = isEnd ? timeToMinutes(item.endTime, startMinute + 60) : 1440;
+        if (endMinute <= earliestScheduledHour * 60) continue;
+        days.set(day, [...(days.get(day) ?? []), { item, startMinute, endMinute, isStart, isEnd }]);
+      }
     });
-    days.forEach((items) => items.sort((left, right) => (left.startTime ?? "09:00").localeCompare(right.startTime ?? "09:00")));
+    days.forEach((items) => items.sort((left, right) => left.startMinute - right.startMinute));
     return days;
-  }, [drafts]);
+  }, [drafts, earliestScheduledHour]);
   const staysByDay = useMemo(() => {
     const days = new Map<string, Draft[]>();
     drafts.forEach((item) => {
@@ -262,6 +314,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       scheduleType: source.scheduleType,
       startTime: source.scheduleType === "time" ? source.defaultTime ?? selectedTime : null,
       endTime: source.scheduleType === "time" ? minutesToTime(timeToMinutes(source.defaultTime ?? selectedTime) + 60) : null,
+      endDayDate: source.scheduleType === "time" ? selectedDay : null,
     }]);
   }
 
@@ -272,6 +325,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       key: nextKey(), dayDate: selectedDay, sourceType: null, sourceId: null, title,
       scheduleType: "time", startTime: selectedTime,
       endTime: minutesToTime(timeToMinutes(selectedTime) + 60),
+      endDayDate: selectedDay,
     }]);
     setNewTitle("");
   }
@@ -293,6 +347,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
         schedule_type: item.scheduleType,
         start_time: item.startTime,
         end_time: item.endTime,
+        end_day_date: item.endDayDate,
       })), startDate, endDate);
       const mapped = itinerary.items.map((item) => ({
         key: `db-${item.plan_itinerary_item_id}`,
@@ -303,6 +358,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
         scheduleType: item.schedule_type,
         startTime: item.start_time?.slice(0, 5) ?? null,
         endTime: item.end_time?.slice(0, 5) ?? null,
+        endDayDate: item.end_day_date ?? item.day_date,
       }));
       setDrafts(mapped);
       setSavedDrafts(mapped);
@@ -347,40 +403,60 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   }
 
   function resizeTime(item: Draft, edge: "start" | "end", event: ReactPointerEvent<HTMLElement>) {
-    if (item.scheduleType !== "time") return;
+    if (item.scheduleType !== "time" || !item.dayDate) return;
     event.preventDefault();
     event.stopPropagation();
-    const target = event.currentTarget;
-    target.setPointerCapture(event.pointerId);
-    const originY = event.clientY;
-    const originalStart = timeToMinutes(item.startTime);
-    const originalEnd = timeToMinutes(item.endTime, Math.min(originalStart + 60, 23 * 60 + 45));
+    const endDay = item.endDayDate ?? item.dayDate;
+    const originalStart = draftStartMinutes(item);
+    const originalEnd = item.endTime ? absoluteMinutes(endDay, item.endTime) : draftEndMinutes(item);
+    const tripStart = absoluteMinutes(startDate, "00:00");
+    const tripEnd = absoluteMinutes(endDate, "23:45");
     const onMove = (moveEvent: PointerEvent) => {
-      const delta = Math.round((((moveEvent.clientY - originY) / HOUR_HEIGHT) * 60) / 15) * 15;
+      const hovered = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY) as HTMLElement | null;
+      const column = hovered?.closest<HTMLElement>("[data-itinerary-day]");
+      const nextDay = column?.dataset.itineraryDay;
+      if (!column || !nextDay || !isTripDay(nextDay)) return;
+      const bounds = column.getBoundingClientRect();
+      const rawMinute = earliestScheduledHour * 60 + ((moveEvent.clientY - bounds.top) / HOUR_HEIGHT) * 60;
+      const minute = Math.max(0, Math.min(23 * 60 + 45, Math.round(rawMinute / 15) * 15));
+      const pointed = dayIndex(nextDay) * 1440 + minute;
+      const next = edge === "start"
+        ? splitAbsoluteMinutes(Math.max(tripStart, Math.min(originalEnd - 15, pointed)))
+        : splitAbsoluteMinutes(Math.min(tripEnd, Math.max(originalStart + 15, pointed)));
       setDrafts((current) => current.map((draft) => {
         if (draft.key !== item.key) return draft;
-        if (edge === "start") {
-          return { ...draft, startTime: minutesToTime(Math.min(originalEnd - 15, Math.max(0, originalStart + delta))) };
-        }
-        return { ...draft, endTime: minutesToTime(Math.max(originalStart + 15, Math.min(23 * 60 + 45, originalEnd + delta))) };
+        return edge === "start"
+          ? { ...draft, dayDate: next.day, startTime: next.time }
+          : { ...draft, endDayDate: next.day, endTime: next.time };
       }));
     };
     const onUp = () => {
-      target.removeEventListener("pointermove", onMove);
-      target.removeEventListener("pointerup", onUp);
-      target.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
-    target.addEventListener("pointermove", onMove);
-    target.addEventListener("pointerup", onUp);
-    target.addEventListener("pointercancel", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   }
 
   function moveTime(item: Draft, event: ReactPointerEvent<HTMLElement>) {
-    if (item.scheduleType !== "time") return;
+    if (item.scheduleType !== "time" || !item.dayDate) return;
     event.preventDefault();
     const originX = event.clientX;
     const originY = event.clientY;
-    const duration = Math.max(15, timeToMinutes(item.endTime, timeToMinutes(item.startTime) + 60) - timeToMinutes(item.startTime));
+    const start = draftStartMinutes(item);
+    const end = draftEndMinutes(item);
+    const duration = Math.max(15, end - start);
+    const originColumn = event.currentTarget.closest<HTMLElement>("[data-itinerary-day]");
+    const originDay = originColumn?.dataset.itineraryDay ?? item.dayDate;
+    const originBounds = originColumn?.getBoundingClientRect();
+    const originMinute = originBounds
+      ? earliestScheduledHour * 60 + ((event.clientY - originBounds.top) / HOUR_HEIGHT) * 60
+      : timeToMinutes(item.startTime);
+    const grabOffset = dayIndex(originDay) * 1440 + originMinute - start;
+    const tripStart = absoluteMinutes(startDate, "00:00");
+    const tripEnd = absoluteMinutes(endDate, "23:45");
     let moved = false;
     dragMoved.current = false;
 
@@ -394,16 +470,21 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       const nextDay = column?.dataset.itineraryDay;
       if (!column || !nextDay || !isTripDay(nextDay)) return;
       const bounds = column.getBoundingClientRect();
-      const rawMinutes = earliestScheduledHour * 60 + ((moveEvent.clientY - bounds.top) / HOUR_HEIGHT) * 60;
-      const nextStart = Math.max(earliestScheduledHour * 60, Math.min(23 * 60 + 45 - duration, Math.round(rawMinutes / 15) * 15));
+      const rawMinute = earliestScheduledHour * 60 + ((moveEvent.clientY - bounds.top) / HOUR_HEIGHT) * 60;
+      const pointer = dayIndex(nextDay) * 1440 + Math.round(rawMinute / 15) * 15;
+      const nextStart = Math.max(tripStart, Math.min(tripEnd - duration, pointer - grabOffset));
+      const nextEnd = nextStart + duration;
+      const startParts = splitAbsoluteMinutes(nextStart);
+      const endParts = splitAbsoluteMinutes(nextEnd);
       setDrafts((current) => current.map((draft) => draft.key === item.key ? {
         ...draft,
-        dayDate: nextDay,
-        startTime: minutesToTime(nextStart),
-        endTime: minutesToTime(nextStart + duration),
+        dayDate: startParts.day,
+        startTime: startParts.time,
+        endDayDate: endParts.day,
+        endTime: endParts.time,
       } : draft));
-      setSelectedDay(nextDay);
-      setSelectedTime(minutesToTime(nextStart));
+      setSelectedDay(startParts.day);
+      setSelectedTime(startParts.time);
     };
     const onUp = () => {
       setDraggingKey(null);
@@ -417,13 +498,17 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   }
 
   function nudgeTime(item: Draft, edge: "start" | "end", direction: -1 | 1) {
-    const start = timeToMinutes(item.startTime);
-    const end = timeToMinutes(item.endTime, Math.min(start + 60, 23 * 60 + 45));
+    if (!item.dayDate) return;
+    const start = draftStartMinutes(item);
+    const end = draftEndMinutes(item);
+    const next = edge === "start"
+      ? splitAbsoluteMinutes(Math.min(end - 15, Math.max(absoluteMinutes(startDate, "00:00"), start + direction * 15)))
+      : splitAbsoluteMinutes(Math.max(start + 15, Math.min(absoluteMinutes(endDate, "23:45"), end + direction * 15)));
     setDrafts((current) => current.map((draft) => {
       if (draft.key !== item.key) return draft;
       return edge === "start"
-        ? { ...draft, startTime: minutesToTime(Math.min(end - 15, Math.max(0, start + direction * 15))) }
-        : { ...draft, endTime: minutesToTime(Math.max(start + 15, Math.min(23 * 60 + 45, end + direction * 15))) };
+        ? { ...draft, dayDate: next.day, startTime: next.time }
+        : { ...draft, endDayDate: next.day, endTime: next.time };
     }));
   }
 
@@ -520,7 +605,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                         {weekDays.map((date) => {
                           const iso = isoDay(date);
                           const inTrip = isTripDay(iso);
-                          const items = inTrip ? timedItemsByDay.get(iso) ?? [] : [];
+                          const segments = inTrip ? timedSegmentsByDay.get(iso) ?? [] : [];
                           const isToday = iso === isoDay(new Date());
                           const now = new Date();
                           const nowMinutes = now.getHours() * 60 + now.getMinutes() - earliestScheduledHour * 60;
@@ -544,17 +629,18 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                               {hourRows.map((hour, index) => <span key={hour} className="pointer-events-none absolute inset-x-0 border-t border-border/50" style={{ top: index * HOUR_HEIGHT }} />)}
                               {inTrip && selectedDay === iso && selectedTimeTop >= 0 && <span className="pointer-events-none absolute inset-x-1 z-10 border-t-2 border-primary/60" style={{ top: selectedTimeTop }}><span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-primary" /></span>}
                               {inTrip && isToday && nowMinutes >= 0 && nowMinutes <= hourRows.length * 60 && <span className="pointer-events-none absolute inset-x-0 z-20 border-t border-red-500" style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}><span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-red-500" /></span>}
-                              {items.map((item) => {
+                              {segments.map((segment) => {
+                                const item = segment.item;
                                 const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? "");
-                                const [hour, minute] = (item.startTime ?? "09:00").split(":").map(Number);
-                                const top = (((hour * 60 + minute) - earliestScheduledHour * 60) / 60) * HOUR_HEIGHT;
-                                const durationMinutes = Math.max(15, timeToMinutes(item.endTime, hour * 60 + minute + 60) - (hour * 60 + minute));
+                                const top = ((segment.startMinute - earliestScheduledHour * 60) / 60) * HOUR_HEIGHT;
+                                const durationMinutes = Math.max(15, segment.endMinute - segment.startMinute);
                                 const height = Math.max(22, (durationMinutes / 60) * HOUR_HEIGHT);
                                 const isFlight = item.sourceType === "flight";
-                                return <button key={item.key} type="button" onPointerDown={(event) => moveTime(item, event)} onClick={(event) => { event.stopPropagation(); if (dragMoved.current) { dragMoved.current = false; return; } setSelectedDay(iso); setSelectedTime(item.startTime ?? "09:00"); setSelectedDraftKey(item.key); }} className={cn("absolute left-1 right-1 z-10 cursor-grab touch-none overflow-visible rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-95 active:cursor-grabbing", isFlight ? "border-sky-600 bg-sky-500/90 text-white" : "border-primary bg-primary/90 text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-foreground/40 ring-offset-1", draggingKey === item.key && "z-30 scale-[1.02] opacity-80 shadow-lg")} style={{ top: Math.max(0, top), height }} title={`Drag to reschedule · ${formatTime(item.startTime)}–${formatTime(item.endTime)} ${source?.title ?? item.title ?? "Item"}`}>
-                                  <span role="slider" tabIndex={0} aria-label={`Adjust start time for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={0} aria-valuemax={timeToMinutes(item.endTime) - 15} aria-valuenow={timeToMinutes(item.startTime)} aria-valuetext={formatTime(item.startTime)} onPointerDown={(event) => resizeTime(item, "start", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "start", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -top-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>
-                                  <span className="block truncate text-[10px] font-semibold">{source?.title ?? item.title}</span><span className="block text-[9px] opacity-85">{formatTime(item.startTime)}–{formatTime(item.endTime)}</span>
-                                  <span role="slider" tabIndex={0} aria-label={`Adjust end time for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={timeToMinutes(item.startTime) + 15} aria-valuemax={23 * 60 + 45} aria-valuenow={timeToMinutes(item.endTime, timeToMinutes(item.startTime) + 60)} aria-valuetext={formatTime(item.endTime)} onPointerDown={(event) => resizeTime(item, "end", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "end", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -bottom-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>
+                                const timeLabel = segment.isStart && segment.isEnd ? `${formatTime(item.startTime)}–${formatTime(item.endTime)}` : segment.isStart ? `${formatTime(item.startTime)} →` : segment.isEnd ? `→ ${formatTime(item.endTime)}` : "Continues";
+                                return <button key={`${item.key}-${iso}`} type="button" onPointerDown={(event) => moveTime(item, event)} onClick={(event) => { event.stopPropagation(); if (dragMoved.current) { dragMoved.current = false; return; } setSelectedDay(iso); setSelectedTime(segment.isStart ? item.startTime ?? "09:00" : minutesToTime(segment.startMinute)); setSelectedDraftKey(item.key); }} className={cn("absolute left-1 right-1 z-10 cursor-grab touch-none overflow-visible rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-95 active:cursor-grabbing", isFlight ? "border-sky-600 bg-sky-500/90 text-white" : "border-primary bg-primary/90 text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-foreground/40 ring-offset-1", draggingKey === item.key && "z-30 scale-[1.02] opacity-80 shadow-lg")} style={{ top: Math.max(0, top), height }} title={`Drag to reschedule · ${formatDay(item.dayDate!)} ${formatTime(item.startTime)} to ${formatDay(item.endDayDate ?? item.dayDate!)} ${formatTime(item.endTime)} · ${source?.title ?? item.title ?? "Item"}`}>
+                                  {segment.isStart && <span role="slider" tabIndex={0} aria-label={`Adjust start for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={0} aria-valuemax={1439} aria-valuenow={timeToMinutes(item.startTime)} aria-valuetext={`${formatDay(item.dayDate!)} ${formatTime(item.startTime)}`} onPointerDown={(event) => resizeTime(item, "start", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "start", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -top-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>}
+                                  <span className="block truncate text-[10px] font-semibold">{source?.title ?? item.title}</span><span className="block text-[9px] opacity-85">{timeLabel}</span>
+                                  {segment.isEnd && <span role="slider" tabIndex={0} aria-label={`Adjust end for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={0} aria-valuemax={1439} aria-valuenow={timeToMinutes(item.endTime, timeToMinutes(item.startTime) + 60)} aria-valuetext={`${formatDay(item.endDayDate ?? item.dayDate!)} ${formatTime(item.endTime)}`} onPointerDown={(event) => resizeTime(item, "end", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "end", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -bottom-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>}
                                 </button>;
                               })}
                             </div>
@@ -567,7 +653,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                   {(!isLongTrip || showWeekTimeline) && <section className="flex-shrink-0 border-t border-border bg-card px-4 py-3">
                     <div className="mb-2 flex min-w-0 items-center gap-2">
                       <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-foreground">Add to {selectedDay ? formatDay(selectedDay) : "your itinerary"}</p><p className="text-[10px] text-muted-foreground">{formatTime(selectedTime)} · choose an activity, flight, or stay</p></div>
-                      {selectedDraft && <div className="flex items-center gap-1.5 rounded-lg bg-primary/5 px-2 py-1"><input type="date" min={startDate} max={endDate} value={selectedDraft.dayDate ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, dayDate: event.target.value || null } : item))} aria-label="Scheduled date" className="w-[116px] bg-transparent text-[10px]" />{selectedDraft.scheduleType === "time" && <><input type="time" step={900} value={selectedDraft.startTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, startTime: event.target.value || null } : item))} aria-label="Activity start time" className="w-[74px] bg-transparent text-[10px]" /><span className="text-[10px] text-muted-foreground">to</span><input type="time" step={900} value={selectedDraft.endTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, endTime: event.target.value || null } : item))} aria-label="Activity end time" className="w-[74px] bg-transparent text-[10px]" /></>}<button type="button" onClick={() => { setDrafts((current) => current.filter((item) => item.key !== selectedDraft.key)); setSelectedDraftKey(null); }} aria-label="Remove selected itinerary item" className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button></div>}
+                      {selectedDraft && <div className="flex flex-wrap items-center justify-end gap-1.5 rounded-lg bg-primary/5 px-2 py-1"><input type="date" min={startDate} max={endDate} value={selectedDraft.dayDate ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, dayDate: event.target.value || null, endDayDate: item.endDayDate && item.endDayDate >= event.target.value ? item.endDayDate : event.target.value || null } : item))} aria-label="Activity start date" className="w-[116px] bg-transparent text-[10px]" />{selectedDraft.scheduleType === "time" && <><input type="time" step={900} value={selectedDraft.startTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, startTime: event.target.value || null } : item))} aria-label="Activity start time" className="w-[74px] bg-transparent text-[10px]" /><span className="text-[10px] text-muted-foreground">to</span><input type="date" min={selectedDraft.dayDate ?? startDate} max={endDate} value={selectedDraft.endDayDate ?? selectedDraft.dayDate ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, endDayDate: event.target.value || null } : item))} aria-label="Activity end date" className="w-[116px] bg-transparent text-[10px]" /><input type="time" step={900} value={selectedDraft.endTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, endTime: event.target.value || null } : item))} aria-label="Activity end time" className="w-[74px] bg-transparent text-[10px]" /></>}<button type="button" onClick={() => { setDrafts((current) => current.filter((item) => item.key !== selectedDraft.key)); setSelectedDraftKey(null); }} aria-label="Remove selected itinerary item" className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button></div>}
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {availableSources.map((source) => <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex max-w-44 flex-shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-2 text-left shadow-xs hover:border-primary/30 hover:bg-primary/5"><span className={cn("flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg", source.scheduleType === "night" ? "bg-emerald-500/10 text-emerald-600" : source.sourceType === "flight" ? "bg-sky-500/10 text-sky-600" : "bg-primary/10 text-primary")}>{source.scheduleType === "night" ? <BedDouble className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}</span><span className="min-w-0"><span className="block truncate text-xs font-medium text-foreground">{source.title}</span><span className="block text-[9px] text-muted-foreground">{source.scheduleType === "night" ? "Overnight" : source.defaultTime ? formatTime(source.defaultTime) : formatTime(selectedTime)}</span></span></button>)}
