@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight, BedDouble, CalendarRange, MapPin, Notebook, Plane } from "lucide-react";
+import { ArrowRight, BedDouble, CalendarDays, CalendarRange, Clock3, MapPin, Notebook, Plane } from "lucide-react";
 
-import type { FlightLeg, SharedPlan } from "@/lib/api-client";
+import type { FlightLeg, PlanItinerary, PlanItineraryItem, SharedPlan } from "@/lib/api-client";
 import WebsiteChip from "@/components/website-chip";
 import CostBadge from "@/components/cost-badge";
 import { formatAddress, formatFlightPrice } from "@/lib/utils";
@@ -113,6 +113,131 @@ function FlightDirection({ label, date, legs, fallback }: { label: string; date?
     );
 }
 
+function parseCalendarDate(value: string) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+}
+
+function formatCalendarDate(value: string, includeYear = true) {
+    return parseCalendarDate(value).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        ...(includeYear ? { year: "numeric" as const } : {}),
+    });
+}
+
+function formatClockTime(value?: string | null) {
+    if (!value) return null;
+    const [hour, minute] = value.split(":").map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+    return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+function itineraryTimeLabel(item: PlanItineraryItem) {
+    if (item.schedule_type === "night") return "Overnight";
+    const start = formatClockTime(item.start_time);
+    const end = formatClockTime(item.end_time);
+    if (item.end_day_date && item.day_date && item.end_day_date !== item.day_date) {
+        const endDay = parseCalendarDate(item.end_day_date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return [start, end ? `${endDay}, ${end}` : endDay].filter(Boolean).join(" – ");
+    }
+    return start && end ? `${start} – ${end}` : start || end || "Time not set";
+}
+
+function SharedItineraryItem({ item }: { item: PlanItineraryItem }) {
+    const isFlight = item.source_type === "flight";
+    const isStay = item.schedule_type === "night";
+    const accentClass = isFlight
+        ? "border-sky-200 bg-sky-50 text-sky-700"
+        : isStay
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-violet-200 bg-violet-50 text-violet-700";
+    const Icon = isFlight ? Plane : isStay ? BedDouble : MapPin;
+
+    return (
+        <li className="grid grid-cols-[5.25rem_minmax(0,1fr)] gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
+            <div className="pt-3 text-right text-[11px] font-medium leading-tight text-muted-foreground">
+                {itineraryTimeLabel(item)}
+            </div>
+            <div className="relative border-l border-border/80 pb-3 pl-4 last:pb-0">
+                <span className={`absolute -left-[5px] top-4 h-2.5 w-2.5 rounded-full border-2 bg-card ${isFlight ? "border-sky-500" : isStay ? "border-emerald-500" : "border-violet-500"}`} />
+                <div className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 ${accentClass}`}>
+                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/75">
+                        <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold leading-snug text-foreground">{item.title || "Untitled itinerary item"}</p>
+                        <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                            {isFlight ? "Flight" : isStay ? "Stay" : item.source_type ? "Activity" : "Plan"}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </li>
+    );
+}
+
+function SharedItinerary({ itinerary }: { itinerary: PlanItinerary }) {
+    const scheduled = itinerary.items.filter((item) => item.day_date);
+    const unscheduled = itinerary.items.filter((item) => !item.day_date);
+    const days = [...new Set(scheduled.map((item) => item.day_date as string))].sort();
+    const range = itinerary.start_date && itinerary.end_date
+        ? itinerary.start_date === itinerary.end_date
+            ? formatCalendarDate(itinerary.start_date)
+            : `${formatCalendarDate(itinerary.start_date, false)} – ${formatCalendarDate(itinerary.end_date)}`
+        : null;
+
+    if (itinerary.items.length === 0 && !range) return null;
+
+    return (
+        <section className="overflow-hidden rounded-2xl border border-primary/15 bg-card shadow-sm">
+            <header className="flex items-start gap-3 border-b border-border/70 bg-primary/[0.04] px-4 py-3.5">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <CalendarDays className="h-4.5 w-4.5" />
+                </span>
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground">Itinerary</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        {range || `${scheduled.length} scheduled ${scheduled.length === 1 ? "item" : "items"}`}
+                    </p>
+                </div>
+            </header>
+
+            <div className="divide-y divide-border/70">
+                {days.map((day) => {
+                    const dayItems = scheduled
+                        .filter((item) => item.day_date === day)
+                        .sort((left, right) => (left.start_time || "99:99").localeCompare(right.start_time || "99:99") || left.position - right.position);
+                    return (
+                        <section key={day} className="px-4 py-4">
+                            <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-foreground">
+                                <CalendarRange className="h-3.5 w-3.5 text-primary" />
+                                {formatCalendarDate(day)}
+                            </h4>
+                            <ol>{dayItems.map((item) => <SharedItineraryItem key={item.plan_itinerary_item_id} item={item} />)}</ol>
+                        </section>
+                    );
+                })}
+
+                {unscheduled.length > 0 && (
+                    <section className="px-4 py-4">
+                        <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            Not scheduled yet
+                        </h4>
+                        <ol>{unscheduled.map((item) => <SharedItineraryItem key={item.plan_itinerary_item_id} item={item} />)}</ol>
+                    </section>
+                )}
+
+                {itinerary.items.length === 0 && (
+                    <p className="px-4 py-5 text-sm text-muted-foreground">No stops have been scheduled yet.</p>
+                )}
+            </div>
+        </section>
+    );
+}
+
 export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
     return (
         <main className="h-screen overflow-y-auto bg-[linear-gradient(180deg,#f7efe2_0%,#f4f4ef_55%,#eef3f6_100%)] px-4 py-10 md:px-8">
@@ -147,6 +272,8 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
                         {plan.groups.map((group, gi) => (
                             <section key={group.name} className="flex flex-col gap-5">
                                 <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.name}</h2>
+
+                                {group.itinerary && <SharedItinerary itinerary={group.itinerary} />}
 
                                 {(group.flights ?? []).length > 0 && (
                                     <div className="flex flex-col gap-3">
@@ -207,7 +334,7 @@ export default function SharedPlanView({ plan }: { plan: SharedPlan }) {
 
                 <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70">
                     <CalendarRange className="h-3 w-3" />
-                    Plans are a live snapshot of saved places.
+                    Plans and itinerary are a live snapshot.
                 </p>
 
                 <div className="mt-6 flex justify-center">

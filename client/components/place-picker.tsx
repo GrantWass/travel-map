@@ -43,6 +43,7 @@ export default function PlacePicker({
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isResolvingSelection, setIsResolvingSelection] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const [mapPickerOpen, setMapPickerOpen] = useState(false);
     // One session token per picker instance: bundles all autocomplete keystrokes
     // with the final details call so Google bills them as a single session.
@@ -61,10 +62,12 @@ export default function PlacePicker({
             });
             setQuery(result.label);
             setIsOpen(false);
+            setSearchError(null);
             return;
         }
 
         setIsResolvingSelection(true);
+        setSearchError(null);
         try {
             const params = new URLSearchParams({
                 place_id: result.placeId,
@@ -78,17 +81,21 @@ export default function PlacePicker({
                 throw new Error("lookup failed");
             }
             onChange({
-                label: payload.label ?? result.label,
+                label: result.label,
                 address: payload.address ?? result.address,
                 latitude: payload.latitude,
                 longitude: payload.longitude,
             });
-            setQuery(payload.label ?? result.label);
+            setQuery(result.label);
             setIsOpen(false);
         } catch {
-            setIsOpen(false);
+            setSearchError("That place could not be resolved. Please try another result.");
+            setIsOpen(true);
         } finally {
             setIsResolvingSelection(false);
+            if (typeof crypto !== "undefined") {
+                sessionTokenRef.current = crypto.randomUUID();
+            }
         }
     }
 
@@ -98,14 +105,19 @@ export default function PlacePicker({
 
     useEffect(() => {
         const trimmed = query.trim();
-        if (trimmed.length < 2) {
+        if (!isOpen || trimmed.length < 2) {
             setResults([]);
+            setIsLoading(false);
+            setSearchError(null);
             return;
         }
 
+        const controller = new AbortController();
+        let active = true;
+        setIsLoading(true);
+        setSearchError(null);
         const timeoutId = window.setTimeout(async () => {
             try {
-                setIsLoading(true);
                 const params = new URLSearchParams({
                     q: trimmed,
                     mode,
@@ -122,24 +134,32 @@ export default function PlacePicker({
 
                 const response = await fetch(`/api/places?${params.toString()}`, {
                     cache: "no-store",
+                    signal: controller.signal,
                 });
                 const payload = await response.json();
                 if (!response.ok) {
                     throw new Error(payload?.error || "Could not search places");
                 }
 
-                setResults(Array.isArray(payload?.places) ? payload.places : []);
-            } catch {
-                setResults([]);
+                if (active) {
+                    setResults(Array.isArray(payload?.places) ? payload.places : []);
+                }
+            } catch (error) {
+                if (active && !(error instanceof DOMException && error.name === "AbortError")) {
+                    setResults([]);
+                    setSearchError("Could not search places right now.");
+                }
             } finally {
-                setIsLoading(false);
+                if (active) setIsLoading(false);
             }
         }, 250);
 
         return () => {
+            active = false;
             window.clearTimeout(timeoutId);
+            controller.abort();
         };
-    }, [cityContext, mode, query]);
+    }, [cityContext, isOpen, mode, query]);
 
     const showSuggestions = useMemo(() => {
         return isOpen && (isLoading || results.length > 0 || query.trim().length >= 2);
@@ -213,6 +233,8 @@ export default function PlacePicker({
                                         )}
                                 </button>
                             ))
+                        ) : searchError ? (
+                            <p role="alert" className="px-3 py-2 text-sm text-destructive">{searchError}</p>
                         ) : (
                             <p className="px-3 py-2 text-sm text-muted-foreground">No places found.</p>
                         )}

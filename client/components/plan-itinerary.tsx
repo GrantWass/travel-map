@@ -221,6 +221,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   );
   const usedSources = new Set(drafts.map((item) => sourceKey(item.sourceType, item.sourceId)).filter(Boolean));
   const availableSources = sources.filter((source) => {
+    if (source.sourceType === "flight") return true;
     if (source.scheduleType === "night") {
       return !drafts.some((item) =>
         item.sourceType === source.sourceType && item.sourceId === source.sourceId && item.dayDate === selectedDay

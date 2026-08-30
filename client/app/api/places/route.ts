@@ -6,9 +6,6 @@ interface NominatimResult {
   lon?: unknown;
   type?: unknown;
   addresstype?: unknown;
-  address?: {
-    country_code?: unknown;
-  };
 }
 
 const CITY_LIKE_TYPES = new Set([
@@ -31,9 +28,7 @@ const CITY_LIKE_TYPES = new Set([
 // quota/billing, we disable it for the rest of the day and serve Nominatim,
 // guaranteeing no surprise charges.
 
-const GOOGLE_DISABLED_KEY = "google-places-disabled-until";
 declare global {
-  // eslint-disable-next-line no-var
   var __googlePlacesDisabledUntil: number | undefined;
 }
 
@@ -51,13 +46,17 @@ function disableGoogleForRestOfDay() {
   globalThis.__googlePlacesDisabledUntil = endOfDay.getTime();
 }
 
-interface GoogleAutocompleteSuggestion {
+interface GooglePlacePrediction {
   placeId?: unknown;
   text?: { text?: unknown };
   structuredFormat?: {
     mainText?: { text?: unknown };
     secondaryText?: { text?: unknown };
   };
+}
+
+interface GoogleAutocompleteSuggestion extends GooglePlacePrediction {
+  placePrediction?: GooglePlacePrediction;
 }
 
 async function searchGooglePlaces(
@@ -71,7 +70,6 @@ async function searchGooglePlaces(
     const body: Record<string, unknown> = {
       input: query,
       languageCode: "en",
-      regionCode: "us",
     };
 
     if (sessionToken) {
@@ -96,6 +94,12 @@ async function searchGooglePlaces(
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY!,
+          "X-Goog-FieldMask": [
+            "suggestions.placePrediction.placeId",
+            "suggestions.placePrediction.text.text",
+            "suggestions.placePrediction.structuredFormat.mainText.text",
+            "suggestions.placePrediction.structuredFormat.secondaryText.text",
+          ].join(","),
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -115,25 +119,32 @@ async function searchGooglePlaces(
 
       const results = suggestions
         .map((suggestion) => {
-          const placeId = typeof suggestion.placeId === "string" ? suggestion.placeId : null;
+          // Autocomplete (New) nests place fields under placePrediction. Keep
+          // accepting the old flat shape so cached or proxied responses remain usable.
+          const prediction = suggestion.placePrediction ?? suggestion;
+          const placeId = typeof prediction.placeId === "string" ? prediction.placeId : null;
           const mainText =
-            suggestion.structuredFormat?.mainText?.text != null &&
-            typeof suggestion.structuredFormat.mainText.text === "string"
-              ? suggestion.structuredFormat.mainText.text
+            prediction.structuredFormat?.mainText?.text != null &&
+            typeof prediction.structuredFormat.mainText.text === "string"
+              ? prediction.structuredFormat.mainText.text
               : null;
           const secondaryText =
-            suggestion.structuredFormat?.secondaryText?.text != null &&
-            typeof suggestion.structuredFormat.secondaryText.text === "string"
-              ? suggestion.structuredFormat.secondaryText.text
+            prediction.structuredFormat?.secondaryText?.text != null &&
+            typeof prediction.structuredFormat.secondaryText.text === "string"
+              ? prediction.structuredFormat.secondaryText.text
+              : null;
+          const fullText =
+            prediction.text?.text != null && typeof prediction.text.text === "string"
+              ? prediction.text.text
               : null;
 
-          if (!placeId || !mainText) {
+          if (!placeId || (!mainText && !fullText)) {
             return null;
           }
 
           return {
-            label: mainText,
-            address: secondaryText ?? mainText,
+            label: mainText ?? fullText!,
+            address: secondaryText ?? fullText ?? mainText!,
             placeId,
             needsDetails: true as const,
           };
@@ -205,7 +216,6 @@ async function searchNominatim(
     format: "jsonv2",
     limit: mode === "city" ? "12" : "8",
     addressdetails: "1",
-    countrycodes: "us",
   });
 
   if (mode === "address" && nearLat !== null && nearLon !== null) {
@@ -217,7 +227,6 @@ async function searchNominatim(
     const bottom = nearLat - latOffset;
 
     params.set("viewbox", `${left},${top},${right},${bottom}`);
-    params.set("bounded", "1");
   }
 
   const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
@@ -240,10 +249,6 @@ async function searchNominatim(
       const lon = typeof item.lon === "string" ? Number(item.lon) : null;
       const type = typeof item.type === "string" ? item.type : "";
       const addresstype = typeof item.addresstype === "string" ? item.addresstype : "";
-      const countryCode =
-        item.address && typeof item.address.country_code === "string"
-          ? item.address.country_code.toLowerCase()
-          : "";
 
       if (
         !label ||
@@ -251,7 +256,6 @@ async function searchNominatim(
         Number.isNaN(lon) ||
         lat === null ||
         lon === null ||
-        countryCode !== "us" ||
         isCountyLike(type) ||
         isCountyLike(addresstype)
       ) {
@@ -316,7 +320,7 @@ export async function GET(request: Request) {
   // Primary: Google Places autocomplete (when configured and healthy).
   if (isGoogleEnabled()) {
     const googleResults = await searchGooglePlaces(query, mode, nearLat, nearLon, sessionToken);
-    if (googleResults !== null) {
+    if (googleResults && googleResults.length > 0) {
       return NextResponse.json({ places: googleResults, source: "google" }, { headers: cacheHeaders });
     }
     // fall through to Nominatim

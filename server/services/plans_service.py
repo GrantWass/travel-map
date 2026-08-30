@@ -664,6 +664,48 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
         if scope_collection is not None:
             flight_rows = [r for r in flight_rows if r["collection_name"] == scope_collection]
 
+        itinerary_rows = []
+        itinerary_settings = []
+        cur.execute("SELECT to_regclass('plan_itinerary_items') AS table_name")
+        if cur.fetchone().get("table_name"):
+            cur.execute(
+                """
+                SELECT collection_name, plan_itinerary_item_id,
+                       day_date::text AS day_date, position, schedule_type,
+                       start_time::text AS start_time, end_time::text AS end_time,
+                       end_day_date::text AS end_day_date, source_type, source_id, title
+                FROM plan_itinerary_items
+                WHERE owner_user_id = %s
+                ORDER BY collection_name, day_date ASC NULLS LAST,
+                         position ASC, plan_itinerary_item_id ASC
+                """,
+                (owner_user_id,),
+            )
+            itinerary_rows = cur.fetchall()
+            if scope_collection is not None:
+                itinerary_rows = [
+                    row for row in itinerary_rows
+                    if row["collection_name"] == scope_collection
+                ]
+
+        cur.execute("SELECT to_regclass('plan_itinerary_settings') AS table_name")
+        if cur.fetchone().get("table_name"):
+            cur.execute(
+                """
+                SELECT collection_name, start_date::text AS start_date,
+                       end_date::text AS end_date
+                FROM plan_itinerary_settings
+                WHERE owner_user_id = %s
+                """,
+                (owner_user_id,),
+            )
+            itinerary_settings = cur.fetchall()
+            if scope_collection is not None:
+                itinerary_settings = [
+                    row for row in itinerary_settings
+                    if row["collection_name"] == scope_collection
+                ]
+
     def _group_name(value: Any) -> str:
         return value if value else "Unsorted"
 
@@ -739,6 +781,34 @@ def get_shared_plan(token: str) -> dict[str, Any] | None:
             "currency": row.get("currency"),
             "link_url": row.get("link_url"),
             "notes": row.get("notes"),
+        })
+
+    for row in itinerary_settings:
+        collection = _group(_group_name(row["collection_name"]))
+        collection["itinerary"] = {
+            "items": [],
+            "start_date": row.get("start_date"),
+            "end_date": row.get("end_date"),
+        }
+
+    for row in itinerary_rows:
+        collection = _group(_group_name(row["collection_name"]))
+        itinerary = collection.setdefault("itinerary", {
+            "items": [],
+            "start_date": None,
+            "end_date": None,
+        })
+        itinerary["items"].append({
+            "plan_itinerary_item_id": row["plan_itinerary_item_id"],
+            "day_date": row.get("day_date"),
+            "position": row.get("position", 0),
+            "schedule_type": row.get("schedule_type") or "time",
+            "start_time": row.get("start_time"),
+            "end_time": row.get("end_time"),
+            "end_day_date": row.get("end_day_date"),
+            "source_type": row.get("source_type"),
+            "source_id": row.get("source_id"),
+            "title": row.get("title"),
         })
 
     ordered_groups = sorted(groups.values(), key=lambda g: (g["name"] == "Unsorted", g["name"]))

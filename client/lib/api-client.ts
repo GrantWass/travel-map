@@ -832,6 +832,7 @@ export interface SharedPlanGroup {
   activities: SharedPlanStop[];
   lodgings: SharedPlanStop[];
   flights?: SharedPlanFlight[];
+  itinerary?: PlanItinerary;
 }
 
 export interface SharedPlan {

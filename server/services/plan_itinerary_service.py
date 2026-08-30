@@ -176,14 +176,15 @@ def replace_plan_itinerary(
         if source_type is not None:
             if source_id is None or source_id <= 0:
                 raise ValueError("source_id must be greater than zero")
-            source_key = (
-                (source_type, source_id, _parse_day(raw.get("day_date")))
-                if schedule_type == "night"
-                else (source_type, source_id)
-            )
-            if source_key in seen_sources:
-                raise ValueError("each timed item may appear once, and each stay once per night")
-            seen_sources.add(source_key)
+            if source_type != "flight":
+                source_key = (
+                    (source_type, source_id, _parse_day(raw.get("day_date")))
+                    if schedule_type == "night"
+                    else (source_type, source_id)
+                )
+                if source_key in seen_sources:
+                    raise ValueError("each timed item may appear once, and each stay once per night")
+                seen_sources.add(source_key)
         elif title is None:
             raise ValueError("freeform itinerary items require a title")
         day_date = _parse_day(raw.get("day_date"))
