@@ -45,6 +45,7 @@ interface PlanItineraryProps {
 }
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const HOUR_HEIGHT = 64;
 
 function formatHour(hour: number) {
   if (hour === 0) return "12 AM";
@@ -97,7 +98,6 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const [selectedDay, setSelectedDay] = useState<string | null>(() => isoDay(new Date()));
   const [selectedTime, setSelectedTime] = useState("09:00");
   const [selectedDraftKey, setSelectedDraftKey] = useState<string | null>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,15 +157,16 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     return Math.min(earliest, Number(item.startTime.slice(0, 2)));
   }, 6);
   const hourRows = Array.from({ length: 24 - earliestScheduledHour }, (_, index) => earliestScheduledHour + index);
-  const timedItemsBySlot = useMemo(() => {
-    const slots = new Map<string, Draft[]>();
+  const [selectedHour, selectedMinute] = selectedTime.split(":").map(Number);
+  const selectedTimeTop = (((selectedHour * 60 + selectedMinute) - earliestScheduledHour * 60) / 60) * HOUR_HEIGHT;
+  const timedItemsByDay = useMemo(() => {
+    const days = new Map<string, Draft[]>();
     drafts.forEach((item) => {
       if (!item.dayDate || item.scheduleType !== "time") return;
-      const hour = Number(item.startTime?.slice(0, 2) ?? 9);
-      const key = `${item.dayDate}-${hour}`;
-      slots.set(key, [...(slots.get(key) ?? []), item]);
+      days.set(item.dayDate, [...(days.get(item.dayDate) ?? []), item]);
     });
-    return slots;
+    days.forEach((items) => items.sort((left, right) => (left.startTime ?? "09:00").localeCompare(right.startTime ?? "09:00")));
+    return days;
   }, [drafts]);
   const staysByDay = useMemo(() => {
     const days = new Map<string, Draft[]>();
@@ -186,8 +187,6 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     }),
     [weekStart],
   );
-  const daysWithItems = new Set(drafts.map((item) => item.dayDate).filter(Boolean));
-
   function nextKey() {
     temporaryId.current += 1;
     return `tmp-${temporaryId.current}`;
@@ -203,7 +202,6 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       scheduleType: source.scheduleType,
       startTime: source.scheduleType === "time" ? source.defaultTime ?? selectedTime : null,
     }]);
-    setAddMenuOpen(false);
   }
 
   function addFreeform() {
@@ -214,7 +212,6 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
       scheduleType: "time", startTime: selectedTime,
     }]);
     setNewTitle("");
-    setAddMenuOpen(false);
   }
 
   async function save() {
@@ -289,103 +286,98 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
             role="dialog"
             aria-modal="true"
             aria-label={`${collectionName} itinerary`}
-            className="fixed inset-x-3 bottom-[max(5.75rem,env(safe-area-inset-bottom))] top-3 z-[1900] flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl md:bottom-5 md:left-auto md:right-5 md:top-5 md:w-[480px]"
+            className="fixed inset-x-2 bottom-[max(5.25rem,env(safe-area-inset-bottom))] top-2 z-[1900] flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl md:bottom-5 md:left-auto md:right-5 md:top-5 md:w-[min(760px,calc(100vw-2.5rem))]"
           >
             <div ref={dialogRef} className="contents">
-            <header className="flex flex-shrink-0 items-center gap-3 border-b border-border/60 px-4 py-3.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                <CalendarDays className="h-4.5 w-4.5 text-primary" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-foreground">{collectionName}</p>
-                <p className="text-xs text-muted-foreground">Build your day-by-day itinerary</p>
-              </div>
-              <button type="button" onClick={closePanel} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Close itinerary panel">
-                <X className="h-4 w-4" />
-              </button>
-            </header>
+              <header className="flex flex-shrink-0 items-center gap-3 border-b border-border/60 px-4 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10"><CalendarDays className="h-4.5 w-4.5 text-primary" /></span>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-foreground">{collectionName}</p><p className="text-xs text-muted-foreground">Weekly itinerary</p></div>
+                <button type="button" onClick={() => { const today = new Date(); setWeekStart(startOfWeek(today)); setSelectedDay(isoDay(today)); }} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Today</button>
+                <button type="button" onClick={() => shiftWeek(-1)} aria-label="Previous week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
+                <button type="button" onClick={() => shiftWeek(1)} aria-label="Next week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
+                <p className="hidden min-w-40 text-right text-sm font-semibold text-foreground sm:block">{weekLabel}</p>
+                <button type="button" onClick={closePanel} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Close itinerary panel"><X className="h-4 w-4" /></button>
+              </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
               {loading ? (
-                <div className="flex h-40 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                <div className="flex min-h-0 flex-1 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
               ) : (
-                <div className="flex min-w-0 flex-col gap-4">
-                  <div className="sticky top-0 z-20 flex items-center gap-2 rounded-xl border border-border bg-card/95 p-2.5 shadow-sm backdrop-blur">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-foreground">{selectedDay ? formatDay(selectedDay) : "Choose a day"}</p>
-                      <p className="text-[10px] text-muted-foreground">Selected time · {formatTime(selectedTime)}</p>
-                    </div>
-                    <button type="button" onClick={() => setAddMenuOpen((value) => !value)} className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"><Plus className="h-3 w-3" />Add plans</button>
-                  </div>
-
-                  {addMenuOpen && (
-                    <section className="rounded-2xl border border-dashed border-primary/25 bg-primary/5 p-3">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add to {selectedDay ? formatDay(selectedDay) : "this day"} at {formatTime(selectedTime)}</p>
-                      <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">
-                        {availableSources.map((source) => <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-card"><span className={cn("flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md", source.scheduleType === "night" ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary")}>{source.scheduleType === "night" ? <BedDouble className="h-3 w-3" /> : <Plus className="h-3 w-3" />}</span><span className="min-w-0 flex-1 truncate">{source.title}</span><span className="flex-shrink-0 text-[10px] text-muted-foreground">{source.scheduleType === "night" ? "overnight" : source.defaultTime || formatTime(selectedTime)}</span></button>)}
-                        {availableSources.length === 0 && <p className="px-2 py-2 text-xs text-muted-foreground">Everything is already included for this day.</p>}
+                <>
+                  <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background/40">
+                    <div className="min-w-[650px]">
+                      <div className="sticky top-0 z-30 grid grid-cols-[54px_repeat(7,minmax(84px,1fr))] border-b border-border bg-card/95 backdrop-blur">
+                        <span />
+                        {weekDays.map((date) => {
+                          const iso = isoDay(date);
+                          const isToday = iso === isoDay(new Date());
+                          return <button key={iso} type="button" onClick={() => setSelectedDay(iso)} className={cn("flex flex-col items-center border-l border-border/60 py-2 text-muted-foreground hover:bg-secondary/60", selectedDay === iso && "bg-primary/5 text-primary")}><span className="text-[10px] font-semibold uppercase tracking-wide">{date.toLocaleDateString("en-US", { weekday: "short" })}</span><span className={cn("mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold", isToday && "bg-primary text-primary-foreground")}>{date.getDate()}</span></button>;
+                        })}
+                        <span className="flex items-center justify-end border-t border-border/60 pr-2 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Night</span>
+                        {weekDays.map((date) => {
+                          const iso = isoDay(date);
+                          const stays = staysByDay.get(iso) ?? [];
+                          return <div key={`night-${iso}`} className="relative min-h-10 border-l border-t border-border/60 bg-emerald-500/[0.04] p-1"><button type="button" onClick={() => { setSelectedDay(iso); setSelectedDraftKey(null); }} className="absolute inset-0" aria-label={`Select night of ${formatDay(iso)}`} />{stays.map((item) => { const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? ""); return <button key={item.key} type="button" onClick={() => { setSelectedDay(iso); setSelectedDraftKey(item.key); }} className="relative block w-full truncate rounded-md bg-emerald-500 px-1.5 py-1 text-left text-[10px] font-medium text-white shadow-sm" title={source?.title ?? item.title ?? "Stay"}>{source?.title ?? item.title}</button>; })}</div>;
+                        })}
                       </div>
-                      <form onSubmit={(event) => { event.preventDefault(); addFreeform(); }} className="mt-2 flex min-w-0 gap-2"><input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Add a meal, walk, reservation…" className="min-w-0 flex-1 rounded-lg border border-border bg-card px-2.5 py-2 text-xs outline-none focus:border-primary" /><button type="submit" disabled={!newTitle.trim()} className="flex-shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-40">Add</button></form>
-                    </section>
-                  )}
 
-                  <div className="overflow-hidden rounded-2xl border border-border bg-background/60">
-                    <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-                      <button type="button" onClick={() => shiftWeek(-1)} aria-label="Previous week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
-                      <span className="text-sm font-semibold">{weekLabel}</span>
-                      <button type="button" onClick={() => shiftWeek(1)} aria-label="Next week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
-                    </div>
-                    <div className="grid min-w-0 grid-cols-[38px_repeat(7,minmax(0,1fr))] text-center">
-                      <span className="border-b border-r border-border" />
-                      {weekDays.map((date) => (
-                        <button key={isoDay(date)} type="button" onClick={() => setSelectedDay(isoDay(date))} className={cn("relative flex flex-col items-center border-b border-r border-border py-2 text-[10px] font-semibold text-muted-foreground transition-colors last:border-r-0 hover:bg-secondary", selectedDay === isoDay(date) && "bg-primary/10 text-primary")}>
-                          <span>{WEEKDAYS[date.getDay()]}</span>
-                          <span className={cn("mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs", selectedDay === isoDay(date) && "bg-primary text-primary-foreground")}>{date.getDate()}</span>
-                          {daysWithItems.has(isoDay(date)) && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />}
-                        </button>
-                      ))}
-
-                      <span className="flex items-center justify-center border-b border-r border-border bg-emerald-500/5 text-[9px] font-semibold uppercase text-emerald-700">Night</span>
-                      {weekDays.map((date) => {
-                        const iso = isoDay(date);
-                        const stays = staysByDay.get(iso) ?? [];
-                        return <div key={`night-${iso}`} className={cn("relative min-h-11 min-w-0 border-b border-r border-border bg-emerald-500/5 p-1 text-left last:border-r-0 hover:bg-emerald-500/10", selectedDay === iso && "ring-1 ring-inset ring-emerald-500/30")}><button type="button" onClick={() => { setSelectedDay(iso); setSelectedDraftKey(null); }} className="absolute inset-0" aria-label={`Select night of ${formatDay(iso)}`} />{stays.map((item) => { const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? ""); return <button key={item.key} type="button" onClick={() => { setSelectedDay(iso); setSelectedDraftKey(item.key); }} className="relative mb-0.5 block w-full truncate rounded bg-emerald-600 px-1 py-0.5 text-left text-[9px] font-medium text-white" title={source?.title ?? item.title ?? "Stay"}>{source?.title ?? item.title}</button>; })}</div>;
-                      })}
-
-                      {hourRows.map((hour) => (
-                        <div key={`hour-${hour}`} className="contents">
-                          <span className="flex min-h-12 items-start justify-center border-b border-r border-border pt-1 text-[8px] font-medium text-muted-foreground">{formatHour(hour)}</span>
-                          {weekDays.map((date) => {
-                            const iso = isoDay(date);
-                            const items = timedItemsBySlot.get(`${iso}-${hour}`) ?? [];
-                            return <div key={`${iso}-${hour}`} className={cn("relative min-h-12 min-w-0 border-b border-r border-border p-0.5 text-left last:border-r-0 hover:bg-primary/5", selectedDay === iso && selectedTime.startsWith(`${String(hour).padStart(2, "0")}:`) && "bg-primary/5 ring-1 ring-inset ring-primary/20")}><button type="button" onClick={() => { setSelectedDay(iso); setSelectedTime(`${String(hour).padStart(2, "0")}:00`); setSelectedDraftKey(null); }} className="absolute inset-0" aria-label={`Select ${formatDay(iso)} at ${formatHour(hour)}`} />{items.map((item) => { const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? ""); return <button key={item.key} type="button" onClick={() => { setSelectedDay(iso); setSelectedTime(item.startTime ?? `${String(hour).padStart(2, "0")}:00`); setSelectedDraftKey(item.key); }} className={cn("relative mb-0.5 block w-full truncate rounded bg-primary px-1 py-0.5 text-left text-[9px] font-medium text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-primary ring-offset-1")} title={`${formatTime(item.startTime)} ${source?.title ?? item.title ?? "Item"}`}>{formatTime(item.startTime)} {source?.title ?? item.title}</button>; })}</div>;
-                          })}
+                      <div className="grid grid-cols-[54px_repeat(7,minmax(84px,1fr))]">
+                        <div className="relative" style={{ height: hourRows.length * HOUR_HEIGHT }}>
+                          {hourRows.map((hour, index) => <span key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground" style={{ top: index * HOUR_HEIGHT }}>{formatHour(hour)}</span>)}
                         </div>
-                      ))}
+                        {weekDays.map((date) => {
+                          const iso = isoDay(date);
+                          const items = timedItemsByDay.get(iso) ?? [];
+                          const isToday = iso === isoDay(new Date());
+                          const now = new Date();
+                          const nowMinutes = now.getHours() * 60 + now.getMinutes() - earliestScheduledHour * 60;
+                          return (
+                            <div
+                              key={`timeline-${iso}`}
+                              className={cn("relative border-l border-border/60", selectedDay === iso && "bg-primary/[0.025]")}
+                              style={{ height: hourRows.length * HOUR_HEIGHT }}
+                              onClick={(event) => {
+                                const bounds = event.currentTarget.getBoundingClientRect();
+                                const rawMinutes = ((event.clientY - bounds.top) / HOUR_HEIGHT) * 60;
+                                const roundedMinutes = Math.max(0, Math.min((hourRows.length * 60) - 15, Math.round(rawMinutes / 15) * 15));
+                                const totalMinutes = earliestScheduledHour * 60 + roundedMinutes;
+                                setSelectedDay(iso);
+                                setSelectedTime(`${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`);
+                                setSelectedDraftKey(null);
+                              }}
+                            >
+                              {hourRows.map((hour, index) => <span key={hour} className="pointer-events-none absolute inset-x-0 border-t border-border/50" style={{ top: index * HOUR_HEIGHT }} />)}
+                              {selectedDay === iso && selectedTimeTop >= 0 && <span className="pointer-events-none absolute inset-x-1 z-10 border-t-2 border-primary/60" style={{ top: selectedTimeTop }}><span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-primary" /></span>}
+                              {isToday && nowMinutes >= 0 && nowMinutes <= hourRows.length * 60 && <span className="pointer-events-none absolute inset-x-0 z-20 border-t border-red-500" style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}><span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-red-500" /></span>}
+                              {items.map((item) => {
+                                const source = sourceMap.get(sourceKey(item.sourceType, item.sourceId) ?? "");
+                                const [hour, minute] = (item.startTime ?? "09:00").split(":").map(Number);
+                                const top = (((hour * 60 + minute) - earliestScheduledHour * 60) / 60) * HOUR_HEIGHT;
+                                const isFlight = item.sourceType === "flight";
+                                return <button key={item.key} type="button" onClick={(event) => { event.stopPropagation(); setSelectedDay(iso); setSelectedTime(item.startTime ?? "09:00"); setSelectedDraftKey(item.key); }} className={cn("absolute left-1 right-1 z-10 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-95", isFlight ? "border-sky-600 bg-sky-500/90 text-white" : "border-primary bg-primary/90 text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-foreground/40 ring-offset-1")} style={{ top: Math.max(0, top), minHeight: 42 }} title={`${formatTime(item.startTime)} ${source?.title ?? item.title ?? "Item"}`}><span className="block truncate text-[10px] font-semibold">{source?.title ?? item.title}</span><span className="block text-[9px] opacity-85">{formatTime(item.startTime)}</span></button>;
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {selectedDraft && (
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
-                      <span className="min-w-0 basis-full truncate text-xs font-medium">{sourceMap.get(sourceKey(selectedDraft.sourceType, selectedDraft.sourceId) ?? "")?.title ?? selectedDraft.title}</span>
-                      <input type="date" value={selectedDraft.dayDate ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, dayDate: event.target.value || null } : item))} aria-label="Scheduled date" className="w-[118px] rounded-md border border-border bg-card px-1.5 py-1 text-[10px]" />
-                      {selectedDraft.scheduleType === "time" && <input type="time" value={selectedDraft.startTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, startTime: event.target.value || null } : item))} aria-label="Scheduled time" className="w-[76px] rounded-md border border-border bg-card px-1 py-1 text-[10px]" />}
-                      <button type="button" onClick={() => { setDrafts((current) => current.filter((item) => item.key !== selectedDraft.key)); setSelectedDraftKey(null); }} aria-label="Remove selected itinerary item" className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                  <section className="flex-shrink-0 border-t border-border bg-card px-4 py-3">
+                    <div className="mb-2 flex min-w-0 items-center gap-2">
+                      <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-foreground">Add to {selectedDay ? formatDay(selectedDay) : "your itinerary"}</p><p className="text-[10px] text-muted-foreground">{formatTime(selectedTime)} · choose an activity, flight, or stay</p></div>
+                      {selectedDraft && <div className="flex items-center gap-1.5 rounded-lg bg-primary/5 px-2 py-1"><input type="date" value={selectedDraft.dayDate ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, dayDate: event.target.value || null } : item))} aria-label="Scheduled date" className="w-[116px] bg-transparent text-[10px]" />{selectedDraft.scheduleType === "time" && <input type="time" value={selectedDraft.startTime ?? ""} onChange={(event) => setDrafts((current) => current.map((item) => item.key === selectedDraft.key ? { ...item, startTime: event.target.value || null } : item))} aria-label="Scheduled time" className="w-[74px] bg-transparent text-[10px]" />}<button type="button" onClick={() => { setDrafts((current) => current.filter((item) => item.key !== selectedDraft.key)); setSelectedDraftKey(null); }} aria-label="Remove selected itinerary item" className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button></div>}
                     </div>
-                  )}
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {availableSources.map((source) => <button key={`${source.sourceType}-${source.sourceId}`} type="button" onClick={() => addSource(source)} className="flex max-w-44 flex-shrink-0 items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-2 text-left shadow-xs hover:border-primary/30 hover:bg-primary/5"><span className={cn("flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg", source.scheduleType === "night" ? "bg-emerald-500/10 text-emerald-600" : source.sourceType === "flight" ? "bg-sky-500/10 text-sky-600" : "bg-primary/10 text-primary")}>{source.scheduleType === "night" ? <BedDouble className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}</span><span className="min-w-0"><span className="block truncate text-xs font-medium text-foreground">{source.title}</span><span className="block text-[9px] text-muted-foreground">{source.scheduleType === "night" ? "Overnight" : source.defaultTime ? formatTime(source.defaultTime) : formatTime(selectedTime)}</span></span></button>)}
+                      {availableSources.length === 0 && <p className="py-2 text-xs text-muted-foreground">Everything is already on your itinerary.</p>}
+                    </div>
+                    <form onSubmit={(event) => { event.preventDefault(); addFreeform(); }} className="mt-2 flex min-w-0 gap-2"><input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Add a meal, walk, reservation…" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 py-2 text-xs outline-none focus:border-primary" /><button type="submit" disabled={!newTitle.trim()} className="flex-shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-40">Add</button></form>
+                    {error && <div role="alert" className="mt-2 rounded-lg bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{error}</div>}
+                  </section>
 
-                  {error && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
-                </div>
+                  <footer className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-card px-4 py-2.5"><span className="text-xs text-muted-foreground">{isDirty ? "Unsaved changes" : `${scheduledCount} items scheduled`}</span><div className="flex items-center gap-2">{isDirty && <button type="button" onClick={() => setDrafts(savedDrafts)} className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground">Reset</button>}<button type="button" onClick={() => void save()} disabled={saving || !isDirty} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm disabled:opacity-40">{saving && <Loader2 className="h-3 w-3 animate-spin" />}Save itinerary</button></div></footer>
+                </>
               )}
-            </div>
-
-            <footer className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-card px-4 py-3">
-              <span className="text-xs text-muted-foreground">{isDirty ? "Unsaved changes" : `${scheduledCount} items scheduled`}</span>
-              <div className="flex items-center gap-2">
-                {isDirty && <button type="button" onClick={() => setDrafts(savedDrafts)} className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground">Reset</button>}
-                <button type="button" onClick={() => void save()} disabled={saving || !isDirty} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm disabled:opacity-40">{saving && <Loader2 className="h-3 w-3 animate-spin" />}Save itinerary</button>
-              </div>
-            </footer>
             </div>
           </aside>
         </>,
