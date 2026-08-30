@@ -46,7 +46,7 @@ interface PlanItineraryProps {
   sources: PlanItinerarySource[];
 }
 
-const HOUR_HEIGHT = 64;
+const HOUR_HEIGHT = 44;
 
 function formatHour(hour: number) {
   if (hour === 0) return "12 AM";
@@ -130,6 +130,8 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const [savedEndDate, setSavedEndDate] = useState(endDate);
   const [showWeekTimeline, setShowWeekTimeline] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const dragMoved = useRef(false);
   const loadedCollection = useRef<string | null>(null);
   const temporaryId = useRef(0);
   const closePanel = useCallback(() => setOpen(false), []);
@@ -373,6 +375,47 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     target.addEventListener("pointercancel", onUp);
   }
 
+  function moveTime(item: Draft, event: ReactPointerEvent<HTMLElement>) {
+    if (item.scheduleType !== "time") return;
+    event.preventDefault();
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const duration = Math.max(15, timeToMinutes(item.endTime, timeToMinutes(item.startTime) + 60) - timeToMinutes(item.startTime));
+    let moved = false;
+    dragMoved.current = false;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      if (!moved && Math.hypot(moveEvent.clientX - originX, moveEvent.clientY - originY) < 4) return;
+      moved = true;
+      dragMoved.current = true;
+      setDraggingKey(item.key);
+      const hovered = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY) as HTMLElement | null;
+      const column = hovered?.closest<HTMLElement>("[data-itinerary-day]");
+      const nextDay = column?.dataset.itineraryDay;
+      if (!column || !nextDay || !isTripDay(nextDay)) return;
+      const bounds = column.getBoundingClientRect();
+      const rawMinutes = earliestScheduledHour * 60 + ((moveEvent.clientY - bounds.top) / HOUR_HEIGHT) * 60;
+      const nextStart = Math.max(earliestScheduledHour * 60, Math.min(23 * 60 + 45 - duration, Math.round(rawMinutes / 15) * 15));
+      setDrafts((current) => current.map((draft) => draft.key === item.key ? {
+        ...draft,
+        dayDate: nextDay,
+        startTime: minutesToTime(nextStart),
+        endTime: minutesToTime(nextStart + duration),
+      } : draft));
+      setSelectedDay(nextDay);
+      setSelectedTime(minutesToTime(nextStart));
+    };
+    const onUp = () => {
+      setDraggingKey(null);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }
+
   function nudgeTime(item: Draft, edge: "start" | "end", direction: -1 | 1) {
     const start = timeToMinutes(item.startTime);
     const end = timeToMinutes(item.endTime, Math.min(start + 60, 23 * 60 + 45));
@@ -484,6 +527,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                           return (
                             <div
                               key={`timeline-${iso}`}
+                              data-itinerary-day={iso}
                               className={cn("relative border-l border-border/60", selectedDay === iso && "bg-primary/[0.025]", !inTrip && "cursor-not-allowed bg-secondary/30 opacity-35")}
                               style={{ height: hourRows.length * HOUR_HEIGHT }}
                               onClick={(event) => {
@@ -507,7 +551,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                                 const durationMinutes = Math.max(15, timeToMinutes(item.endTime, hour * 60 + minute + 60) - (hour * 60 + minute));
                                 const height = Math.max(26, (durationMinutes / 60) * HOUR_HEIGHT);
                                 const isFlight = item.sourceType === "flight";
-                                return <button key={item.key} type="button" onClick={(event) => { event.stopPropagation(); setSelectedDay(iso); setSelectedTime(item.startTime ?? "09:00"); setSelectedDraftKey(item.key); }} className={cn("absolute left-1 right-1 z-10 overflow-visible rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-95", isFlight ? "border-sky-600 bg-sky-500/90 text-white" : "border-primary bg-primary/90 text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-foreground/40 ring-offset-1")} style={{ top: Math.max(0, top), height }} title={`${formatTime(item.startTime)}–${formatTime(item.endTime)} ${source?.title ?? item.title ?? "Item"}`}>
+                                return <button key={item.key} type="button" onPointerDown={(event) => moveTime(item, event)} onClick={(event) => { event.stopPropagation(); if (dragMoved.current) { dragMoved.current = false; return; } setSelectedDay(iso); setSelectedTime(item.startTime ?? "09:00"); setSelectedDraftKey(item.key); }} className={cn("absolute left-1 right-1 z-10 cursor-grab touch-none overflow-visible rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-95 active:cursor-grabbing", isFlight ? "border-sky-600 bg-sky-500/90 text-white" : "border-primary bg-primary/90 text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-foreground/40 ring-offset-1", draggingKey === item.key && "z-30 scale-[1.02] opacity-80 shadow-lg")} style={{ top: Math.max(0, top), height }} title={`Drag to reschedule · ${formatTime(item.startTime)}–${formatTime(item.endTime)} ${source?.title ?? item.title ?? "Item"}`}>
                                   <span role="slider" tabIndex={0} aria-label={`Adjust start time for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={0} aria-valuemax={timeToMinutes(item.endTime) - 15} aria-valuenow={timeToMinutes(item.startTime)} aria-valuetext={formatTime(item.startTime)} onPointerDown={(event) => resizeTime(item, "start", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "start", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -top-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>
                                   <span className="block truncate text-[10px] font-semibold">{source?.title ?? item.title}</span><span className="block text-[9px] opacity-85">{formatTime(item.startTime)}–{formatTime(item.endTime)}</span>
                                   <span role="slider" tabIndex={0} aria-label={`Adjust end time for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={timeToMinutes(item.startTime) + 15} aria-valuemax={23 * 60 + 45} aria-valuenow={timeToMinutes(item.endTime, timeToMinutes(item.startTime) + 60)} aria-valuetext={formatTime(item.endTime)} onPointerDown={(event) => resizeTime(item, "end", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "end", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -bottom-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>
