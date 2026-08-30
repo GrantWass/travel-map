@@ -53,6 +53,17 @@ function isoDay(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function parseIsoDay(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfWeek(date: Date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+}
+
 function formatDay(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString("en-US", {
@@ -75,10 +86,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const [newTitle, setNewTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState(() => {
-    const today = new Date();
-    return { year: today.getFullYear(), month: today.getMonth() };
-  });
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const loadedCollection = useRef<string | null>(null);
   const temporaryId = useRef(0);
   const closePanel = useCallback(() => setOpen(false), []);
@@ -104,8 +112,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
         setSavedDrafts(mapped);
         const firstDay = mapped.find((item) => item.dayDate)?.dayDate;
         if (firstDay) {
-          const [year, month] = firstDay.split("-").map(Number);
-          setCursor({ year, month: month - 1 });
+          setWeekStart(startOfWeek(parseIsoDay(firstDay)));
           setSelectedDay(firstDay);
         }
       })
@@ -136,14 +143,14 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
   const scheduledCount = drafts.filter((item) => item.dayDate).length;
   const isDirty = JSON.stringify(drafts) !== JSON.stringify(savedDrafts);
 
-  const calendarCells = useMemo(() => {
-    const leading = new Date(cursor.year, cursor.month, 1).getDay();
-    const count = new Date(cursor.year, cursor.month + 1, 0).getDate();
-    return [
-      ...Array.from({ length: leading }, () => null),
-      ...Array.from({ length: count }, (_, index) => new Date(cursor.year, cursor.month, index + 1)),
-    ];
-  }, [cursor]);
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(date.getDate() + index);
+      return date;
+    }),
+    [weekStart],
+  );
   const daysWithItems = new Set(drafts.map((item) => item.dayDate).filter(Boolean));
 
   function nextKey() {
@@ -203,9 +210,23 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
     }
   }
 
-  const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString("en-US", {
-    month: "long", year: "numeric",
-  });
+  const weekEnd = weekDays[6];
+  const weekLabel = weekStart.getMonth() === weekEnd.getMonth()
+    ? `${weekStart.toLocaleDateString("en-US", { month: "long" })} ${weekStart.getDate()}–${weekEnd.getDate()}, ${weekEnd.getFullYear()}`
+    : `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+
+  function shiftWeek(direction: -1 | 1) {
+    setWeekStart((current) => {
+      const next = new Date(current);
+      next.setDate(next.getDate() + direction * 7);
+      return next;
+    });
+    setSelectedDay((current) => {
+      const next = current ? parseIsoDay(current) : new Date(weekStart);
+      next.setDate(next.getDate() + direction * 7);
+      return isoDay(next);
+    });
+  }
 
   return (
     <>
@@ -254,18 +275,18 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                 <div className="flex min-w-0 flex-col gap-4">
                   <div className="rounded-2xl border border-border bg-background/60 p-3">
                     <div className="mb-2 flex items-center justify-between">
-                      <button type="button" onClick={() => setCursor((value) => { const date = new Date(value.year, value.month - 1, 1); return { year: date.getFullYear(), month: date.getMonth() }; })} aria-label="Previous month" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
-                      <span className="text-sm font-semibold">{monthLabel}</span>
-                      <button type="button" onClick={() => setCursor((value) => { const date = new Date(value.year, value.month + 1, 1); return { year: date.getFullYear(), month: date.getMonth() }; })} aria-label="Next month" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => shiftWeek(-1)} aria-label="Previous week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
+                      <span className="text-sm font-semibold">{weekLabel}</span>
+                      <button type="button" onClick={() => shiftWeek(1)} aria-label="Next week" className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
                     </div>
                     <div className="grid min-w-0 grid-cols-7 gap-y-1 text-center">
                       {WEEKDAYS.map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[10px] font-semibold text-muted-foreground">{day}</span>)}
-                      {calendarCells.map((date, index) => date ? (
+                      {weekDays.map((date) => (
                         <button key={isoDay(date)} type="button" onClick={() => setSelectedDay(isoDay(date))} className={cn("relative mx-auto h-9 w-9 rounded-full text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground", selectedDay === isoDay(date) && "bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground")}>
                           {date.getDate()}
                           {daysWithItems.has(isoDay(date)) && <span className={cn("absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary", selectedDay === isoDay(date) && "bg-primary-foreground")} />}
                         </button>
-                      ) : <span key={`empty-${index}`} />)}
+                      ))}
                     </div>
                   </div>
 
