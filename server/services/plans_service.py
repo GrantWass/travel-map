@@ -284,6 +284,12 @@ def delete_collection(user_id: int, name: str) -> dict[str, Any]:
                 "DELETE FROM plan_itinerary_items WHERE owner_user_id = %s AND collection_name = %s",
                 (user_id, name),
             )
+        cur.execute("SELECT to_regclass('plan_itinerary_settings') AS table_name")
+        if cur.fetchone().get("table_name"):
+            cur.execute(
+                "DELETE FROM plan_itinerary_settings WHERE owner_user_id = %s AND collection_name = %s",
+                (user_id, name),
+            )
 
     return _build_plans_response(user_id)
 

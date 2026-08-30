@@ -762,6 +762,7 @@ export interface PlanItineraryItem {
   position: number;
   schedule_type: "time" | "night";
   start_time: string | null;
+  end_time: string | null;
   source_type: PlanItinerarySourceType | null;
   source_id: number | null;
   title: string | null;
@@ -769,22 +770,28 @@ export interface PlanItineraryItem {
 
 export type PlanItineraryDraftItem = Omit<PlanItineraryItem, "plan_itinerary_item_id" | "position">;
 
-export async function getPlanItinerary(collectionName: string): Promise<PlanItineraryItem[]> {
-  const data = await requestJson<{ items: PlanItineraryItem[] }>(
+export interface PlanItinerary {
+  items: PlanItineraryItem[];
+  start_date: string | null;
+  end_date: string | null;
+}
+
+export async function getPlanItinerary(collectionName: string): Promise<PlanItinerary> {
+  return requestJson<PlanItinerary>(
     `/users/me/plans/collections/${encodeURIComponent(collectionName)}/itinerary`,
   );
-  return data.items;
 }
 
 export async function savePlanItinerary(
   collectionName: string,
   items: PlanItineraryDraftItem[],
-): Promise<PlanItineraryItem[]> {
-  const data = await requestJson<{ items: PlanItineraryItem[] }>(
+  startDate: string | null,
+  endDate: string | null,
+): Promise<PlanItinerary> {
+  return requestJson<PlanItinerary>(
     `/users/me/plans/collections/${encodeURIComponent(collectionName)}/itinerary`,
-    { method: "PUT", body: JSON.stringify({ items }) },
+    { method: "PUT", body: JSON.stringify({ items, start_date: startDate, end_date: endDate }) },
   );
-  return data.items;
 }
 
 

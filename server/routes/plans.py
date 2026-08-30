@@ -92,7 +92,7 @@ def remove_collection(name: str):
 @plans_bp.route("/users/me/plans/collections/<path:name>/itinerary", methods=["GET"])
 def get_plan_itinerary(name: str):
     user = require_authenticated_user()
-    return jsonify({"items": list_plan_itinerary(user["user_id"], name)}), 200
+    return jsonify(list_plan_itinerary(user["user_id"], name)), 200
 
 
 @plans_bp.route("/users/me/plans/collections/<path:name>/itinerary", methods=["PUT"])
@@ -100,12 +100,15 @@ def put_plan_itinerary(name: str):
     user = require_authenticated_user()
     body = request.get_json(silent=True) or {}
     try:
-        items = replace_plan_itinerary(user["user_id"], name, body.get("items"))
+        itinerary = replace_plan_itinerary(
+            user["user_id"], name, body.get("items"),
+            body.get("start_date"), body.get("end_date"),
+        )
     except LookupError as error:
         return jsonify({"error": str(error)}), 404
     except (TypeError, ValueError) as error:
         return jsonify({"error": str(error)}), 400
-    return jsonify({"items": items}), 200
+    return jsonify(itinerary), 200
 
 
 @plans_bp.route("/users/me/plans/activities/<int:activity_id>/collection", methods=["PATCH"])

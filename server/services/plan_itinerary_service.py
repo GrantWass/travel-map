@@ -21,6 +21,7 @@ def _ensure_schema(cur) -> None:
             day_date DATE,
             schedule_type TEXT NOT NULL DEFAULT 'time',
             start_time TIME,
+            end_time TIME,
             position INTEGER NOT NULL DEFAULT 0,
             source_type TEXT,
             source_id INTEGER,
@@ -33,6 +34,19 @@ def _ensure_schema(cur) -> None:
         "ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS schedule_type TEXT NOT NULL DEFAULT 'time'"
     )
     cur.execute("ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS start_time TIME")
+    cur.execute("ALTER TABLE plan_itinerary_items ADD COLUMN IF NOT EXISTS end_time TIME")
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS plan_itinerary_settings (
+            owner_user_id INTEGER NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+            collection_name TEXT NOT NULL,
+            start_date DATE,
+            end_date DATE,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (owner_user_id, collection_name)
+        )
+        """
+    )
     cur.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_plan_itinerary_owner_collection
@@ -104,13 +118,13 @@ def _source_belongs_to_collection(
     return cur.fetchone() is not None
 
 
-def list_plan_itinerary(user_id: int, collection_name: str) -> list[dict[str, Any]]:
+def list_plan_itinerary(user_id: int, collection_name: str) -> dict[str, Any]:
     with get_cursor(commit=True) as cur:
         _ensure_schema(cur)
         cur.execute(
             """
             SELECT plan_itinerary_item_id, day_date::text AS day_date, position,
-                   schedule_type, start_time::text AS start_time,
+                   schedule_type, start_time::text AS start_time, end_time::text AS end_time,
                    source_type, source_id, title
             FROM plan_itinerary_items
             WHERE owner_user_id = %s AND collection_name = %s
@@ -118,12 +132,27 @@ def list_plan_itinerary(user_id: int, collection_name: str) -> list[dict[str, An
             """,
             (user_id, collection_name),
         )
-        return [dict(row) for row in cur.fetchall()]
+        items = [dict(row) for row in cur.fetchall()]
+        cur.execute(
+            """
+            SELECT start_date::text AS start_date, end_date::text AS end_date
+            FROM plan_itinerary_settings
+            WHERE owner_user_id = %s AND collection_name = %s
+            """,
+            (user_id, collection_name),
+        )
+        settings = cur.fetchone() or {}
+        return {
+            "items": items,
+            "start_date": settings.get("start_date"),
+            "end_date": settings.get("end_date"),
+        }
 
 
 def replace_plan_itinerary(
-    user_id: int, collection_name: str, items: Any
-) -> list[dict[str, Any]]:
+    user_id: int, collection_name: str, items: Any,
+    start_date: Any = None, end_date: Any = None,
+) -> dict[str, Any]:
     if not isinstance(items, list):
         raise ValueError("items must be a list")
 
@@ -154,19 +183,42 @@ def replace_plan_itinerary(
             seen_sources.add(source_key)
         elif title is None:
             raise ValueError("freeform itinerary items require a title")
+        start_time = None if schedule_type == "night" else _parse_time(raw.get("start_time"))
+        end_time = None if schedule_type == "night" else _parse_time(raw.get("end_time"))
+        if start_time and end_time and end_time <= start_time:
+            raise ValueError("end_time must be later than start_time")
         parsed.append({
             "day_date": _parse_day(raw.get("day_date")),
             "schedule_type": schedule_type,
-            "start_time": None if schedule_type == "night" else _parse_time(raw.get("start_time")),
+            "start_time": start_time,
+            "end_time": end_time,
             "source_type": source_type,
             "source_id": source_id,
             "title": title,
         })
 
+    parsed_start_date = _parse_day(start_date)
+    parsed_end_date = _parse_day(end_date)
+    if bool(parsed_start_date) != bool(parsed_end_date):
+        raise ValueError("start_date and end_date must be set together")
+    if parsed_start_date and parsed_end_date and parsed_end_date < parsed_start_date:
+        raise ValueError("end_date must be on or after start_date")
+
     with get_cursor(commit=True) as cur:
         _ensure_schema(cur)
         if not _collection_exists(cur, user_id, collection_name):
             raise LookupError("plan not found")
+        cur.execute(
+            """
+            INSERT INTO plan_itinerary_settings
+                (owner_user_id, collection_name, start_date, end_date, updated_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (owner_user_id, collection_name)
+            DO UPDATE SET start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date,
+                          updated_at = NOW()
+            """,
+            (user_id, collection_name, parsed_start_date, parsed_end_date),
+        )
         for item in parsed:
             if item["source_type"] and not _source_belongs_to_collection(
                 cur, user_id, collection_name, item["source_type"], item["source_id"]
@@ -185,11 +237,11 @@ def replace_plan_itinerary(
             cur.execute(
                 """
                 INSERT INTO plan_itinerary_items
-                    (owner_user_id, collection_name, day_date, schedule_type, start_time,
+                    (owner_user_id, collection_name, day_date, schedule_type, start_time, end_time,
                      position, source_type, source_id, title)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user_id, collection_name, day, item["schedule_type"], item["start_time"],
+                (user_id, collection_name, day, item["schedule_type"], item["start_time"], item["end_time"],
                  position, item["source_type"], item["source_id"], item["title"]),
             )
 

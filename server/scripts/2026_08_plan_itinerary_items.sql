@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS plan_itinerary_items (
     day_date DATE,
     schedule_type TEXT NOT NULL DEFAULT 'time',
     start_time TIME,
+    end_time TIME,
     position INTEGER NOT NULL DEFAULT 0,
     source_type TEXT,
     source_id INTEGER,
@@ -33,3 +34,14 @@ ALTER TABLE plan_itinerary_items
     ADD COLUMN IF NOT EXISTS schedule_type TEXT NOT NULL DEFAULT 'time';
 ALTER TABLE plan_itinerary_items
     ADD COLUMN IF NOT EXISTS start_time TIME;
+ALTER TABLE plan_itinerary_items
+    ADD COLUMN IF NOT EXISTS end_time TIME;
+
+CREATE TABLE IF NOT EXISTS plan_itinerary_settings (
+    owner_user_id INTEGER NOT NULL REFERENCES travelers(user_id) ON DELETE CASCADE,
+    collection_name TEXT NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (owner_user_id, collection_name)
+);
