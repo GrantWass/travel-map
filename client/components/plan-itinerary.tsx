@@ -46,7 +46,7 @@ interface PlanItineraryProps {
   sources: PlanItinerarySource[];
 }
 
-const HOUR_HEIGHT = 44;
+const HOUR_HEIGHT = 32;
 
 function formatHour(hour: number) {
   if (hour === 0) return "12 AM";
@@ -549,7 +549,7 @@ export default function PlanItinerary({ collectionName, sources }: PlanItinerary
                                 const [hour, minute] = (item.startTime ?? "09:00").split(":").map(Number);
                                 const top = (((hour * 60 + minute) - earliestScheduledHour * 60) / 60) * HOUR_HEIGHT;
                                 const durationMinutes = Math.max(15, timeToMinutes(item.endTime, hour * 60 + minute + 60) - (hour * 60 + minute));
-                                const height = Math.max(26, (durationMinutes / 60) * HOUR_HEIGHT);
+                                const height = Math.max(22, (durationMinutes / 60) * HOUR_HEIGHT);
                                 const isFlight = item.sourceType === "flight";
                                 return <button key={item.key} type="button" onPointerDown={(event) => moveTime(item, event)} onClick={(event) => { event.stopPropagation(); if (dragMoved.current) { dragMoved.current = false; return; } setSelectedDay(iso); setSelectedTime(item.startTime ?? "09:00"); setSelectedDraftKey(item.key); }} className={cn("absolute left-1 right-1 z-10 cursor-grab touch-none overflow-visible rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-95 active:cursor-grabbing", isFlight ? "border-sky-600 bg-sky-500/90 text-white" : "border-primary bg-primary/90 text-primary-foreground", selectedDraftKey === item.key && "ring-2 ring-foreground/40 ring-offset-1", draggingKey === item.key && "z-30 scale-[1.02] opacity-80 shadow-lg")} style={{ top: Math.max(0, top), height }} title={`Drag to reschedule · ${formatTime(item.startTime)}–${formatTime(item.endTime)} ${source?.title ?? item.title ?? "Item"}`}>
                                   <span role="slider" tabIndex={0} aria-label={`Adjust start time for ${source?.title ?? item.title ?? "activity"}`} aria-valuemin={0} aria-valuemax={timeToMinutes(item.endTime) - 15} aria-valuenow={timeToMinutes(item.startTime)} aria-valuetext={formatTime(item.startTime)} onPointerDown={(event) => resizeTime(item, "start", event)} onKeyDown={(event) => { if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); event.stopPropagation(); nudgeTime(item, "start", event.key === "ArrowUp" ? -1 : 1); } }} className="absolute inset-x-1 -top-1.5 flex h-3 cursor-ns-resize touch-none items-center justify-center rounded-full bg-black/15 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"><MoveVertical className="h-2.5 w-2.5" /></span>
