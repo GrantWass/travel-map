@@ -91,7 +91,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }: ImageCropModa
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-sm backdrop-fade">
-      <div className="relative flex w-[min(480px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl modal-expand-center">
+      <div className="relative flex w-[min(480px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold text-foreground">Crop to square</h2>
           <button
@@ -109,10 +109,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }: ImageCropModa
             image={imageUrl}
             crop={crop}
             zoom={zoom}
-            minZoom={0.1}
             aspect={1}
-            objectFit="contain"
-            restrictPosition={false}
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}
@@ -124,7 +121,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }: ImageCropModa
             <span className="text-xs text-muted-foreground">Zoom</span>
             <input
               type="range"
-              min={0.1}
+              min={1}
               max={3}
               step={0.1}
               value={zoom}
